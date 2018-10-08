@@ -1,0 +1,31 @@
+GitHub doesn't understand stacked diff workflow very well.
+gh is a tool that knows how to translate stacked diffs
+into GitHub pull requests, in such a way that GitHub's
+UI understands.
+
+- Need a unique identifier for all patches.  Where to get this
+  from?
+
+    - Identifiers assigned by GitHub are right out, because
+      we want to edit the identifier into the commit message
+      we send, but we can't get an identifier until we actually
+      perform a GitHub UI action.
+
+    - Personal identifier cached on machine?  This doesn't work
+      if you want to use the tool from multiple machines.
+
+    - UUID?  That works, if a bit wordy.
+
+    - Miniature stateful endpoint which keeps track of these for you?
+
+    - How about: username + endpoint key + number?
+
+
+
+1. OK, you have a diff stack.
+
+2. Assign each diff a UUID, if you haven't already
+
+3. Create a pull request, and durably associate it with
+   the commit.  (Amend the commit message with the
+   pull request)
