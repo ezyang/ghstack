@@ -2,17 +2,15 @@ import argparse
 import requests
 import subprocess
 
-def sh(*args):
+def sh(args):
     p = subprocess.Popen(args, stdout=subprocess.PIPE)
     out, _ = p.communicate()
     if p.returncode != 0:
         raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
     return out.decode()
 
-print(sh("git", "status"))
-
-#def git(*args):
-#    subprocess.call(["git"] + args, )
+def git(*args):
+    return sh(["git"] + args)
 
 # repo layout:
 #   - gh/pull/2345  -- what we think GitHub's current tip for commit is
