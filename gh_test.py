@@ -154,13 +154,12 @@ class TestExpect(unittest.TestCase):
             # current frame and parent frame, plus any requested skip
             tb = traceback.extract_stack(limit=2+skip)
             fn, lineno, _, _ = tb[0]
-            """
             with open(fn, 'r+') as f:
                 old = f.read()
 
                 # compute the change in lineno
                 lineno = adjust_lineno(ACCEPT_HISTORY, fn, lineno)
-                delta = 
+                new, delta = replace_string_literal(old, lineno, actual)
 
                 # Only write the backup file the first time we hit the
                 # file
@@ -169,10 +168,10 @@ class TestExpect(unittest.TestCase):
                         f_bak.write(old)
                 f.seek(0)
                 f.truncate(0)
+
                 f.write(new)
 
             record_edit(ACCEPT_HISTORY, fn, lineno, delta)
-            """
         else:
             help_text = "To accept the current output, re-run test with envvar GH_TEST_ACCEPT=1"
             if hasattr(self, "assertMultiLineEqual"):
