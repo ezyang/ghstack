@@ -20,13 +20,6 @@ ACCEPT = os.getenv('GH_TEST_ACCEPT')
 ACCEPT_HISTORY = {}
 
 
-def indent(text, prefix):
-    """
-    Poly-fill for textwrap.indent on Python 2
-    """
-    return ''.join(prefix+line for line in text.splitlines(True))
-
-
 def nth_line(src, lineno):
     """
     Compute the starting index of the n-th line (where n is 1-indexed)
@@ -161,6 +154,8 @@ def replace_string_literal(src, lineno, new_string):
                         m.group('raw'),
                         ])
 
+    # Having to do this in reverse is very irritating, but it's the
+    # only way to make the non-greedy matches work correctly.
     return (RE_EXPECT.sub(replace, src[:i][::-1], count=1)[::-1] + src[i:], delta[0])
 
 
@@ -209,9 +204,7 @@ class TestCase(unittest.TestCase):
 
 
 
-class TestFunctional(TestCase):
-    longMessage = True
-
+class TestExpect(TestCase):
     @given(text_lineno())
     def test_nth_line_ref(self, t_lineno):
         t, lineno = t_lineno
@@ -239,14 +232,9 @@ class TestFunctional(TestCase):
         self.assertEqual(r2, normalize_nl(t), msg=msg)  # noqa: F821
         self.assertEqual(r3, 'placeholder3', msg=msg)  # noqa: F821
 
-    #ef test_hard_replace_string_literal(self):
-    #   prog = 'x = """\\\n' "\\'\\'\\'\n" '"""'
-    #   self.assertExpected(replace_string_literal(prog, 1, "'''")[0], '''''')
-
-
-class TestExpect(TestCase):
     def test_sample(self):
-        prog = r"""single_single('''0''')
+        prog = r"""
+single_single('''0''')
 single_multi('''1''')
 multi_single('''\
 2
@@ -262,51 +250,36 @@ multi_multi_more('''\
 6
 ''')
 """
-        edits = [(1, "a"),
-                 (2, "b\n"),
-                 (5, "c"),
-                 (9, "d\n"),
-                 (12, "e\n"),
-                 (15, "f\ng\n")]
+        # NB: These are the end of the statements, not beginning
+        edits = [(2, "a"),
+                 (3, "b\n"),
+                 (6, "c"),
+                 (10, "d\n"),
+                 (13, "e\n"),
+                 (16, "f\ng\n")]
         history = {}
         fn = 'test.py'
         for lineno, actual in edits:
             lineno = adjust_lineno(history, fn, lineno)
             prog, delta = replace_string_literal(prog, lineno, actual)
             record_edit(history, fn, lineno, delta)
-        self.assertExpected(prog, """\
+        self.assertExpected(prog, r"""
 single_single('''a''')
-single_multi('''\\
+single_multi('''\
 b
 ''')
 multi_single('''c''')
-multi_multi_less('''\\
+multi_multi_less('''\
 d
 ''')
-multi_multi_same('''\\
+multi_multi_same('''\
 e
 ''')
-multi_multi_more('''\\
+multi_multi_more('''\
 f
 g
 ''')
 """)
-
-    def test_replace(self):
-        s = """\
-        def f():
-            foo(\"\"\"\\
-            blah
-            \"\"\", more)
-        """
-        textwrap.dedent(s)
-        s2 = """\
-        def f():
-            foo(\"\"\"\\
-            bloop
-            bling
-            \"\"\", more)
-        """
 
 
 class TestGh(unittest.TestCase):
