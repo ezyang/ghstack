@@ -211,7 +211,23 @@ multi_multi_more('''\
             lineno = adjust_lineno(history, fn, lineno)
             prog, delta = replace_string_literal(prog, lineno, actual)
             record_edit(history, fn, lineno, delta)
-        self.assertExpected(prog, '''blah''')
+        self.assertExpected(prog, '''\
+single_single(\'\'\'a\'\'\')
+single_multi(\'\'\'\\
+b
+\'\'\')
+multi_single(\'\'\'c\'\'\')
+multi_multi_less(\'\'\'\\
+d
+\'\'\')
+multi_multi_same(\'\'\'\\
+e
+\'\'\')
+multi_multi_more(\'\'\'\\
+f
+g
+\'\'\')
+''')
 
     def test_replace(self):
         s = """\
