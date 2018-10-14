@@ -7,8 +7,8 @@ import string
 import os
 import traceback
 
-from hypothesis import given, event
-from hypothesis.strategies import text, integers, composite
+from hypothesis import given, event, assume
+from hypothesis.strategies import text, integers, composite, sampled_from, booleans
 
 import gh
 
@@ -44,9 +44,9 @@ def normalize_nl(t):
     return t.replace('\r\n', '\n').replace('\r', '\n')
 
 
-def escape_trailing_quote(s):
-    if s and s[-1] == "'":
-        return s[:-1] + r"\'"
+def escape_trailing_quote(s, quote):
+    if s and s[-1] == quote:
+        return s[:-1] + '\\' + quote
     else:
         return s
 
@@ -64,13 +64,35 @@ def record_edit(state, fn, lineno, delta):
     state.setdefault(fn, []).append((lineno, delta))
 
 
-RE_EXPECT = re.compile(r"^( *)([^\n]*?''')(.*?)(''')", re.DOTALL)
+def ok_for_raw_triple_quoted_string(s, quote):
+    """
+    Is this string representable inside a raw triple-quoted string?
+    Due to the fact that backslashes are always treated literally,
+    some strings are not representable.
+
+    >>> ok_for_raw_triple_quoted_string("blah", quote="'")
+    True
+    >>> ok_for_raw_triple_quoted_string("'", quote="'")
+    False
+    >>> ok_for_raw_triple_quoted_string("a ''' b", quote="'")
+    False
+    """
+    return quote * 3 not in s and (not s or s[-1] != quote)
+
+
+RE_EXPECT = re.compile(r"^(?P<prefix>[^\n]*?)"
+                       r"(?P<raw>r?)"
+                       r"(?P<quote>'''|" r'""")'
+                       r"(?P<body>.*?)"
+                       r"(?P=quote)", re.DOTALL)
 
 
 def replace_string_literal(src, lineno, new_string):
     r"""
-    Replace a triple single-quoted string literal with new contents.
-    Only handles printable ASCII correctly at the moment.
+    Replace a triple quoted string literal with new contents.
+    Only handles printable ASCII correctly at the moment.  This
+    will preserve the quote style (and raw-ness) of the original
+    string.
 
     Returns a tuple of the replaced string, as well as a delta of
     number of lines added/removed.
@@ -98,14 +120,26 @@ def replace_string_literal(src, lineno, new_string):
     if delta[0] > 0:
         delta[0] += 1  # handle the extra \\\n
 
-    def escape(s):
-        return escape_trailing_quote(s.replace('\\', '\\\\')).replace("'''", r"\'\'\'")
-
     def replace(m):
-        inner = escape(new_string) + m.group(4)
-        msg = "\\\n" + inner if "\n" in new_string else inner
-        delta[0] -= m.group(3).count("\n")
-        return ''.join([m.group(1), m.group(2), msg])
+        s = new_string
+        raw = m.group('raw') == 'r'
+        if raw:
+            assert ok_for_raw_triple_quoted_string(s, quote=m.group('quote')[0])
+        else:
+            s = s.replace('\\', '\\\\')
+            if m.group('quote') == "'''":
+                s = escape_trailing_quote(s, "'").replace("'''", r"\'\'\'")
+            else:
+                s = escape_trailing_quote(s, '"').replace('"""', r'\"\"\"')
+
+        new_body = "\\\n" + s if "\n" in s and not raw else s
+        delta[0] -= m.group('body').count("\n")
+
+        return ''.join([m.group('prefix'),
+                        m.group('raw'),
+                        m.group('quote'),
+                        new_body,
+                        m.group('quote')])
 
     return (src[:i] + RE_EXPECT.sub(replace, src[i:], count=1), delta[0])
 
@@ -166,13 +200,15 @@ class TestFunctional(TestCase):
             return len("\n".join(xs))
         self.assertEqual(nth_line(t, lineno), nth_line_ref(t, lineno))
 
-    @given(text(string.printable))
-    def test_replace_string_literal_roundtrip(self, t):
+    @given(text(string.printable), booleans(), sampled_from(['"', "'"]))
+    def test_replace_string_literal_roundtrip(self, t, raw, quote):
+        if raw:
+            assume(ok_for_raw_triple_quoted_string(t, quote=quote))
         prog = """\
-        r = '''placeholder'''
-        r2 = '''placeholder2'''
-        r3 = '''placeholder3'''
-        """
+        r = {r}{quote}placeholder{quote}
+        r2 = {r}{quote}placeholder2{quote}
+        r3 = {r}{quote}placeholder3{quote}
+        """.format(r='r' if raw else '', quote=quote*3)
         new_prog = replace_string_literal(textwrap.dedent(prog), 2, t)[0]
         exec(new_prog)
         msg = "program was:\n{}".format(new_prog)
