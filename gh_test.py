@@ -7,6 +7,7 @@ import string
 import os
 import traceback
 
+import hypothesis
 from hypothesis import given, event, assume
 from hypothesis.strategies import text, integers, composite, sampled_from, booleans
 
@@ -77,7 +78,7 @@ def ok_for_raw_triple_quoted_string(s, quote):
     >>> ok_for_raw_triple_quoted_string("a ''' b", quote="'")
     False
     """
-    return quote * 3 not in s and (not s or s[-1] != quote)
+    return quote * 3 not in s and (not s or s[-1] not in [quote, '\\'])
 
 
 RE_EXPECT = re.compile(r"^(?P<prefix>[^\n]*?)"
@@ -216,6 +217,10 @@ class TestFunctional(TestCase):
         self.assertEqual(r2, normalize_nl(t), msg=msg)  # noqa: F821
         self.assertEqual(r3, 'placeholder3', msg=msg)  # noqa: F821
 
+    #ef test_hard_replace_string_literal(self):
+    #   prog = 'x = """\\\n' "\\'\\'\\'\n" '"""'
+    #   self.assertExpected(replace_string_literal(prog, 1, "'''")[0], '''''')
+
 
 class TestExpect(TestCase):
     def test_sample(self):
@@ -247,7 +252,7 @@ multi_multi_more('''\
             lineno = adjust_lineno(history, fn, lineno)
             prog, delta = replace_string_literal(prog, lineno, actual)
             record_edit(history, fn, lineno, delta)
-        self.assertExpected(prog, '''\
+        self.assertExpected(prog, """\
 single_single(\'\'\'a\'\'\')
 single_multi(\'\'\'\\
 b
@@ -262,8 +267,9 @@ e
 multi_multi_more(\'\'\'\\
 f
 g
+a
 \'\'\')
-''')
+""")
 
     def test_replace(self):
         s = """\
