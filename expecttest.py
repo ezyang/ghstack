@@ -5,7 +5,7 @@ import os
 import string
 
 
-ACCEPT = os.getenv('GH_TEST_ACCEPT')
+ACCEPT = os.getenv('EXPECTTEST_ACCEPT')
 
 
 def nth_line(src, lineno):
@@ -187,7 +187,7 @@ class TestCase(unittest.TestCase):
 
             EDIT_HISTORY.record_edit(fn, lineno, delta)
         else:
-            help_text = "To accept the new output, re-run test with envvar GH_TEST_ACCEPT=1 (we recommend staging/committing your changes before doing this)"
+            help_text = "To accept the new output, re-run test with envvar EXPECTTEST_ACCEPT=1 (we recommend staging/committing your changes before doing this)"
             if hasattr(self, "assertMultiLineEqual"):
                 self.assertMultiLineEqual(expect, actual, msg=help_text)
             else:
