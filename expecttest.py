@@ -1,17 +1,8 @@
-import unittest
-import textwrap
 import re
-import doctest
-import sys
-import string
-import os
+import unittest
 import traceback
-
-import hypothesis
-from hypothesis import given, event, assume
-from hypothesis.strategies import text, integers, composite, sampled_from, booleans
-
-import gh
+import os
+import string
 
 
 ACCEPT = os.getenv('GH_TEST_ACCEPT')
@@ -160,13 +151,6 @@ def replace_string_literal(src, lineno, new_string):
     return (RE_EXPECT.sub(replace, src[:i][::-1], count=1)[::-1] + src[i:], delta[0])
 
 
-@composite
-def text_lineno(draw):
-    t = draw(text("a\n"))
-    lineno = draw(integers(min_value=1, max_value=t.count("\n")+1))
-    return (t, lineno)
-
-
 class TestCase(unittest.TestCase):
     longMessage = True
 
@@ -204,95 +188,6 @@ class TestCase(unittest.TestCase):
                 self.assertEqual(expect, actual, msg=help_text)
 
 
-
-class TestExpect(TestCase):
-    @given(text_lineno())
-    def test_nth_line_ref(self, t_lineno):
-        t, lineno = t_lineno
-        event("lineno = {}".format(lineno))
-
-        def nth_line_ref(src, lineno):
-            xs = src.split("\n")[:lineno]
-            xs[-1] = ''
-            return len("\n".join(xs))
-        self.assertEqual(nth_line(t, lineno), nth_line_ref(t, lineno))
-
-    @given(text(string.printable), booleans(), sampled_from(['"', "'"]))
-    def test_replace_string_literal_roundtrip(self, t, raw, quote):
-        if raw:
-            assume(ok_for_raw_triple_quoted_string(t, quote=quote))
-        prog = """\
-        r = {r}{quote}placeholder{quote}
-        r2 = {r}{quote}placeholder2{quote}
-        r3 = {r}{quote}placeholder3{quote}
-        """.format(r='r' if raw else '', quote=quote*3)
-        new_prog = replace_string_literal(textwrap.dedent(prog), 2, t)[0]
-        exec(new_prog)
-        msg = "program was:\n{}".format(new_prog)
-        self.assertEqual(r, 'placeholder', msg=msg)  # noqa: F821
-        self.assertEqual(r2, normalize_nl(t), msg=msg)  # noqa: F821
-        self.assertEqual(r3, 'placeholder3', msg=msg)  # noqa: F821
-
-    def test_sample(self):
-        prog = r"""
-single_single('''0''')
-single_multi('''1''')
-multi_single('''\
-2
-''')
-multi_multi_less('''\
-3
-4
-''')
-multi_multi_same('''\
-5
-''')
-multi_multi_more('''\
-6
-''')
-"""
-        # NB: These are the end of the statements, not beginning
-        # TODO: Test other permutations of these edits
-        edits = [(2, "a"),
-                 (3, "b\n"),
-                 (6, "c"),
-                 (10, "d\n"),
-                 (13, "e\n"),
-                 (16, "f\ng\n")]
-        history = {}
-        fn = 'not_a_real_file.py'
-        for lineno, actual in edits:
-            lineno = adjust_lineno(history, fn, lineno)
-            prog, delta = replace_string_literal(prog, lineno, actual)
-            record_edit(history, fn, lineno, delta)
-        self.assertExpected(prog, r"""
-single_single('''a''')
-single_multi('''\
-b
-''')
-multi_single('''c''')
-multi_multi_less('''\
-d
-''')
-multi_multi_same('''\
-e
-''')
-multi_multi_more('''\
-f
-g
-''')
-""")
-
-
-class TestGh(unittest.TestCase):
-    def test_basic(self):
-        pass
-
-
-def load_tests(loader, tests, ignore):
-    tests.addTests(doctest.DocTestSuite(sys.modules[__name__]))
-    return tests
-
-
-if __name__ == '__main__':
-    unittest.main()
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
