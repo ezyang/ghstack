@@ -261,10 +261,10 @@ multi_multi_more('''\
 """
         edits = [(1, "a"),
                  (2, "b\n"),
-                 (3, "c"),
-                 (6, "d\n"),
-                 (10, "e\n"),
-                 (13, "f\ng\n")]
+                 (5, "c"),
+                 (9, "d\n"),
+                 (12, "e\n"),
+                 (15, "f\ng\n")]
         history = {}
         fn = 'test.py'
         for lineno, actual in edits:
