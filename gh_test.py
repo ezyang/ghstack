@@ -41,6 +41,23 @@ def nth_line(src, lineno):
     return pos
 
 
+def nth_eol(src, lineno):
+    """
+    Compute the ending index of the n-th line (before the newline,
+    where n is 1-indexed)
+
+    >>> nth_eol("aaa\\nbb\\nc", 2)
+    6
+    """
+    assert lineno >= 1
+    pos = -1
+    for _ in range(lineno):
+        pos = src.find('\n', pos + 1)
+        if pos == -1:
+            return len(src)
+    return pos
+
+
 def normalize_nl(t):
     return t.replace('\r\n', '\n').replace('\r', '\n')
 
@@ -81,11 +98,12 @@ def ok_for_raw_triple_quoted_string(s, quote):
     return quote * 3 not in s and (not s or s[-1] not in [quote, '\\'])
 
 
-RE_EXPECT = re.compile(r"^(?P<prefix>[^\n]*?)"
-                       r"(?P<raw>r?)"
+# This operates on the REVERSED string (that's why suffix is first)
+RE_EXPECT = re.compile(r"^(?P<suffix>[^\n]*?)"
                        r"(?P<quote>'''|" r'""")'
                        r"(?P<body>.*?)"
-                       r"(?P=quote)", re.DOTALL)
+                       r"(?P=quote)"
+                       r"(?P<raw>r?)", re.DOTALL)
 
 
 def replace_string_literal(src, lineno, new_string):
@@ -108,13 +126,13 @@ def replace_string_literal(src, lineno, new_string):
     '''
     >>> r[1]
     3
-    >>> replace_string_literal("  moo = '''\\\narf'''", 1, "'a'\n\\b\n")[1]
+    >>> replace_string_literal("  moo = '''\\\narf'''", 2, "'a'\n\\b\n")[1]
     2
     >>> print(replace_string_literal("    f('''\"\"\"''')", 1, "a ''' b")[0])
         f('''a \'\'\' b''')
     """
     assert all(c in string.printable for c in new_string)
-    i = nth_line(src, lineno)
+    i = nth_eol(src, lineno)
     new_string = normalize_nl(new_string)
 
     delta = [new_string.count("\n")]
@@ -136,13 +154,14 @@ def replace_string_literal(src, lineno, new_string):
         new_body = "\\\n" + s if "\n" in s and not raw else s
         delta[0] -= m.group('body').count("\n")
 
-        return ''.join([m.group('prefix'),
-                        m.group('raw'),
+        return ''.join([m.group('suffix'),
                         m.group('quote'),
-                        new_body,
-                        m.group('quote')])
+                        new_body[::-1],
+                        m.group('quote'),
+                        m.group('raw'),
+                        ])
 
-    return (src[:i] + RE_EXPECT.sub(replace, src[i:], count=1), delta[0])
+    return (RE_EXPECT.sub(replace, src[:i][::-1], count=1)[::-1] + src[i:], delta[0])
 
 
 @composite
@@ -173,9 +192,9 @@ class TestCase(unittest.TestCase):
                     with open(fn + ".bak", 'w') as f_bak:
                         f_bak.write(old)
                 f.seek(0)
-                f.truncate(0)
+                #f.truncate(0)
 
-                f.write(new)
+                #f.write(new)
 
             record_edit(ACCEPT_HISTORY, fn, lineno, delta)
         else:
