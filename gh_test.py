@@ -61,7 +61,7 @@ def adjust_lineno(state, fn, lineno):
 
 
 def record_edit(state, fn, lineno, delta):
-    state.setdefault(fn, []).append(lineno, delta)
+    state.setdefault(fn, []).append((lineno, delta))
 
 
 RE_EXPECT = re.compile(r"^( *)([^\n]*?''')(.*?)(''')", re.DOTALL | re.MULTILINE)
@@ -180,7 +180,7 @@ class TestExpect(unittest.TestCase):
                 self.assertEqual(actual, expect, msg=help_text)
 
     def test_sample(self):
-        self.assertExpected("foo", '''bar''')
+        self.assertExpected("foo", '''foo''')
 
     def test_replace(self):
         s = """\
