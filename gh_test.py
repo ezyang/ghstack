@@ -186,15 +186,17 @@ class TestCase(unittest.TestCase):
                 lineno = adjust_lineno(ACCEPT_HISTORY, fn, lineno)
                 new, delta = replace_string_literal(old, lineno, actual)
 
+                assert old != new
+
                 # Only write the backup file the first time we hit the
                 # file
                 if fn not in ACCEPT_HISTORY:
                     with open(fn + ".bak", 'w') as f_bak:
                         f_bak.write(old)
                 f.seek(0)
-                #f.truncate(0)
+                f.truncate(0)
 
-                #f.write(new)
+                f.write(new)
 
             record_edit(ACCEPT_HISTORY, fn, lineno, delta)
         else:
