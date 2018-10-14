@@ -70,12 +70,12 @@ multi_multi_more('''\
                  (10, "d\n"),
                  (13, "e\n"),
                  (16, "f\ng\n")]
-        history = {}
+        history = expecttest.EditHistory()
         fn = 'not_a_real_file.py'
         for lineno, actual in edits:
-            lineno = expecttest.adjust_lineno(history, fn, lineno)
+            lineno = history.adjust_lineno(fn, lineno)
             prog, delta = expecttest.replace_string_literal(prog, lineno, actual)
-            expecttest.record_edit(history, fn, lineno, delta)
+            history.record_edit(fn, lineno, delta)
         self.assertExpected(prog, r"""
 single_single('''a''')
 single_multi('''\

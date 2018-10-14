@@ -8,9 +8,6 @@ import string
 ACCEPT = os.getenv('GH_TEST_ACCEPT')
 
 
-ACCEPT_HISTORY = {}
-
-
 def nth_line(src, lineno):
     """
     Compute the starting index of the n-th line (where n is 1-indexed)
@@ -53,17 +50,26 @@ def escape_trailing_quote(s, quote):
         return s
 
 
-def adjust_lineno(state, fn, lineno):
-    if fn not in state:
+class EditHistory(object):
+    def __init__(self):
+        self.state = {}
+
+    def adjust_lineno(self, fn, lineno):
+        if fn not in self.state:
+            return lineno
+        for edit_loc, edit_diff in self.state[fn]:
+            if lineno > edit_loc:
+                lineno += edit_diff
         return lineno
-    for edit_loc, edit_diff in state[fn]:
-        if lineno > edit_loc:
-            lineno += edit_diff
-    return lineno
+
+    def seen_file(self, fn):
+        return fn in self.state
+
+    def record_edit(self, fn, lineno, delta):
+        self.state.setdefault(fn, []).append((lineno, delta))
 
 
-def record_edit(state, fn, lineno, delta):
-    state.setdefault(fn, []).append((lineno, delta))
+EDIT_HISTORY = EditHistory()
 
 
 def ok_for_raw_triple_quoted_string(s, quote):
@@ -164,14 +170,14 @@ class TestCase(unittest.TestCase):
                 old = f.read()
 
                 # compute the change in lineno
-                lineno = adjust_lineno(ACCEPT_HISTORY, fn, lineno)
+                lineno = EDIT_HISTORY.adjust_lineno(fn, lineno)
                 new, delta = replace_string_literal(old, lineno, actual)
 
                 assert old != new
 
                 # Only write the backup file the first time we hit the
                 # file
-                if fn not in ACCEPT_HISTORY:
+                if not EDIT_HISTORY.seen_file(fn):
                     with open(fn + ".bak", 'w') as f_bak:
                         f_bak.write(old)
                 f.seek(0)
@@ -179,7 +185,7 @@ class TestCase(unittest.TestCase):
 
                 f.write(new)
 
-            record_edit(ACCEPT_HISTORY, fn, lineno, delta)
+            EDIT_HISTORY.record_edit(fn, lineno, delta)
         else:
             help_text = "To accept the new output, re-run test with envvar GH_TEST_ACCEPT=1 (we recommend staging/committing your changes before doing this)"
             if hasattr(self, "assertMultiLineEqual"):
