@@ -179,6 +179,7 @@ class TestCase(unittest.TestCase):
             # current frame and parent frame, plus any requested skip
             tb = traceback.extract_stack(limit=2+skip)
             fn, lineno, _, _ = tb[0]
+            print("Accepting new output for {} at {}:{}".format(self.id(), fn, lineno))
             with open(fn, 'r+') as f:
                 old = f.read()
 
@@ -274,22 +275,21 @@ multi_multi_more('''\
             prog, delta = replace_string_literal(prog, lineno, actual)
             record_edit(history, fn, lineno, delta)
         self.assertExpected(prog, """\
-single_single(\'\'\'a\'\'\')
-single_multi(\'\'\'\\
+single_single('''a''')
+single_multi('''\\
 b
-\'\'\')
-multi_single(\'\'\'c\'\'\')
-multi_multi_less(\'\'\'\\
+''')
+multi_single('''c''')
+multi_multi_less('''\\
 d
-\'\'\')
-multi_multi_same(\'\'\'\\
+''')
+multi_multi_same('''\\
 e
-\'\'\')
-multi_multi_more(\'\'\'\\
+''')
+multi_multi_more('''\\
 f
 g
-a
-\'\'\')
+''')
 """)
 
     def test_replace(self):
