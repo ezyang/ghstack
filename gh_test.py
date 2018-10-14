@@ -103,8 +103,9 @@ def replace_string_literal(src, lineno, new_string):
     r"""
     Replace a triple quoted string literal with new contents.
     Only handles printable ASCII correctly at the moment.  This
-    will preserve the quote style (and raw-ness) of the original
-    string.
+    will preserve the quote style of the original string, and
+    makes a best effort to preserve raw-ness (unless it is impossible
+    to do so.)
 
     Returns a tuple of the replaced string, as well as a delta of
     number of lines added/removed.
@@ -124,6 +125,7 @@ def replace_string_literal(src, lineno, new_string):
     >>> print(replace_string_literal("    f('''\"\"\"''')", 1, "a ''' b")[0])
         f('''a \'\'\' b''')
     """
+    # Haven't implemented correct escaping for non-printable characters
     assert all(c in string.printable for c in new_string)
     i = nth_eol(src, lineno)
     new_string = normalize_nl(new_string)
@@ -135,9 +137,8 @@ def replace_string_literal(src, lineno, new_string):
     def replace(m):
         s = new_string
         raw = m.group('raw') == 'r'
-        if raw:
-            assert ok_for_raw_triple_quoted_string(s, quote=m.group('quote')[0])
-        else:
+        if not raw or not ok_for_raw_triple_quoted_string(s, quote=m.group('quote')[0]):
+            raw = False
             s = s.replace('\\', '\\\\')
             if m.group('quote') == "'''":
                 s = escape_trailing_quote(s, "'").replace("'''", r"\'\'\'")
@@ -151,7 +152,7 @@ def replace_string_literal(src, lineno, new_string):
                         m.group('quote'),
                         new_body[::-1],
                         m.group('quote'),
-                        m.group('raw'),
+                        'r' if raw else '',
                         ])
 
     # Having to do this in reverse is very irritating, but it's the
@@ -251,6 +252,7 @@ multi_multi_more('''\
 ''')
 """
         # NB: These are the end of the statements, not beginning
+        # TODO: Test other permutations of these edits
         edits = [(2, "a"),
                  (3, "b\n"),
                  (6, "c"),
@@ -258,7 +260,7 @@ multi_multi_more('''\
                  (13, "e\n"),
                  (16, "f\ng\n")]
         history = {}
-        fn = 'test.py'
+        fn = 'not_a_real_file.py'
         for lineno, actual in edits:
             lineno = adjust_lineno(history, fn, lineno)
             prog, delta = replace_string_literal(prog, lineno, actual)
