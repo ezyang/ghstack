@@ -197,7 +197,7 @@ class TestCase(unittest.TestCase):
 
             record_edit(ACCEPT_HISTORY, fn, lineno, delta)
         else:
-            help_text = "To accept the current output, re-run test with envvar GH_TEST_ACCEPT=1"
+            help_text = "To accept the current output, re-run test with envvar GH_TEST_ACCEPT=1 (we recommend staging/committing your changes before doing this)"
             if hasattr(self, "assertMultiLineEqual"):
                 self.assertMultiLineEqual(expect, actual, msg=help_text)
             else:
