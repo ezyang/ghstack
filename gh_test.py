@@ -64,7 +64,7 @@ def record_edit(state, fn, lineno, delta):
     state.setdefault(fn, []).append((lineno, delta))
 
 
-RE_EXPECT = re.compile(r"^( *)([^\n]*?''')(.*?)(''')", re.DOTALL | re.MULTILINE)
+RE_EXPECT = re.compile(r"^( *)([^\n]*?''')(.*?)(''')", re.DOTALL)
 
 
 def replace_string_literal(src, lineno, new_string):
@@ -117,36 +117,7 @@ def text_lineno(draw):
     return (t, lineno)
 
 
-class TestFunctional(unittest.TestCase):
-    longMessage = True
-
-    @given(text_lineno())
-    def test_nth_line_ref(self, t_lineno):
-        t, lineno = t_lineno
-        event("lineno = {}".format(lineno))
-
-        def nth_line_ref(src, lineno):
-            xs = src.split("\n")[:lineno]
-            xs[-1] = ''
-            return len("\n".join(xs))
-        self.assertEqual(nth_line(t, lineno), nth_line_ref(t, lineno))
-
-    @given(text(string.printable))
-    def test_replace_string_literal_roundtrip(self, t):
-        prog = """\
-        r = '''placeholder'''
-        r2 = '''placeholder2'''
-        r3 = '''placeholder3'''
-        """
-        new_prog = replace_string_literal(textwrap.dedent(prog), 2, t)[0]
-        exec(new_prog)
-        msg = "program was:\n{}".format(new_prog)
-        self.assertEqual(r, 'placeholder', msg=msg)  # noqa: F821
-        self.assertEqual(r2, normalize_nl(t), msg=msg)  # noqa: F821
-        self.assertEqual(r3, 'placeholder3', msg=msg)  # noqa: F821
-
-
-class TestExpect(unittest.TestCase):
+class TestCase(unittest.TestCase):
     longMessage = True
 
     def assertExpected(self, actual, expect, skip=0):
@@ -175,12 +146,72 @@ class TestExpect(unittest.TestCase):
         else:
             help_text = "To accept the current output, re-run test with envvar GH_TEST_ACCEPT=1"
             if hasattr(self, "assertMultiLineEqual"):
-                self.assertMultiLineEqual(actual, expect, msg=help_text)
+                self.assertMultiLineEqual(expect, actual, msg=help_text)
             else:
-                self.assertEqual(actual, expect, msg=help_text)
+                self.assertEqual(expect, actual, msg=help_text)
 
+
+
+class TestFunctional(TestCase):
+    longMessage = True
+
+    @given(text_lineno())
+    def test_nth_line_ref(self, t_lineno):
+        t, lineno = t_lineno
+        event("lineno = {}".format(lineno))
+
+        def nth_line_ref(src, lineno):
+            xs = src.split("\n")[:lineno]
+            xs[-1] = ''
+            return len("\n".join(xs))
+        self.assertEqual(nth_line(t, lineno), nth_line_ref(t, lineno))
+
+    @given(text(string.printable))
+    def test_replace_string_literal_roundtrip(self, t):
+        prog = """\
+        r = '''placeholder'''
+        r2 = '''placeholder2'''
+        r3 = '''placeholder3'''
+        """
+        new_prog = replace_string_literal(textwrap.dedent(prog), 2, t)[0]
+        exec(new_prog)
+        msg = "program was:\n{}".format(new_prog)
+        self.assertEqual(r, 'placeholder', msg=msg)  # noqa: F821
+        self.assertEqual(r2, normalize_nl(t), msg=msg)  # noqa: F821
+        self.assertEqual(r3, 'placeholder3', msg=msg)  # noqa: F821
+
+
+class TestExpect(TestCase):
     def test_sample(self):
-        self.assertExpected("foo", '''foo''')
+        prog = r"""single_single('''0''')
+single_multi('''1''')
+multi_single('''\
+2
+''')
+multi_multi_less('''\
+3
+4
+''')
+multi_multi_same('''\
+5
+''')
+multi_multi_more('''\
+6
+''')
+"""
+        edits = [(1, "a"),
+                 (2, "b\n"),
+                 (3, "c"),
+                 (6, "d\n"),
+                 (10, "e\n"),
+                 (13, "f\ng\n")]
+        history = {}
+        fn = 'test.py'
+        for lineno, actual in edits:
+            lineno = adjust_lineno(history, fn, lineno)
+            prog, delta = replace_string_literal(prog, lineno, actual)
+            record_edit(history, fn, lineno, delta)
+        self.assertExpected(prog, '''blah''')
 
     def test_replace(self):
         s = """\
