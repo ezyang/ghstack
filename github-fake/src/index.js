@@ -85,6 +85,7 @@ const server = new ApolloServer({ schema });
 
 // This `listen` method launches a web-server.  Existing apps
 // can utilize middleware options, which we'll discuss later.
-server.listen().then(({ url }) => {
-  console.log(`🚀  Server ready at ${url}`);
+const port = process.argv[2] ? process.argv[2] : 4000;
+server.listen(port).then(({ url }) => {
+  console.log(`${url}`);
 });
