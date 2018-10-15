@@ -1,0 +1,90 @@
+const fs = require('fs');
+const { ApolloServer, makeExecutableSchema } = require('apollo-server');
+
+function requireGraphQL(name) {
+  const filename = require.resolve(name);
+  return fs.readFileSync(filename, 'utf8');
+}
+
+const REPOSITORIES = {
+  1000: {
+    id: 1000,
+    name: "pytorch",
+    nameWithOwner: "pytorch/pytorch",
+    nextPullRequestNumber: 500,
+  }
+};
+
+const PULL_REQUESTS = {
+  2000: {
+    id: 1001,
+    repository: 1000,
+    number: 100,
+    url: "https://github.com/pytorch/pytorch/pull/22",
+    baseRefName: "master",
+    headRefName: "pr/my-little-pr",
+    title: "My little pull request",
+    body: "A nice interesting pull request to test with",
+  }
+};
+
+let NEXT_ID = 5000;
+
+// Type definitions define the "shape" of your data and specify
+// which ways the data can be fetched from the GraphQL server.
+const typeDefs = requireGraphQL('./schema.graphql');
+
+const resolvers = {
+  Query: {
+    repository: (root, args) =>
+      Object.values(REPOSITORIES).find((repo) => repo.nameWithOwner == (args.owner + "/" + args.name))
+    ,
+  },
+  Repository: {
+    pullRequest: (root, args) =>
+      Object.values(PULL_REQUESTS).find((pr) => root.id == pr.repository && pr.number == args.number)
+    ,
+    pullRequests: (root, args) => {
+      if (Object.keys(args).length) {
+        throw new Error("pullRequest inputs not supported: " + Object.keys(args));
+      }
+      // Pagination? What's that?
+      return { nodes: Object.values(PULL_REQUESTS).filter((pr) => root.id == pr.repository) }
+    },
+  },
+  Mutation: {
+    updatePullRequest: (root, args) => {
+      const pullRequest = PULL_REQUESTS[args.input.pullRequestId];
+      if (args.input.title !== undefined) pullRequest.title = args.input.title;
+      if (args.input.baseRefName !== undefined) pullRequest.baseRefName = args.input.baseRefName;
+      if (args.input.body !== undefined) pullRequest.body = args.input.body;
+      return { pullRequest };
+    },
+    createPullRequest: (root, args) => {
+      const id = NEXT_ID++;
+      const repo = REPOSITORIES[args.input.ownerId];
+      const number = repo.nextPullRequestNumber++;
+      const pullRequest = {
+        id,
+        repository: args.input.ownerId,
+        number: number,
+        url: "https://github.com/" + repo.nameWithOwner + "/pull/" + number,
+        baseRefName: args.input.baseRefName,
+        title: args.input.title,
+        body: args.input.body,
+      }
+      PULL_REQUESTS[id] = pullRequest;
+      return { pullRequest };
+    }
+  },
+};
+
+const resolverValidationOptions = { requireResolversForResolveType: false };
+const schema = makeExecutableSchema({ typeDefs, resolvers, resolverValidationOptions });
+const server = new ApolloServer({ schema });
+
+// This `listen` method launches a web-server.  Existing apps
+// can utilize middleware options, which we'll discuss later.
+server.listen().then(({ url }) => {
+  console.log(`🚀  Server ready at ${url}`);
+});
