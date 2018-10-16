@@ -9,6 +9,13 @@ import os
 import gh
 
 
+def indent(text, prefix):
+    """
+    Poly-fill for textwrap.indent on Python 2
+    """
+    return ''.join(prefix+line for line in text.splitlines(True))
+
+
 def dump_github_state(github):
     r = github.graphql("""
       query {
@@ -25,11 +32,16 @@ def dump_github_state(github):
         }
       }
     """)
-    print(r)
+    prs = []
+    for pr in r['data']['repository']['pullRequests']['nodes']:
+        pr['body'] = indent(pr['body'], '    ')
+        prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n"
+                   "{body}\n".format(**pr))
+    return "\n".join(prs)
 
 
 def create_pr(github):
-    r = github.graphql("""
+    github.graphql("""
       mutation {
         createPullRequest(input: {
             baseRefName: "master",
@@ -44,7 +56,6 @@ def create_pr(github):
         }
       }
     """)
-    print(r)
 
 
 class TestGh(expecttest.TestCase):
@@ -54,7 +65,7 @@ class TestGh(expecttest.TestCase):
         port = 49152
         # Find an open port to run our tests on
         while True:
-            cls.proc = subprocess.Popen(['node', 'github-fake/src/index.js', str(port)], stdout=subprocess.PIPE, stderr=open(os.devnull, 'w'))
+            cls.proc = subprocess.Popen(['node', 'github-fake/src/index.js', str(port)], stdout=subprocess.PIPE)
             r = cls.proc.stdout.readline()
             if not r.strip():
                 cls.proc.terminate()
@@ -79,9 +90,7 @@ class TestGh(expecttest.TestCase):
 
     def test_basic(self):
         create_pr(self.github)
-        create_pr(self.github)
-        dump_github_state(self.github)
-        print("shufflin")
+        self.assertExpected(dump_github_state(self.github), '''''')
 
 
 #   def load_tests(loader, tests, ignore):

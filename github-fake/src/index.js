@@ -20,7 +20,8 @@ function reset() {
       nextPullRequestNumber: 500,
     }
   };
-  PULL_REQUESTS = {}
+  PULL_REQUESTS = {};
+  NEXT_ID = 5000;
   /*
   PULL_REQUESTS = {
     2000: {
@@ -87,6 +88,7 @@ const githubResolvers = {
         number: number,
         url: "https://github.com/" + repo.nameWithOwner + "/pull/" + number,
         baseRefName: args.input.baseRefName,
+        headRefName: args.input.headRefName,
         title: args.input.title,
         body: args.input.body,
       }
