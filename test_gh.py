@@ -28,6 +28,25 @@ def dump_github_state(github):
     print(r)
 
 
+def create_pr(github):
+    r = github.graphql("""
+      mutation {
+        createPullRequest(input: {
+            baseRefName: "master",
+            headRefName: "blah",
+            title: "New PR",
+            body: "What a nice PR this is",
+            ownerId: 1000,
+          }) {
+          pullRequest {
+            number
+          }
+        }
+      }
+    """)
+    print(r)
+
+
 class TestGh(expecttest.TestCase):
     # Starting up node takes 0.7s.  Don't do it every time.
     @classmethod
@@ -59,6 +78,8 @@ class TestGh(expecttest.TestCase):
         """)
 
     def test_basic(self):
+        create_pr(self.github)
+        create_pr(self.github)
         dump_github_state(self.github)
         print("shufflin")
 
