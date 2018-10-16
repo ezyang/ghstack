@@ -9,6 +9,25 @@ import os
 import gh
 
 
+def dump_github_state(github):
+    r = github.graphql("""
+      query {
+        repository(name: "pytorch", owner: "pytorch") {
+          pullRequests {
+            nodes {
+              number
+              baseRefName
+              headRefName
+              title
+              body
+            }
+          }
+        }
+      }
+    """)
+    print(r)
+
+
 class TestGh(expecttest.TestCase):
     # Starting up node takes 0.7s.  Don't do it every time.
     @classmethod
@@ -34,12 +53,13 @@ class TestGh(expecttest.TestCase):
 
     def setUp(self):
         self.github.graphql("""
-            mutation {
-                resetGitHub(input: {})
-            }
+          mutation {
+            resetGitHub(input: {})
+          }
         """)
 
     def test_basic(self):
+        dump_github_state(self.github)
         print("shufflin")
 
 
