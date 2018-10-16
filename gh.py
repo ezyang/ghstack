@@ -3,20 +3,25 @@ import requests
 import subprocess
 import re
 import uuid
+import json
 from pprint import pprint
 
-def sh(*args, **kwargs):
-    stdin = None
-    if 'input' in kwargs:
-        stdin = subprocess.PIPE
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin)
-    out, _ = p.communicate(kwargs.get('input'))
-    if p.returncode != 0:
-        raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
-    return out.decode()
+class Shell(object):
+    def __init__(self, cwd=None):
+        self.cwd = cwd
 
-def git(*args, **kwargs):
-    return sh(*(("git",) + args), **kwargs).rstrip("\n")
+    def sh(self, *args, **kwargs):
+        stdin = None
+        if 'input' in kwargs:
+            stdin = subprocess.PIPE
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, cwd=self.cwd)
+        out, _ = p.communicate(kwargs.get('input'))
+        if p.returncode != 0:
+            raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
+        return out.decode()
+
+    def git(self, *args, **kwargs):
+        return self.sh(*(("git",) + args), **kwargs).rstrip("\n")
 
 class Endpoint(object):
     def __init__(self, endpoint):
@@ -24,6 +29,10 @@ class Endpoint(object):
 
     def graphql(self, query, **kwargs):
         resp = requests.post(self.endpoint, json={"query": query, "variables": kwargs})
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            raise RuntimeError(json.dumps(resp.json(), indent=1))
         return resp.json()
 
 def split_header(s):
@@ -42,10 +51,12 @@ def split_header(s):
 #       - origin/gh/base/2345
 #       - origin/gh/clean/2345
 
-def main(github=None):
-
+def main(github=None, sh=None):
     if github is None:
         github = Endpoint('http://localhost:4000')
+
+    if sh is None:
+        sh = Shell()
 
     # TODO: Cache this guy
     repo_id = github.graphql("""
@@ -53,18 +64,18 @@ def main(github=None):
             repository(name: $name, owner: $owner) {
                 id
             }
-        }""", owner="pytorch", name="pytorch", **endpoint)["data"]["repository"]["id"]
+        }""", owner="pytorch", name="pytorch")["data"]["repository"]["id"]
 
-    base = git("merge-base", "origin/master", "HEAD")
+    base = sh.git("merge-base", "origin/master", "HEAD")
 
     # compute the stack of commits to process (reverse chronological order),
     # INCLUDING the base commit
-    stack = split_header(git("rev-list", "--header", "^" + base + "^@", "HEAD"))
+    stack = split_header(sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
 
     # fetch from origin
     # TODO
 
-    submitter = Submitter(github, repo_id, base)
+    submitter = Submitter(github, sh, repo_id, base)
 
     # start with the earliest commit
     g = reversed(stack)
@@ -89,8 +100,9 @@ def branch_clean(diffid):
     return "gh/clean/" + diffid
 
 class Submitter(object):
-    def __init__(self, github, repo_id, base_commit):
+    def __init__(self, github, sh, repo_id, base_commit):
         self.github = github
+        self.sh = sh
         self.repo_id = repo_id
         self.base_commit = base_commit
         self.base_tree = None
@@ -134,14 +146,14 @@ class Submitter(object):
             diffid = uuid.uuid4().hex
 
             new_base = self.base_commit
-            git("branch", "-f", branch_base(diffid), new_base)
+            self.sh.git("branch", "-f", branch_base(diffid), new_base)
 
-            new_pull = git("commit-tree", tree,
-                           "-p", new_base,
-                           input=commit_msg)
-            git("branch", "-f", branch_pull(diffid), new_pull)
+            new_pull = self.sh.git("commit-tree", tree,
+                                   "-p", new_base,
+                                   input=commit_msg)
+            self.sh.git("branch", "-f", branch_pull(diffid), new_pull)
 
-            git("branch", "-f", branch_clean(diffid), commit_id)
+            self.sh.git("branch", "-f", branch_clean(diffid), commit_id)
 
             # TODO: DO THE PUSH
 
@@ -196,7 +208,7 @@ class Submitter(object):
             prid = r["data"]["node"]["pullRequest"]["id"]
 
             # Check if updating is needed
-            clean_commit_id = git("rev-parse", branch_clean(diffid))
+            clean_commit_id = self.sh.git("rev-parse", branch_clean(diffid))
             if clean_commit_id == commit_id:
                 print("Nothing to do")
                 push_branches = []
@@ -213,23 +225,23 @@ class Submitter(object):
                 #         (if you're doing weird shit with cherry-picking, this
                 #         won't work so good)
 
-                new_base = git("commit-tree", self.base_tree,
-                               "-p", branch_base(diffid),
-                               "-p", self.base_commit,
-                               input="Update")
-                git("branch", "-f", branch_base(diffid), new_base)
+                new_base = self.sh.git("commit-tree", self.base_tree,
+                                       "-p", branch_base(diffid),
+                                       "-p", self.base_commit,
+                                       input="Update")
+                self.sh.git("branch", "-f", branch_base(diffid), new_base)
 
                 #   - Directly blast our current tree as the newest entry of pull,
                 #     merging against the previous pull entry, and the newest base.
 
                 tree = RE_RAW_TREE.search(commit).group("tree")
-                new_pull = git("commit-tree", tree,
-                               "-p", branch_pull(diffid),
-                               "-p", new_base,
-                               input="Update")
-                git("branch", "-f", branch_pull(diffid), new_base)
+                new_pull = self.sh.git("commit-tree", tree,
+                                       "-p", branch_pull(diffid),
+                                       "-p", new_base,
+                                       input="Update")
+                self.sh.git("branch", "-f", branch_pull(diffid), new_base)
 
-                git("branch", "-f", branch_clean(diffid), commit_id)
+                self.sh.git("branch", "-f", branch_clean(diffid), commit_id)
 
                 push_branches = [branch_base(diffid), branch_pull(diffid), branch_clean(diffid)]
 
@@ -255,22 +267,22 @@ class Submitter(object):
             self.github.graphql("""
                 mutation ($input : UpdatePullRequestInput!) {
                     updatePullRequest(input: $input) {
-                        pullRequest
+                        clientMutationId
                     }
                 }
             """, input={
-                    'id': s['id'],
+                    'pullRequestId': s['id'],
                     # "Stack:\n" + format_stack(stack_meta, i) + "\n\n" + 
                     'body': s['body'],
                     'title': s['title'],
-                    'base': s['base']
+                    'baseRefName': s['base']
                 })
             # It is VERY important that we do this push AFTER fixing the base,
             # otherwise GitHub will spuriously think that the user pushed a number
             # of patches as part of the PR, when actually they were just from
             # the (new) upstream branch
             #if s['push_branch'] is not None:
-            #    git("push", "origin", s['push_branch'])
+            #    sh.git("push", "origin", s['push_branch'])
 
 
 # How to update commit messages?  Probably should reimplement git rebase

@@ -12,6 +12,7 @@ let PULL_REQUESTS = {};
 let NEXT_ID = 5000;
 
 function reset() {
+  console.error("resetting");
   REPOSITORIES = {
     1000: {
       id: 1000,

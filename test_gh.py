@@ -5,6 +5,8 @@ import unittest
 import subprocess
 import warnings
 import os
+import shutil
+import tempfile
 
 import gh
 
@@ -84,13 +86,41 @@ class TestGh(expecttest.TestCase):
     def setUp(self):
         self.github.graphql("""
           mutation {
-            resetGitHub(input: {})
+            resetGitHub(input: {}) {
+              clientMutationId
+            }
           }
         """)
+        tmp_dir = tempfile.mkdtemp()
 
-    def test_basic(self):
+        # Set up a "parent" repository with an empty initial commit that we'll operate on
+        upstream_dir = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(upstream_dir))
+        self.upstream_sh = gh.Shell(upstream_dir)
+        self.upstream_sh.git("init", "--bare")
+        tree = self.upstream_sh.git("write-tree")
+        commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
+        self.upstream_sh.git("branch", "-f", "master", commit)
+
+        local_dir = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(local_dir))
+        self.sh = gh.Shell(local_dir)
+        self.sh.git("clone", upstream_dir, ".")
+
+    # Just to make sure the GraphQL is working at all
+    def test_smoketest(self):
         create_pr(self.github)
-        self.assertExpected(dump_github_state(self.github), '''''')
+        self.assertExpected(dump_github_state(self.github), '''\
+#500 New PR (blah -> master)
+    What a nice PR this is
+''')
+
+    def test_simple(self):
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        gh.main(github=self.github, sh=self.sh)
+        self.assertExpected(dump_github_state(self.github), '''\
+''')
+
 
 
 #   def load_tests(loader, tests, ignore):
