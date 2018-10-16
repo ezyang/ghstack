@@ -18,9 +18,13 @@ def sh(*args, **kwargs):
 def git(*args, **kwargs):
     return sh(*(("git",) + args), **kwargs).rstrip("\n")
 
-def github(query, **kwargs):
-    resp = requests.post("http://localhost:4000/", json={"query": query, "variables": kwargs})
-    return resp.json()
+class Endpoint(object):
+    def __init__(self, endpoint):
+        self.endpoint = endpoint
+
+    def graphql(self, query, **kwargs):
+        resp = requests.post(self.endpoint, json={"query": query, "variables": kwargs})
+        return resp.json()
 
 def split_header(s):
     return s.split("\0")[:-1]
@@ -38,15 +42,18 @@ def split_header(s):
 #       - origin/gh/base/2345
 #       - origin/gh/clean/2345
 
-def main():
+def main(github=None):
+
+    if github is None:
+        github = Endpoint('http://localhost:4000')
 
     # TODO: Cache this guy
-    repo_id = github("""
+    repo_id = github.graphql("""
         query ($owner: String!, $name: String!) {
             repository(name: $name, owner: $owner) {
                 id
             }
-        }""", owner="pytorch", name="pytorch")["data"]["repository"]["id"]
+        }""", owner="pytorch", name="pytorch", **endpoint)["data"]["repository"]["id"]
 
     base = git("merge-base", "origin/master", "HEAD")
 
@@ -57,7 +64,7 @@ def main():
     # fetch from origin
     # TODO
 
-    submitter = Submitter(repo_id, base)
+    submitter = Submitter(github, repo_id, base)
 
     # start with the earliest commit
     g = reversed(stack)
@@ -82,7 +89,8 @@ def branch_clean(diffid):
     return "gh/clean/" + diffid
 
 class Submitter(object):
-    def __init__(self, repo_id, base_commit):
+    def __init__(self, github, repo_id, base_commit):
+        self.github = github
         self.repo_id = repo_id
         self.base_commit = base_commit
         self.base_tree = None
@@ -138,7 +146,7 @@ class Submitter(object):
             # TODO: DO THE PUSH
 
             # Time to open the PR
-            r = github("""
+            r = self.github.graphql("""
                 mutation ($input : CreatePullRequestInput!) {
                     createPullRequest(input: $input) {
                         pullRequest {
@@ -174,7 +182,7 @@ class Submitter(object):
 
             # With the REST API, this is totally unnecessary. Might
             # be better to store these IDs in the commit message itself.
-            r = github("""
+            r = self.github.graphql("""
               query ($repo_id: ID!, $number: Int!) {
                 node(id: $repo_id) {
                   ... on Repository {
@@ -244,7 +252,7 @@ class Submitter(object):
         # push your commits (be sure to do this AFTER you update bases)
         for i, s in enumerate(self.stack_meta):
             print("### Updating #{}".format(s["number"]))
-            github("""
+            self.github.graphql("""
                 mutation ($input : UpdatePullRequestInput!) {
                     updatePullRequest(input: $input) {
                         pullRequest
