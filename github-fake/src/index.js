@@ -1,40 +1,57 @@
 const fs = require('fs');
 const { ApolloServer, makeExecutableSchema } = require('apollo-server');
+const { mergeSchemas } = require('graphql-tools');
 
 function requireGraphQL(name) {
   const filename = require.resolve(name);
   return fs.readFileSync(filename, 'utf8');
 }
 
-const REPOSITORIES = {
-  1000: {
-    id: 1000,
-    name: "pytorch",
-    nameWithOwner: "pytorch/pytorch",
-    nextPullRequestNumber: 500,
-  }
-};
-
-const PULL_REQUESTS = {
-  2000: {
-    id: 1001,
-    repository: 1000,
-    number: 100,
-    url: "https://github.com/pytorch/pytorch/pull/22",
-    baseRefName: "master",
-    headRefName: "pr/my-little-pr",
-    title: "My little pull request",
-    body: "A nice interesting pull request to test with",
-  }
-};
-
+let REPOSITORIES = {};
+let PULL_REQUESTS = {};
 let NEXT_ID = 5000;
+
+function reset() {
+  REPOSITORIES = {
+    1000: {
+      id: 1000,
+      name: "pytorch",
+      nameWithOwner: "pytorch/pytorch",
+      nextPullRequestNumber: 500,
+    }
+  };
+  PULL_REQUESTS = {}
+  /*
+  PULL_REQUESTS = {
+    2000: {
+      id: 1001,
+      repository: 1000,
+      number: 100,
+      url: "https://github.com/pytorch/pytorch/pull/22",
+      baseRefName: "master",
+      headRefName: "pr/my-little-pr",
+      title: "My little pull request",
+      body: "A nice interesting pull request to test with",
+    }
+  };
+  */
+}
+
+reset();
 
 // Type definitions define the "shape" of your data and specify
 // which ways the data can be fetched from the GraphQL server.
-const typeDefs = requireGraphQL('./schema.graphql');
+const githubTypeDefs = requireGraphQL('./schema.graphql');
 
-const resolvers = {
+const controlResolvers = {
+  Mutation: {
+    resetGitHub: (root, args) => {
+      reset();
+    }
+  }
+};
+
+const githubResolvers = {
   Query: {
     repository: (root, args) =>
       Object.values(REPOSITORIES).find((repo) => repo.nameWithOwner == (args.owner + "/" + args.name))
@@ -80,7 +97,33 @@ const resolvers = {
 };
 
 const resolverValidationOptions = { requireResolversForResolveType: false };
-const schema = makeExecutableSchema({ typeDefs, resolvers, resolverValidationOptions });
+
+const controlSchema = makeExecutableSchema({
+  typeDefs: `
+    type Query {
+      dummy: String
+    }
+    input ResetGitHubInput {
+      clientMutationId: String
+    }
+    type ResetGitHubPayload {
+      clientMutationId: String
+    }
+    type Mutation {
+      resetGitHub(input: ResetGitHubInput!): ResetGitHubPayload
+    }
+  `,
+  resolvers: controlResolvers,
+});
+const githubSchema = makeExecutableSchema({ typeDefs: githubTypeDefs, resolvers: githubResolvers, resolverValidationOptions });
+
+const schema = mergeSchemas({
+  schemas: [
+    controlSchema,
+    githubSchema,
+  ],
+});
+
 const server = new ApolloServer({ schema });
 
 // This `listen` method launches a web-server.  Existing apps
