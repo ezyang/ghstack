@@ -290,8 +290,8 @@ class Submitter(object):
             # otherwise GitHub will spuriously think that the user pushed a number
             # of patches as part of the PR, when actually they were just from
             # the (new) upstream branch
-            #if s['push_branch'] is not None:
-            #    sh.git("push", "origin", s['push_branch'])
+            if s['push_branches']:
+                sh.git("push", "origin", *s['push_branches'])
 
 
 # How to update commit messages?  Probably should reimplement git rebase
