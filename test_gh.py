@@ -12,10 +12,7 @@ import gh
 
 
 def indent(text, prefix):
-    """
-    Poly-fill for textwrap.indent on Python 2
-    """
-    return ''.join(prefix+line for line in text.splitlines(True))
+    return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
 
 
 def dump_github_state(github):
@@ -119,6 +116,10 @@ class TestGh(expecttest.TestCase):
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
         gh.main(github=self.github, sh=self.sh)
         self.assertExpected(dump_github_state(self.github), '''\
+#500 Commit 1 (gh/pull/1 -> gh/base/1)
+    Commit 1
+
+    This is my first commit
 ''')
 
 

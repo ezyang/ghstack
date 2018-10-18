@@ -143,7 +143,16 @@ class Submitter(object):
 
         m_metadata = RE_RAW_METADATA.search(commit)
         if m_metadata is None:
-            diffid = uuid.uuid4().hex
+            # Determine the next available UUID.  We do this by
+            # iterating through known branches and keeping track
+            # of the max.  The next available UUID is the next number.
+            # This is technically subject to a race, but we assume
+            # end user is not running this script concurrently on
+            # multiple machines (you bad bad)
+
+            refs = self.sh.git("for-each-ref", "refs/remotes/origin/gh/pull", "--format=%(refname)").split()
+            max_ref_num = max(int(ref.split('/')[-1]) for ref in refs) if refs else 0
+            diffid = str(max_ref_num + 1)
 
             new_base = self.base_commit
             self.sh.git("branch", "-f", branch_base(diffid), new_base)

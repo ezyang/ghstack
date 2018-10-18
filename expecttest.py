@@ -162,30 +162,31 @@ class TestCase(unittest.TestCase):
 
     def assertExpected(self, actual, expect, skip=0):
         if ACCEPT:
-            # current frame and parent frame, plus any requested skip
-            tb = traceback.extract_stack(limit=2+skip)
-            fn, lineno, _, _ = tb[0]
-            print("Accepting new output for {} at {}:{}".format(self.id(), fn, lineno))
-            with open(fn, 'r+') as f:
-                old = f.read()
+            if actual != expect:
+                # current frame and parent frame, plus any requested skip
+                tb = traceback.extract_stack(limit=2+skip)
+                fn, lineno, _, _ = tb[0]
+                print("Accepting new output for {} at {}:{}".format(self.id(), fn, lineno))
+                with open(fn, 'r+') as f:
+                    old = f.read()
 
-                # compute the change in lineno
-                lineno = EDIT_HISTORY.adjust_lineno(fn, lineno)
-                new, delta = replace_string_literal(old, lineno, actual)
+                    # compute the change in lineno
+                    lineno = EDIT_HISTORY.adjust_lineno(fn, lineno)
+                    new, delta = replace_string_literal(old, lineno, actual)
 
-                assert old != new
+                    assert old != new, "Failed to substitute string at {}:{}".format(fn, lineno)
 
-                # Only write the backup file the first time we hit the
-                # file
-                if not EDIT_HISTORY.seen_file(fn):
-                    with open(fn + ".bak", 'w') as f_bak:
-                        f_bak.write(old)
-                f.seek(0)
-                f.truncate(0)
+                    # Only write the backup file the first time we hit the
+                    # file
+                    if not EDIT_HISTORY.seen_file(fn):
+                        with open(fn + ".bak", 'w') as f_bak:
+                            f_bak.write(old)
+                    f.seek(0)
+                    f.truncate(0)
 
-                f.write(new)
+                    f.write(new)
 
-            EDIT_HISTORY.record_edit(fn, lineno, delta)
+                EDIT_HISTORY.record_edit(fn, lineno, delta)
         else:
             help_text = "To accept the new output, re-run test with envvar EXPECTTEST_ACCEPT=1 (we recommend staging/committing your changes before doing this)"
             if hasattr(self, "assertMultiLineEqual"):
