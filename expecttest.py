@@ -159,6 +159,7 @@ def replace_string_literal(src, lineno, new_string):
 
 class TestCase(unittest.TestCase):
     longMessage = True
+    maxDiff = None
 
     def assertExpected(self, actual, expect, skip=0):
         if ACCEPT:

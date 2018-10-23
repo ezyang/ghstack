@@ -4,6 +4,7 @@ import subprocess
 import re
 import uuid
 import json
+import itertools
 from pprint import pprint
 
 class Shell(object):
@@ -39,19 +40,24 @@ def split_header(s):
     return s.split("\0")[:-1]
 
 # repo layout:
-#   - gh/pull/2345  -- what we think GitHub's current tip for commit is
-#   - gh/base/2345  -- what we think base commit for commit is
-#   - gh/clean/2345 -- the "clean" commit history, i.e., what we're
+#   - gh/username/base-2345 -- what we think GitHub's current tip for commit is
+#   - gh/username/head-2345 -- what we think base commit for commit is
+#   - gh/username/orig-2345 -- the "clean" commit history, i.e., what we're
 #                      rebasing, what you'd like to cherry-pick (???)
 #                      (Maybe this isn't necessary, because you can
 #                      get the "whole" diff from GitHub?  What about
 #                      commit description?)
-#   - and the true external state:
-#       - origin/gh/pull/2345
-#       - origin/gh/base/2345
-#       - origin/gh/clean/2345
 
-def main(github=None, sh=None):
+def branch_base(username, diffid):
+    return "gh/{}/{}/{}".format(username, "base", diffid)
+
+def branch_head(username, diffid):
+    return "gh/{}/{}/{}".format(username, "head", diffid)
+
+def branch_orig(username, diffid):
+    return "gh/{}/{}/{}".format(username, "orig", diffid)
+
+def main(github=None, sh=None, repo_owner="pytorch", repo_name="pytorch", username="ezyang"):
     if github is None:
         github = Endpoint('http://localhost:4000')
 
@@ -64,7 +70,7 @@ def main(github=None, sh=None):
             repository(name: $name, owner: $owner) {
                 id
             }
-        }""", owner="pytorch", name="pytorch")["data"]["repository"]["id"]
+        }""", owner=repo_owner, name=repo_name)["data"]["repository"]["id"]
 
     base = sh.git("merge-base", "origin/master", "HEAD")
 
@@ -75,7 +81,7 @@ def main(github=None, sh=None):
     # fetch from origin
     # TODO
 
-    submitter = Submitter(github, sh, repo_id, base)
+    submitter = Submitter(github, sh, username, repo_owner, repo_name, repo_id, base)
 
     # start with the earliest commit
     g = reversed(stack)
@@ -86,26 +92,23 @@ def main(github=None, sh=None):
 
 RE_RAW_COMMIT_ID = re.compile(r'^(?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_AUTHOR = re.compile(r'^author (?P<name>[^<]+?) <(?P<email>[^>]+)>', re.MULTILINE)
+RE_RAW_PARENT = re.compile(r'^parent (?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_TREE = re.compile(r'^tree (?P<tree>.+)$', re.MULTILINE)
 RE_RAW_COMMIT_MSG_LINE = re.compile(r'^    (?P<line>.*)$', re.MULTILINE)
-RE_RAW_METADATA = re.compile(r'^    Pull Request resolved: https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+) gh/clean/(?P<diffid>[0-9]+)$', re.MULTILINE)
+RE_RAW_METADATA = re.compile(r'^    Pull Request resolved: https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+) \(gh/(?P<username>[a-zA-Z0-9-]+)/head/(?P<diffid>[0-9]+)\)$', re.MULTILINE)
 
-def all_branches(diffid):
-    return (branch_base(diffid), branch_pull(diffid), branch_clean(diffid))
-
-def branch_base(diffid):
-    return "gh/base/" + diffid
-
-def branch_pull(diffid):
-    return "gh/pull/" + diffid
-
-def branch_clean(diffid):
-    return "gh/clean/" + diffid
+def all_branches(username, diffid):
+    return (branch_base(username, diffid),
+            branch_head(username, diffid),
+            branch_orig(username, diffid))
 
 class Submitter(object):
-    def __init__(self, github, sh, repo_id, base_commit):
+    def __init__(self, github, sh, username, repo_owner, repo_name, repo_id, base_commit):
         self.github = github
         self.sh = sh
+        self.username = username
+        self.repo_owner = repo_owner
+        self.repo_name = repo_name
         self.repo_id = repo_id
         self.base_commit = base_commit
         self.base_tree = None
@@ -152,21 +155,21 @@ class Submitter(object):
             # This is technically subject to a race, but we assume
             # end user is not running this script concurrently on
             # multiple machines (you bad bad)
-            refs = self.sh.git("for-each-ref", "refs/remotes/origin/gh/pull", "--format=%(refname)").split()
+            refs = self.sh.git("for-each-ref", "refs/remotes/origin/gh/{}/head".format(self.username), "--format=%(refname)").split()
             max_ref_num = max(int(ref.split('/')[-1]) for ref in refs) if refs else 0
             diffid = str(max_ref_num + 1)
 
             new_base = self.base_commit
-            self.sh.git("branch", "-f", branch_base(diffid), new_base)
+            self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
 
             new_pull = self.sh.git("commit-tree", tree,
                                    "-p", new_base,
                                    input=commit_msg)
-            self.sh.git("branch", "-f", branch_pull(diffid), new_pull)
+            self.sh.git("branch", "-f", branch_head(self.username, diffid), new_pull)
 
-            self.sh.git("branch", "-f", branch_clean(diffid), commit_id)
+            self.sh.git("branch", "-f", branch_orig(self.username, diffid), commit_id)
 
-            self.sh.git("push", "origin", *all_branches(diffid))
+            self.sh.git("push", "origin", *all_branches(self.username, diffid))
 
             # Time to open the PR
             r = self.github.graphql("""
@@ -180,8 +183,8 @@ class Submitter(object):
                     }
                 }
             """, input={
-                    "baseRefName": branch_base(diffid),
-                    "headRefName": branch_pull(diffid),
+                    "baseRefName": branch_base(self.username, diffid),
+                    "headRefName": branch_head(self.username, diffid),
                     "title": title,
                     "body": commit_msg,
                     "ownerId": self.repo_id,
@@ -191,17 +194,32 @@ class Submitter(object):
             print("Opened PR #{}".format(number))
 
             # Time to fuck around with the commit message
+            commit_msg = ("{commit_msg}\n\n"
+                         "Pull Request resolved: "
+                         "https://github.com/{owner}/{repo}/pull/{number} (gh/{username}/head/{diffid})\n"
+                         .format(commit_msg=commit_msg.rstrip(),
+                                 owner=self.repo_owner,
+                                 repo=self.repo_name,
+                                 number=number,
+                                 username=self.username,
+                                 diffid=diffid))
+            parents = itertools.chain.from_iterable(('-p', m.group("commit")) for m in RE_RAW_PARENT.finditer(commit))
+            self.sh.git("commit-tree", tree, *parents, input=commit_msg)
 
             self.stack_meta.append({
                 'id': prid,
                 'title': title,
                 'number': number,
                 'body': commit_msg,
-                'base': branch_base(diffid),
+                'base': branch_base(self.username, diffid),
                 'push_branches': (),
                 })
 
         else:
+            if m.match("username") != self.username:
+                # This is someone else's diff
+                raise RuntimeError("cannot handle stack from diffs of other people yet")
+
             diffid = m.match("diffid")
             number = int(m.match("number"))
 
@@ -221,7 +239,7 @@ class Submitter(object):
             prid = r["data"]["node"]["pullRequest"]["id"]
 
             # Check if updating is needed
-            clean_commit_id = self.sh.git("rev-parse", branch_clean(diffid))
+            clean_commit_id = self.sh.git("rev-parse", branch_orig(self.username, diffid))
             if clean_commit_id == commit_id:
                 print("Nothing to do")
                 push_branches = []
@@ -239,31 +257,31 @@ class Submitter(object):
                 #         won't work so good)
 
                 new_base = self.sh.git("commit-tree", self.base_tree,
-                                       "-p", branch_base(diffid),
+                                       "-p", branch_base(self.username, diffid),
                                        "-p", self.base_commit,
                                        input="Update")
-                self.sh.git("branch", "-f", branch_base(diffid), new_base)
+                self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
 
                 #   - Directly blast our current tree as the newest entry of pull,
                 #     merging against the previous pull entry, and the newest base.
 
                 tree = RE_RAW_TREE.search(commit).group("tree")
                 new_pull = self.sh.git("commit-tree", tree,
-                                       "-p", branch_pull(diffid),
+                                       "-p", branch_head(self.username, diffid),
                                        "-p", new_base,
                                        input="Update")
-                self.sh.git("branch", "-f", branch_pull(diffid), new_base)
+                self.sh.git("branch", "-f", branch_head(self.username, diffid), new_base)
 
-                self.sh.git("branch", "-f", branch_clean(diffid), commit_id)
+                self.sh.git("branch", "-f", branch_orig(self.username, diffid), commit_id)
 
-                push_branches = all_branches(diffid)
+                push_branches = all_branches(self.username, diffid)
 
             self.stack_meta.append({
                 'id': prid,
                 'title': title,
                 'number': number,
                 'body': commit_msg,
-                'base': branch_base(diffid),
+                'base': branch_base(self.username, diffid),
                 'push_branches': push_branches
                 })
 
