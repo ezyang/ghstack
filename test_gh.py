@@ -110,6 +110,7 @@ class TestGh(expecttest.TestCase):
         self.assertExpected(dump_github_state(self.github), '''\
 #500 New PR (blah -> master)
     What a nice PR this is
+
 ''')
 
     def test_simple(self):
@@ -132,6 +133,7 @@ class TestGh(expecttest.TestCase):
     This is my second commit
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/502 (gh/ezyang/head/3)
+
 ''')
 
 
