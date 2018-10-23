@@ -38,11 +38,12 @@ class TestExpectTest(expecttest.TestCase):
         r3 = {r}{quote}placeholder3{quote}
         """.format(r='r' if raw else '', quote=quote*3)
         new_prog = expecttest.replace_string_literal(textwrap.dedent(prog), 2, t)[0]
-        exec(new_prog)
+        ns = {}
+        exec(new_prog, ns)
         msg = "program was:\n{}".format(new_prog)
-        self.assertEqual(r, 'placeholder', msg=msg)  # noqa: F821
-        self.assertEqual(r2, expecttest.normalize_nl(t), msg=msg)  # noqa: F821
-        self.assertEqual(r3, 'placeholder3', msg=msg)  # noqa: F821
+        self.assertEqual(ns['r'], 'placeholder', msg=msg)  # noqa: F821
+        self.assertEqual(ns['r2'], expecttest.normalize_nl(t), msg=msg)  # noqa: F821
+        self.assertEqual(ns['r3'], 'placeholder3', msg=msg)  # noqa: F821
 
     def test_sample(self):
         prog = r"""

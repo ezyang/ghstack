@@ -115,11 +115,23 @@ class TestGh(expecttest.TestCase):
     def test_simple(self):
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
         gh.main(github=self.github, sh=self.sh)
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")
+        gh.main(github=self.github, sh=self.sh)
         self.assertExpected(dump_github_state(self.github), '''\
 #500 Commit 1 (gh/pull/1 -> gh/base/1)
     Commit 1
 
     This is my first commit
+
+#501 Commit 1 (gh/pull/1 -> gh/base/1)
+    Commit 1
+
+    This is my first commit
+
+#502 Commit 2 (gh/pull/1 -> gh/base/1)
+    Commit 2
+
+    This is my second commit
 ''')
 
 

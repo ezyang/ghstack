@@ -88,7 +88,10 @@ RE_RAW_COMMIT_ID = re.compile(r'^(?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_AUTHOR = re.compile(r'^author (?P<name>[^<]+?) <(?P<email>[^>]+)>', re.MULTILINE)
 RE_RAW_TREE = re.compile(r'^tree (?P<tree>.+)$', re.MULTILINE)
 RE_RAW_COMMIT_MSG_LINE = re.compile(r'^    (?P<line>.*)$', re.MULTILINE)
-RE_RAW_METADATA = re.compile(r'^    Pull Request resolved: https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+) <(?P<diffid>[^>]+)>$', re.MULTILINE)
+RE_RAW_METADATA = re.compile(r'^    Pull Request resolved: https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+) gh/clean/(?P<diffid>[0-9]+)$', re.MULTILINE)
+
+def all_branches(diffid):
+    return (branch_base(diffid), branch_pull(diffid), branch_clean(diffid))
 
 def branch_base(diffid):
     return "gh/base/" + diffid
@@ -149,7 +152,6 @@ class Submitter(object):
             # This is technically subject to a race, but we assume
             # end user is not running this script concurrently on
             # multiple machines (you bad bad)
-
             refs = self.sh.git("for-each-ref", "refs/remotes/origin/gh/pull", "--format=%(refname)").split()
             max_ref_num = max(int(ref.split('/')[-1]) for ref in refs) if refs else 0
             diffid = str(max_ref_num + 1)
@@ -164,7 +166,7 @@ class Submitter(object):
 
             self.sh.git("branch", "-f", branch_clean(diffid), commit_id)
 
-            # TODO: DO THE PUSH
+            self.sh.git("push", "origin", *all_branches(diffid))
 
             # Time to open the PR
             r = self.github.graphql("""
@@ -188,13 +190,15 @@ class Submitter(object):
             number = r["data"]["createPullRequest"]["pullRequest"]["number"]
             print("Opened PR #{}".format(number))
 
+            # Time to fuck around with the commit message
+
             self.stack_meta.append({
                 'id': prid,
                 'title': title,
                 'number': number,
                 'body': commit_msg,
                 'base': branch_base(diffid),
-                'push_branches': [],
+                'push_branches': (),
                 })
 
         else:
@@ -252,7 +256,7 @@ class Submitter(object):
 
                 self.sh.git("branch", "-f", branch_clean(diffid), commit_id)
 
-                push_branches = [branch_base(diffid), branch_pull(diffid), branch_clean(diffid)]
+                push_branches = all_branches(diffid)
 
             self.stack_meta.append({
                 'id': prid,
@@ -260,7 +264,7 @@ class Submitter(object):
                 'number': number,
                 'body': commit_msg,
                 'base': branch_base(diffid),
-                'push_branches': push_Branches
+                'push_branches': push_branches
                 })
 
         self.base_commit = new_base
