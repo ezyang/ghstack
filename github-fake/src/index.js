@@ -58,6 +58,23 @@ const githubResolvers = {
     repository: (root, args) =>
       Object.values(REPOSITORIES).find((repo) => repo.nameWithOwner == (args.owner + "/" + args.name))
     ,
+    node: (root, args) => {
+      if (args.id in REPOSITORIES) {
+        return REPOSITORIES[args.id];
+      } else if (args.id in PULL_REQUESTS) {
+        return PULL_REQUESTS[args.id];
+      }
+    }
+  },
+  Node: {
+    __resolveType(obj, context, info) {
+      if (obj.nameWithOwner) {
+        return 'Repository';
+      } else if (obj.headRefName) {
+        return 'PullRequest';
+      }
+      return null;
+    }
   },
   Repository: {
     pullRequest: (root, args) =>

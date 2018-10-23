@@ -5,6 +5,7 @@ import re
 import uuid
 import json
 import itertools
+import os
 from pprint import pprint
 
 class Shell(object):
@@ -15,7 +16,7 @@ class Shell(object):
         stdin = None
         if 'input' in kwargs:
             stdin = subprocess.PIPE
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, cwd=self.cwd)
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, stderr=kwargs.get("stderr"), cwd=self.cwd)
         out, _ = p.communicate(kwargs.get('input'))
         if p.returncode != 0:
             raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
@@ -111,6 +112,7 @@ class Submitter(object):
         self.repo_name = repo_name
         self.repo_id = repo_id
         self.base_commit = base_commit
+        self.base_orig = base_commit
         self.base_tree = None
         self.stack_meta = []
 
@@ -121,8 +123,15 @@ class Submitter(object):
         title = RE_RAW_COMMIT_MSG_LINE.search(commit).group("line")
         commit_id = RE_RAW_COMMIT_ID.search(commit).group("commit")
         tree = RE_RAW_TREE.search(commit).group("tree")
+        parents = list(RE_RAW_PARENT.finditer(commit))
+        new_orig = commit_id
+        new_base = self.base_commit
 
         print("### Processing {} {}".format(commit_id[:9], title))
+
+        if len(parents) != 1:
+            print("{} parents makes my head explode.  `git rebase -i` your diffs into a stack, then try again.")
+        parent = parents[0]
 
         # check if we authored the commit.  We don't touch shit we didn't
         # create. (OPTIONAL)
@@ -159,7 +168,6 @@ class Submitter(object):
             max_ref_num = max(int(ref.split('/')[-1]) for ref in refs) if refs else 0
             diffid = str(max_ref_num + 1)
 
-            new_base = self.base_commit
             self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
 
             new_pull = self.sh.git("commit-tree", tree,
@@ -167,9 +175,7 @@ class Submitter(object):
                                    input=commit_msg)
             self.sh.git("branch", "-f", branch_head(self.username, diffid), new_pull)
 
-            self.sh.git("branch", "-f", branch_orig(self.username, diffid), commit_id)
-
-            self.sh.git("push", "origin", *all_branches(self.username, diffid))
+            self.sh.git("push", "origin", branch_head(self.username, diffid), branch_base(self.username, diffid), stderr=open(os.devnull, 'w'))
 
             pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
@@ -207,8 +213,9 @@ class Submitter(object):
                                  diffid=diffid))
             pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
-            parents = itertools.chain.from_iterable(('-p', m.group("commit")) for m in RE_RAW_PARENT.finditer(commit))
-            self.sh.git("commit-tree", tree, *parents, input=commit_msg)
+            new_orig = self.sh.git("commit-tree", tree, "-p", self.base_orig, input=commit_msg)
+
+            self.sh.git("branch", "-f", branch_orig(self.username, diffid), new_orig)
 
             self.stack_meta.append({
                 'id': prid,
@@ -216,16 +223,16 @@ class Submitter(object):
                 'number': number,
                 'body': pr_body,
                 'base': branch_base(self.username, diffid),
-                'push_branches': (),
+                'push_branches': (branch_orig(self.username, diffid), ),
                 })
 
         else:
-            if m.match("username") != self.username:
+            if m_metadata.group("username") != self.username:
                 # This is someone else's diff
                 raise RuntimeError("cannot handle stack from diffs of other people yet")
 
-            diffid = m.match("diffid")
-            number = int(m.match("number"))
+            diffid = m_metadata.group("diffid")
+            number = int(m_metadata.group("number"))
 
             # With the REST API, this is totally unnecessary. Might
             # be better to store these IDs in the commit message itself.
@@ -239,7 +246,8 @@ class Submitter(object):
                   }
                 }
               }
-            """)
+            """, repo_id=self.repo_id, number=number)
+            pprint(r)
             prid = r["data"]["node"]["pullRequest"]["id"]
 
             # Check if updating is needed
@@ -248,7 +256,7 @@ class Submitter(object):
                 print("Nothing to do")
                 push_branches = []
             else:
-                print("Updating #{}".format(number))
+                print("Pushing to #{}".format(number))
 
                 # ok, so now we want to ENTER a new entry into our log
                 #   - Directly blast the tree of HEAD~ as the newest entry in base,
@@ -276,7 +284,11 @@ class Submitter(object):
                                        input="Update")
                 self.sh.git("branch", "-f", branch_head(self.username, diffid), new_base)
 
-                self.sh.git("branch", "-f", branch_orig(self.username, diffid), commit_id)
+                # History reedit!  Commit message changes only
+                if parent != self.orig_base:
+                    new_orig = self.sh.git("commit-tree", tree, "-p", self.base_orig, input=commit_msg)
+
+                self.sh.git("branch", "-f", branch_orig(self.username, diffid), new_orig)
 
                 push_branches = all_branches(self.username, diffid)
 
@@ -290,10 +302,14 @@ class Submitter(object):
                 })
 
         self.base_commit = new_base
+        self.base_orig = new_orig
         self.base_tree = tree
 
 
     def post_process(self):
+        # fix the HEAD pointer
+        self.sh.git("reset", "--soft", self.base_orig)
+
         # update pull request information, update bases as necessary
         #   preferably do this in one network call
         # push your commits (be sure to do this AFTER you update bases)
@@ -317,7 +333,7 @@ class Submitter(object):
             # of patches as part of the PR, when actually they were just from
             # the (new) upstream branch
             if s['push_branches']:
-                sh.git("push", "origin", *s['push_branches'])
+                self.sh.git("push", "origin", *s['push_branches'], stderr=open(os.devnull, 'w'))
 
 
 # How to update commit messages?  Probably should reimplement git rebase
