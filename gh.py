@@ -171,6 +171,8 @@ class Submitter(object):
 
             self.sh.git("push", "origin", *all_branches(self.username, diffid))
 
+            pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
+
             # Time to open the PR
             r = self.github.graphql("""
                 mutation ($input : CreatePullRequestInput!) {
@@ -186,7 +188,7 @@ class Submitter(object):
                     "baseRefName": branch_base(self.username, diffid),
                     "headRefName": branch_head(self.username, diffid),
                     "title": title,
-                    "body": commit_msg,
+                    "body": pr_body,
                     "ownerId": self.repo_id,
                 })
             prid = r["data"]["createPullRequest"]["pullRequest"]["id"]
@@ -203,6 +205,8 @@ class Submitter(object):
                                  number=number,
                                  username=self.username,
                                  diffid=diffid))
+            pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
+
             parents = itertools.chain.from_iterable(('-p', m.group("commit")) for m in RE_RAW_PARENT.finditer(commit))
             self.sh.git("commit-tree", tree, *parents, input=commit_msg)
 
@@ -210,7 +214,7 @@ class Submitter(object):
                 'id': prid,
                 'title': title,
                 'number': number,
-                'body': commit_msg,
+                'body': pr_body,
                 'base': branch_base(self.username, diffid),
                 'push_branches': (),
                 })

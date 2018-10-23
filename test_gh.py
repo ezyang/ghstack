@@ -119,24 +119,18 @@ class TestGh(expecttest.TestCase):
         gh.main(github=self.github, sh=self.sh)
         self.assertExpected(dump_github_state(self.github), '''\
 #500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
-    Commit 1
-
     This is my first commit
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
 
 
 #501 Commit 1 (gh/ezyang/head/2 -> gh/ezyang/base/2)
-    Commit 1
-
     This is my first commit
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/head/2)
 
 
 #502 Commit 2 (gh/ezyang/head/3 -> gh/ezyang/base/3)
-    Commit 2
-
     This is my second commit
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/502 (gh/ezyang/head/3)
