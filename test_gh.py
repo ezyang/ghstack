@@ -35,8 +35,8 @@ def dump_github_state(github):
     for pr in r['data']['repository']['pullRequests']['nodes']:
         pr['body'] = indent(pr['body'], '    ')
         prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n"
-                   "{body}\n".format(**pr))
-    return "\n".join(prs)
+                   "{body}\n\n".format(**pr))
+    return "".join(prs)
 
 
 def create_pr(github):
