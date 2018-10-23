@@ -198,7 +198,7 @@ class Submitter(object):
             # Time to fuck around with the commit message
             commit_msg = ("{commit_msg}\n\n"
                          "Pull Request resolved: "
-                         "https://github.com/{owner}/{repo}/pull/{number} (gh/{username}/head/{diffid})\n"
+                         "https://github.com/{owner}/{repo}/pull/{number} (gh/{username}/head/{diffid})"
                          .format(commit_msg=commit_msg.rstrip(),
                                  owner=self.repo_owner,
                                  repo=self.repo_name,

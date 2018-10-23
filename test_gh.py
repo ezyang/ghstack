@@ -123,18 +123,15 @@ class TestGh(expecttest.TestCase):
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
 
-
 #501 Commit 1 (gh/ezyang/head/2 -> gh/ezyang/base/2)
     This is my first commit
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/head/2)
 
-
 #502 Commit 2 (gh/ezyang/head/3 -> gh/ezyang/base/3)
     This is my second commit
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/502 (gh/ezyang/head/3)
-
 ''')
 
 
