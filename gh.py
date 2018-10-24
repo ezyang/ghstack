@@ -8,22 +8,58 @@ import itertools
 import os
 from pprint import pprint
 
+def format_env(env):
+    r = []
+    for k, v in env.items():
+        r.append("{}={}".format(k, subprocess.list2cmdline([v])))
+    return ' '.join(r)
+
+def log_command(args, env=None):
+    cmd = subprocess.list2cmdline(args).replace("\n", "\\n")
+    #if env is not None:
+    #    cmd = "{} {}".format(format_env(env), cmd)
+    print("$ " + cmd)
+
+def merge_dicts(x, y):
+    z = x.copy()
+    z.update(y)
+    return z
+
 class Shell(object):
-    def __init__(self, cwd=None):
+    def __init__(self, quiet=False, cwd=None):
         self.cwd = cwd
+        self.quiet = quiet
 
     def sh(self, *args, **kwargs):
         stdin = None
         if 'input' in kwargs:
             stdin = subprocess.PIPE
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, stderr=kwargs.get("stderr"), cwd=self.cwd)
+        env = kwargs.get("env")
+        if not self.quiet:
+            log_command(args, env=env)
+        if env is not None:
+            env = merge_dicts(os.environ, env)
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, stderr=kwargs.get("stderr"), cwd=self.cwd, env=env)
         out, _ = p.communicate(kwargs.get('input'))
         if p.returncode != 0:
             raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
         return out.decode()
 
     def git(self, *args, **kwargs):
+        env = kwargs.setdefault("env", {})
+        # Some envvars to make things a little more script mode nice
+        env.setdefault("EDITOR", ":")
+        env.setdefault("GIT_MERGE_AUTOEDIT", "no")
+        # These should probably be test only
+        env.setdefault("LANG", "C")
+        env.setdefault("LC_ALL", "C")
+        env.setdefault("PAGER", "cat")
+        env.setdefault("TZ", "UTC")
+        env.setdefault("TERM", "dumb")
         return self.sh(*(("git",) + args), **kwargs).rstrip("\n")
+
+    def open(self, fn, mode):
+        return open(os.path.join(self.cwd, fn), mode)
 
 class Endpoint(object):
     def __init__(self, endpoint):
@@ -73,14 +109,12 @@ def main(github=None, sh=None, repo_owner="pytorch", repo_name="pytorch", userna
             }
         }""", owner=repo_owner, name=repo_name)["data"]["repository"]["id"]
 
+    sh.git("fetch", "origin", stderr=open(os.devnull, 'w'))
     base = sh.git("merge-base", "origin/master", "HEAD")
 
     # compute the stack of commits to process (reverse chronological order),
     # INCLUDING the base commit
     stack = split_header(sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
-
-    # fetch from origin
-    # TODO
 
     submitter = Submitter(github, sh, username, repo_owner, repo_name, repo_id, base)
 
@@ -247,7 +281,6 @@ class Submitter(object):
                 }
               }
             """, repo_id=self.repo_id, number=number)
-            pprint(r)
             prid = r["data"]["node"]["pullRequest"]["id"]
 
             # Check if updating is needed

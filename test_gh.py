@@ -93,7 +93,7 @@ class TestGh(expecttest.TestCase):
         # Set up a "parent" repository with an empty initial commit that we'll operate on
         upstream_dir = tempfile.mkdtemp()
         self.addCleanup(lambda: shutil.rmtree(upstream_dir))
-        self.upstream_sh = gh.Shell(upstream_dir)
+        self.upstream_sh = gh.Shell(cwd=upstream_dir)
         self.upstream_sh.git("init", "--bare")
         tree = self.upstream_sh.git("write-tree")
         commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
@@ -101,7 +101,7 @@ class TestGh(expecttest.TestCase):
 
         local_dir = tempfile.mkdtemp()
         self.addCleanup(lambda: shutil.rmtree(local_dir))
-        self.sh = gh.Shell(local_dir)
+        self.sh = gh.Shell(cwd=local_dir)
         self.sh.git("clone", upstream_dir, ".")
 
     # Just to make sure the GraphQL is working at all
@@ -114,15 +114,20 @@ class TestGh(expecttest.TestCase):
 
 ''')
 
+    def gh(self):
+        gh.main(github=self.github, sh=self.sh)
+
     def test_simple(self):
         print("####################")
+        print("### test_simple")
+        print("###")
         print("### First commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
-        gh.main(github=self.github, sh=self.sh)
-        print("####################")
+        self.gh()
+        print("###")
         print("### Second commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")
-        gh.main(github=self.github, sh=self.sh)
+        self.gh()
         self.assertExpected(dump_github_state(self.github), '''\
 #500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
 
@@ -140,6 +145,44 @@ class TestGh(expecttest.TestCase):
 
 ''')
 
+    def test_amend(self):
+        print("####################")
+        print("### test_amend")
+        print("###")
+        print("### First commit")
+        self.sh.open("file1.txt", "w").write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.gh()
+        self.assertExpected(dump_github_state(self.github), '''\
+#500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
+
+''')
+        print("###")
+        print("### Amend the commit")
+        self.sh.open("file1.txt", "w").write("ABBA")
+        self.sh.git("add", "file1.txt")
+        # Can't use -m here, it will clobber the metadata
+        self.sh.git("commit", "--amend")
+        self.gh()
+        self.assertExpected(dump_github_state(self.github), '''\
+#500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
+
+#501 Commit 1b (gh/ezyang/head/2 -> gh/ezyang/base/2)
+
+    A commit with an ABBA
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/head/2)
+
+''')
 
 
 #   def load_tests(loader, tests, ignore):
