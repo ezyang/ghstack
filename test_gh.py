@@ -7,36 +7,13 @@ import warnings
 import os
 import shutil
 import tempfile
+import re
 
 import gh
 
 
 def indent(text, prefix):
     return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
-
-
-def dump_github_state(github):
-    r = github.graphql("""
-      query {
-        repository(name: "pytorch", owner: "pytorch") {
-          pullRequests {
-            nodes {
-              number
-              baseRefName
-              headRefName
-              title
-              body
-            }
-          }
-        }
-      }
-    """)
-    prs = []
-    for pr in r['data']['repository']['pullRequests']['nodes']:
-        pr['body'] = indent(pr['body'], '    ')
-        prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n\n"
-                   "{body}\n\n".format(**pr))
-    return "".join(prs)
 
 
 def create_pr(github):
@@ -93,7 +70,7 @@ class TestGh(expecttest.TestCase):
         # Set up a "parent" repository with an empty initial commit that we'll operate on
         upstream_dir = tempfile.mkdtemp()
         self.addCleanup(lambda: shutil.rmtree(upstream_dir))
-        self.upstream_sh = gh.Shell(cwd=upstream_dir)
+        self.upstream_sh = gh.Shell(cwd=upstream_dir, testing=True)
         self.upstream_sh.git("init", "--bare")
         tree = self.upstream_sh.git("write-tree")
         commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
@@ -101,7 +78,7 @@ class TestGh(expecttest.TestCase):
 
         local_dir = tempfile.mkdtemp()
         self.addCleanup(lambda: shutil.rmtree(local_dir))
-        self.sh = gh.Shell(cwd=local_dir)
+        self.sh = gh.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
 
     # Just to make sure the GraphQL is working at all
@@ -117,32 +94,86 @@ class TestGh(expecttest.TestCase):
     def gh(self):
         gh.main(github=self.github, sh=self.sh)
 
+    def dump_github(self):
+        r = self.github.graphql("""
+          query {
+            repository(name: "pytorch", owner: "pytorch") {
+              pullRequests {
+                nodes {
+                  number
+                  baseRefName
+                  headRefName
+                  title
+                  body
+                }
+              }
+            }
+          }
+        """)
+        prs = []
+        for pr in r['data']['repository']['pullRequests']['nodes']:
+            pr['body'] = indent(pr['body'], '    ')
+            pr['commits'] = self.upstream_sh.git("log", "--reverse", "--pretty=format:%h %s", pr["baseRefName"] + ".." + pr["headRefName"])
+            pr['commits'] = indent(pr['commits'], '     * ')
+            prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n\n"
+                       "{body}\n\n{commits}\n\n".format(**pr))
+            refs = self.upstream_sh.git("for-each-ref", "--format=%(refname:lstrip=2) %(objectname:short) %(contents:subject)", "refs/heads/gh/")
+        return "".join(prs) + refs + "\n"
+
+    def substituteRev(self, rev, substitute):
+        # short doesn't really have to be here if we do substituteRev
+        self.substituteExpected(self.sh.git("rev-parse", "--short", rev), substitute)
+
     def test_simple(self):
         print("####################")
         print("### test_simple")
         print("###")
+
+        self.substituteRev("HEAD", "rINI0")
+
         print("### First commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
         self.gh()
-        print("###")
-        print("### Second commit")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")
-        self.gh()
-        self.assertExpected(dump_github_state(self.github), '''\
-#500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
-
-    Commit 1
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     This is my first commit
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
+     * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/head/2 -> gh/ezyang/base/2)
+gh/ezyang/1/base rINI0 Initial commit
+gh/ezyang/1/head rMRG1 Commit 1
+gh/ezyang/1/orig rCOM1 Commit 1
+''')
+        print("###")
+        print("### Second commit")
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     This is my second commit
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/head/2)
+     * rMRG2 Commit 2
 
+gh/ezyang/1/base rINI0 Initial commit
+gh/ezyang/1/head rMRG1 Commit 1
+gh/ezyang/1/orig rCOM1 Commit 1
+gh/ezyang/2/base rCOM1 Commit 1
+gh/ezyang/2/head rMRG2 Commit 2
+gh/ezyang/2/orig rCOM2 Commit 2
 ''')
 
     def test_amend(self):
@@ -153,14 +184,18 @@ class TestGh(expecttest.TestCase):
         self.sh.open("file1.txt", "w").write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
         self.gh()
-        self.assertExpected(dump_github_state(self.github), '''\
-#500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
+     * 620c2da Commit 1
 
+gh/ezyang/1/base dc8bfe4 Initial commit
+gh/ezyang/1/head 620c2da Commit 1
+gh/ezyang/1/orig 124ff03 Commit 1
 ''')
         print("###")
         print("### Amend the commit")
@@ -168,20 +203,23 @@ class TestGh(expecttest.TestCase):
         self.sh.git("add", "file1.txt")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
+        self.sh.test_tick()
         self.gh()
-        self.assertExpected(dump_github_state(self.github), '''\
-#500 Commit 1 (gh/ezyang/head/1 -> gh/ezyang/base/1)
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/head/1)
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
 
-#501 Commit 1b (gh/ezyang/head/2 -> gh/ezyang/base/2)
+     * 620c2da Commit 1
+     * 067cd89 Update
 
-    A commit with an ABBA
-
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/head/2)
-
+gh/ezyang/1/base b214491 Update
+gh/ezyang/1/head 067cd89 Update
+gh/ezyang/1/orig ea0b7a3 Commit 1
 ''')
 
 

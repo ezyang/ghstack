@@ -157,11 +157,30 @@ def replace_string_literal(src, lineno, new_string):
     return (RE_EXPECT.sub(replace, src[:i][::-1], count=1)[::-1] + src[i:], delta[0])
 
 
+def replace_many(rep, text):
+    rep = dict((re.escape(k), v) for k, v in rep.iteritems())
+    pattern = re.compile("|".join(rep.keys()))
+    return pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
+
+
 class TestCase(unittest.TestCase):
     longMessage = True
     maxDiff = None
 
+    def substituteExpected(self, pattern, replacement):
+        if not hasattr(self, '_expect_filters'):
+            self._expect_filters = {}
+            def expect_filters_cleanup():
+                del self._expect_filters
+            self.addCleanup(expect_filters_cleanup)
+        if pattern in self._expect_filters:
+            raise RuntimeError("Cannot remap {} to {} (existing mapping is {})".format(pattern, replacement, self._expect_filters[pattern]))
+        self._expect_filters[pattern] = replacement
+
     def assertExpected(self, actual, expect, skip=0):
+        if hasattr(self, '_expect_filters'):
+            actual = replace_many(self._expect_filters, actual)
+
         if ACCEPT:
             if actual != expect:
                 # current frame and parent frame, plus any requested skip
