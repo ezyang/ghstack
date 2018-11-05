@@ -454,13 +454,10 @@ gh/ezyang/2/head rMRG2 Commit 2
 gh/ezyang/2/orig rCOM2 Commit 2
 ''')
         self.assertExpected(self.sh.git("log", "--graph", "--oneline", "gh/ezyang/1/head", "gh/ezyang/2/head"), '''\
-*   rMRG1A Update
-|\\  
-| | * rMRG2 Commit 2
-| |/  
-|/|   
-* | rMRG1 Commit 1
+* rMRG1A Update
+| * rMRG2 Commit 2
 |/  
+* rMRG1 Commit 1
 * rINI0 Initial commit''')
 
         print("###")
@@ -500,15 +497,13 @@ gh/ezyang/2/base rMRG1A Update
 gh/ezyang/2/head rMRG2A Update
 gh/ezyang/2/orig rCOM2A Commit 2
 ''')
-        self.assertExpected(self.sh.git("log", "--graph", "--oneline", "gh/ezyang/2/head"), '''\
+        self.assertExpected(self.sh.git("log", "--graph", "--oneline", "gh/ezyang/1/head", "gh/ezyang/2/head"), '''\
 *   rMRG2A Update
 |\\  
-| *   rMRG1A Update
-| |\\  
-* | | rMRG2 Commit 2
-|/ /  
-* | rMRG1 Commit 1
+| * rMRG1A Update
+* | rMRG2 Commit 2
 |/  
+* rMRG1 Commit 1
 * rINI0 Initial commit''')
 
 

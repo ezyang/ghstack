@@ -367,18 +367,31 @@ class Submitter(object):
                 #     correct base commit to base our diff off of.
                 #
 
-                # OK, so we need to adjust the base commit.
-                # But maybe the freshly generated merge commit is
-                # good enough.  Use it if we can, in that case.
-                if self.sh.git("merge-base", "--is-ancestor", branch_base(self.username, diffid), self.base_commit, exitcode=True):
+                # First, check if gh/ezyang/1/head is equal to gh/ezyang/2/base.
+                # We don't need to update base, nor do we need an extra
+                # merge base.  (--is-ancestor check here is acceptable,
+                # because the base_commit in our stack could not have
+                # gone backwards)
+                if self.sh.git("merge-base", "--is-ancestor", self.base_commit, branch_base(self.username, diffid), exitcode=True):
                     new_base = self.base_commit
+                    base_args = ()
                 else:
-                    new_base = self.sh.git("commit-tree", self.base_tree,
-                                           "-p", branch_base(self.username, diffid),
-                                           "-p", self.base_commit,
-                                           input="Update base")
+                    # Second, check if gh/ezyang/2/base is an ancestor
+                    # of gh/ezyang/1/head.  If it is, we'll do a merge,
+                    # but we don't need to create a synthetic base
+                    # commit.
+                    if self.sh.git("merge-base", "--is-ancestor", branch_base(self.username, diffid), self.base_commit, exitcode=True):
+                        new_base = self.base_commit
+                    else:
+                        # Our base changed in a strange way, and we are
+                        # now obligated to create a synthetic base
+                        # commit.
+                        new_base = self.sh.git("commit-tree", self.base_tree,
+                                               "-p", branch_base(self.username, diffid),
+                                               "-p", self.base_commit,
+                                               input="Update base")
+                    base_args = ("-p", new_base)
                 self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
-                base_args = ("-p", new_base)
 
                 #   - Directly blast our current tree as the newest entry of pull,
                 #     merging against the previous pull entry, and the newest base.
