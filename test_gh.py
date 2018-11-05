@@ -81,15 +81,7 @@ class TestGh(expecttest.TestCase):
         self.sh = gh.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
 
-    # Just to make sure the GraphQL is working at all
-    def test_smoketest(self):
-        create_pr(self.github)
-        self.assertExpected(dump_github_state(self.github), '''\
-#500 New PR (blah -> master)
-
-    What a nice PR this is
-
-''')
+        self.substituteRev("HEAD", "rINI0")
 
     def gh(self):
         gh.main(github=self.github, sh=self.sh)
@@ -128,8 +120,6 @@ class TestGh(expecttest.TestCase):
         print("####################")
         print("### test_simple")
         print("###")
-
-        self.substituteRev("HEAD", "rINI0")
 
         print("### First commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
@@ -186,16 +176,19 @@ gh/ezyang/2/orig rCOM2 Commit 2
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     A commit with an A
 
-     * 620c2da Commit 1
+     * rMRG1 Commit 1
 
-gh/ezyang/1/base dc8bfe4 Initial commit
-gh/ezyang/1/head 620c2da Commit 1
-gh/ezyang/1/orig 124ff03 Commit 1
+gh/ezyang/1/base rINI0 Initial commit
+gh/ezyang/1/head rMRG1 Commit 1
+gh/ezyang/1/orig rCOM1 Commit 1
 ''')
         print("###")
         print("### Amend the commit")
@@ -203,8 +196,10 @@ gh/ezyang/1/orig 124ff03 Commit 1
         self.sh.git("add", "file1.txt")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
+        self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
         self.gh()
+        self.substituteRev("gh/ezyang/1/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -214,12 +209,12 @@ gh/ezyang/1/orig 124ff03 Commit 1
 
     Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
 
-     * 620c2da Commit 1
-     * 067cd89 Update
+     * rMRG1 Commit 1
+     * rMRG2 Update
 
-gh/ezyang/1/base b214491 Update
-gh/ezyang/1/head 067cd89 Update
-gh/ezyang/1/orig ea0b7a3 Commit 1
+gh/ezyang/1/base rINI0 Initial commit
+gh/ezyang/1/head rMRG2 Update
+gh/ezyang/1/orig rCOM2 Commit 1
 ''')
 
 

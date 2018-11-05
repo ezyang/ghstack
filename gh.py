@@ -173,7 +173,7 @@ class Submitter(object):
         title = RE_RAW_COMMIT_MSG_LINE.search(commit).group("line")
         commit_id = RE_RAW_COMMIT_ID.search(commit).group("commit")
         tree = RE_RAW_TREE.search(commit).group("tree")
-        parents = list(RE_RAW_PARENT.finditer(commit))
+        parents = [m.group("commit") for m in RE_RAW_PARENT.finditer(commit)]
         new_orig = commit_id
 
         print("# Processing {} {}".format(commit_id[:9], title))
@@ -331,11 +331,15 @@ class Submitter(object):
                 #         (if you're doing weird shit with cherry-picking, this
                 #         won't work so good)
 
-                new_base = self.sh.git("commit-tree", self.base_tree,
-                                       "-p", branch_base(self.username, diffid),
-                                       "-p", self.base_commit,
-                                       input="Update")
-                self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
+                # But avoid making a new base if it's not necessary
+                new_base = branch_base(self.username, diffid)
+                current_base_tree = self.sh.git("rev-parse", new_base + "^{tree}")
+                if self.base_tree != current_base_tree:
+                    new_base = self.sh.git("commit-tree", self.base_tree,
+                                           "-p", branch_base(self.username, diffid),
+                                           "-p", self.base_commit,
+                                           input="Update")
+                    self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
 
                 #   - Directly blast our current tree as the newest entry of pull,
                 #     merging against the previous pull entry, and the newest base.
@@ -349,6 +353,7 @@ class Submitter(object):
 
                 # History reedit!  Commit message changes only
                 if parent != self.base_orig:
+                    print("Restacking commit on {}".format(self.base_orig))
                     new_orig = self.sh.git("commit-tree", tree, "-p", self.base_orig, input=commit_msg)
 
                 self.sh.git("branch", "-f", branch_orig(self.username, diffid), new_orig)
