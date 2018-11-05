@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import argparse
 import requests
 import subprocess
@@ -6,6 +8,7 @@ import uuid
 import json
 import itertools
 import os
+import sys
 from pprint import pprint
 
 def format_env(env):
@@ -42,7 +45,9 @@ class Shell(object):
         if env is not None:
             env = merge_dicts(os.environ, env)
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, stderr=kwargs.get("stderr"), cwd=self.cwd, env=env)
-        out, _ = p.communicate(kwargs.get('input'))
+        out, err = p.communicate(kwargs.get('input'))
+        if err is not None:
+            print(err, file=sys.stderr, end='')
         if p.returncode != 0:
             raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
         return out.decode()
@@ -65,6 +70,8 @@ class Shell(object):
             env.setdefault("GIT_COMMITTER_NAME", "C O Mitter")
             env.setdefault("GIT_COMMITTER_DATE", "{} -0700".format(self.testing_time))
             env.setdefault("GIT_AUTHOR_DATE", "{} -0700".format(self.testing_time))
+            if 'stderr' not in kwargs:
+                kwargs['stderr'] = subprocess.PIPE
 
         return self.sh(*(("git",) + args), **kwargs).rstrip("\n")
 

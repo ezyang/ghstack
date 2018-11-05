@@ -116,6 +116,8 @@ class TestGh(expecttest.TestCase):
         # short doesn't really have to be here if we do substituteRev
         self.substituteExpected(self.sh.git("rev-parse", "--short", rev), substitute)
 
+    # ------------------------------------------------------------------------- #
+
     def test_simple(self):
         print("####################")
         print("### test_simple")
@@ -165,6 +167,8 @@ gh/ezyang/2/base rCOM1 Commit 1
 gh/ezyang/2/head rMRG2 Commit 2
 gh/ezyang/2/orig rCOM2 Commit 2
 ''')
+
+    # ------------------------------------------------------------------------- #
 
     def test_amend(self):
         print("####################")
