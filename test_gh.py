@@ -16,6 +16,10 @@ import gh
 GH_KEEP_TMP = os.getenv('GH_KEEP_TMP')
 
 
+def strip_trailing_whitespace(text):
+    return re.sub(r' +$', '', text, flags=re.MULTILINE)
+
+
 def indent(text, prefix):
     return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
 
@@ -130,8 +134,8 @@ class TestGh(expecttest.TestCase):
             pr['commits'] = indent(pr['commits'], '     * ')
             prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n\n"
                        "{body}\n\n{commits}\n\n".format(**pr))
-            refs = self.upstream_sh.git("for-each-ref", "--format=%(refname:lstrip=2) %(objectname:short) %(contents:subject)", "refs/heads/gh/")
-        return "".join(prs) + refs + "\n"
+            refs = self.upstream_sh.git("log", "--graph", "--oneline", "--branches=gh/*/*/head", "--decorate")
+        return "".join(prs) + "Repository state:\n\n" + indent(strip_trailing_whitespace(refs), '    ') + "\n\n"
 
     # ------------------------------------------------------------------------- #
 
@@ -153,9 +157,11 @@ class TestGh(expecttest.TestCase):
 
      * rMRG1 Commit 1
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
         print("###")
         print("### Second commit")
@@ -167,7 +173,11 @@ gh/ezyang/1/orig rCOM1 Commit 1
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Commit 1
+
     This is my first commit
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
 
      * rMRG1 Commit 1
 
@@ -177,12 +187,12 @@ gh/ezyang/1/orig rCOM1 Commit 1
 
      * rMRG2 Commit 2
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
-gh/ezyang/2/base rCOM1 Commit 1
-gh/ezyang/2/head rMRG2 Commit 2
-gh/ezyang/2/orig rCOM2 Commit 2
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
 
     # ------------------------------------------------------------------------- #
@@ -207,9 +217,11 @@ gh/ezyang/2/orig rCOM2 Commit 2
 
      * rMRG1 Commit 1
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
         print("###")
         print("### Amend the commit")
@@ -233,9 +245,12 @@ gh/ezyang/1/orig rCOM1 Commit 1
      * rMRG1 Commit 1
      * rMRG2 Update
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG2 Update
-gh/ezyang/1/orig rCOM2 Commit 1
+Repository state:
+
+    * rMRG2 (gh/ezyang/1/head) Update
+    * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
 
     # ------------------------------------------------------------------------- #
@@ -275,12 +290,12 @@ gh/ezyang/1/orig rCOM2 Commit 1
 
      * rMRG2 Commit 2
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
-gh/ezyang/2/base rMRG1 Commit 1
-gh/ezyang/2/head rMRG2 Commit 2
-gh/ezyang/2/orig rCOM2 Commit 2
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
 
     # ------------------------------------------------------------------------- #
@@ -311,7 +326,11 @@ gh/ezyang/2/orig rCOM2 Commit 2
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Commit 1
+
     A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
 
      * rMRG1 Commit 1
 
@@ -321,12 +340,12 @@ gh/ezyang/2/orig rCOM2 Commit 2
 
      * rMRG2 Commit 2
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
-gh/ezyang/2/base rCOM1 Commit 1
-gh/ezyang/2/head rMRG2 Commit 2
-gh/ezyang/2/orig rCOM2 Commit 2
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
         print("###")
         print("### Amend the top commit")
@@ -341,7 +360,11 @@ gh/ezyang/2/orig rCOM2 Commit 2
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Commit 1
+
     A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
 
      * rMRG1 Commit 1
 
@@ -356,12 +379,13 @@ gh/ezyang/2/orig rCOM2 Commit 2
      * rMRG2 Commit 2
      * rMRG2A Update
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
-gh/ezyang/2/base rCOM1 Commit 1
-gh/ezyang/2/head rMRG2A Update
-gh/ezyang/2/orig rCOM2A Commit 2
+Repository state:
+
+    * rMRG2A (gh/ezyang/2/head) Update
+    * rMRG2 Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
 
     # ------------------------------------------------------------------------- #
@@ -406,17 +430,14 @@ gh/ezyang/2/orig rCOM2A Commit 2
 
      * rMRG2 Commit 2
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1 Commit 1
-gh/ezyang/1/orig rCOM1 Commit 1
-gh/ezyang/2/base rMRG1 Commit 1
-gh/ezyang/2/head rMRG2 Commit 2
-gh/ezyang/2/orig rCOM2 Commit 2
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
-        self.assertExpected(self.sh.git("log", "--graph", "--oneline", "gh/ezyang/2/head"), '''\
-* rMRG2 Commit 2
-* rMRG1 Commit 1
-* rINI0 Initial commit''')
+
         print("###")
         print("### Amend the bottom commit")
         self.sh.git("checkout", "HEAD~")
@@ -446,19 +467,15 @@ gh/ezyang/2/orig rCOM2 Commit 2
 
      * rMRG2 Commit 2
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1A Update
-gh/ezyang/1/orig rCOM1A Commit 1
-gh/ezyang/2/base rMRG1 Commit 1
-gh/ezyang/2/head rMRG2 Commit 2
-gh/ezyang/2/orig rCOM2 Commit 2
+Repository state:
+
+    * rMRG1A (gh/ezyang/1/head) Update
+    | * rMRG2 (gh/ezyang/2/head) Commit 2
+    |/
+    * rMRG1 (gh/ezyang/2/base) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
-        self.assertExpected(self.sh.git("log", "--graph", "--oneline", "gh/ezyang/1/head", "gh/ezyang/2/head"), '''\
-* rMRG1A Update
-| * rMRG2 Commit 2
-|/  
-* rMRG1 Commit 1
-* rINI0 Initial commit''')
 
         print("###")
         print("### Restack the top commit")
@@ -490,21 +507,17 @@ gh/ezyang/2/orig rCOM2 Commit 2
      * rMRG2 Commit 2
      * rMRG2A Update
 
-gh/ezyang/1/base rINI0 Initial commit
-gh/ezyang/1/head rMRG1A Update
-gh/ezyang/1/orig rCOM1A Commit 1
-gh/ezyang/2/base rMRG1A Update
-gh/ezyang/2/head rMRG2A Update
-gh/ezyang/2/orig rCOM2A Commit 2
+Repository state:
+
+    *   rMRG2A (gh/ezyang/2/head) Update
+    |\\
+    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update
+    * | rMRG2 Commit 2
+    |/
+    * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
 ''')
-        self.assertExpected(self.sh.git("log", "--graph", "--oneline", "gh/ezyang/1/head", "gh/ezyang/2/head"), '''\
-*   rMRG2A Update
-|\\  
-| * rMRG1A Update
-* | rMRG2 Commit 2
-|/  
-* rMRG1 Commit 1
-* rINI0 Initial commit''')
 
 
 #   def load_tests(loader, tests, ignore):
