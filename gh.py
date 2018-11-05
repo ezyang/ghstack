@@ -48,6 +48,8 @@ class Shell(object):
         out, err = p.communicate(kwargs.get('input'))
         if err is not None:
             print(err, file=sys.stderr, end='')
+        if kwargs.get('exitcode'):
+            return p.returncode == 0
         if p.returncode != 0:
             raise RuntimeError("{} failed with exit code {}".format(' '.join(args), p.returncode))
         return out.decode()
@@ -73,7 +75,11 @@ class Shell(object):
             if 'stderr' not in kwargs:
                 kwargs['stderr'] = subprocess.PIPE
 
-        return self.sh(*(("git",) + args), **kwargs).rstrip("\n")
+        r = self.sh(*(("git",) + args), **kwargs)
+        if kwargs.get('exitcode'):
+            return r
+        else:
+            return r.rstrip("\n")
 
     def test_tick(self):
         self.testing_time += 60
@@ -137,6 +143,7 @@ def main(github=None, sh=None, repo_owner="pytorch", repo_name="pytorch", userna
 
     # compute the stack of commits to process (reverse chronological order),
     # INCLUDING the base commit
+    print(sh.git("rev-list", "^" + base + "^@", "HEAD"))
     stack = split_header(sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
 
     submitter = Submitter(github, sh, username, repo_owner, repo_name, repo_id, base)
@@ -328,25 +335,50 @@ class Submitter(object):
             else:
                 print("Pushing to #{}".format(number))
 
-                # ok, so now we want to ENTER a new entry into our log
-                #   - Directly blast the tree of HEAD~ as the newest entry in base,
-                #     synthetically merged with merge-base of HEAD and origin/master.
-                #     (This will make sure merge with master still works.)
-                #       - MAYBE, if we correspond to a known gh/pull branch, we can
-                #         also insert a merge here as well.  This will help merges
-                #         with feature branches keep working too.
-                #         (if you're doing weird shit with cherry-picking, this
-                #         won't work so good)
+                # We've got an update to do!  But what exactly should we
+                # do?
+                #
+                # Here are a number of situations which may have
+                # occurred.
+                #
+                #   1. None of the parent commits changed, and this is
+                #      the first change we need to push an update to.
+                #
+                #   2. A parent commit changed, so we need to restack
+                #      this commit too.  (You can't easily tell distinguish
+                #      between rebase versus rebase+amend)
+                #
+                #   3. The parent is now master (any prior parent
+                #      commits were absorbed into master.)
+                #
+                #   4. The parent is totally disconnected, the history
+                #      is bogus but at least the merge-base on master
+                #      is the same or later.  (You cherry-picked a
+                #      commit out of an old stack and want to make it
+                #      independent.)
+                #
+                # In cases 1-3, we can maintain a clean merge history
+                # if we do a little extra book-keeping, so we do
+                # precisely this.
+                #
+                #   - In cases 1 and 2, we'd like to use the newly
+                #     created gh/ezyang/$PARENT/head which is recorded
+                #     in self.base_commit, because it's exactly the
+                #     correct base commit to base our diff off of.
+                #
 
-                # But avoid making a new base if it's not necessary
-                new_base = branch_base(self.username, diffid)
-                current_base_tree = self.sh.git("rev-parse", new_base + "^{tree}")
-                if self.base_tree != current_base_tree:
+                # OK, so we need to adjust the base commit.
+                # But maybe the freshly generated merge commit is
+                # good enough.  Use it if we can, in that case.
+                if self.sh.git("merge-base", "--is-ancestor", branch_base(self.username, diffid), self.base_commit, exitcode=True):
+                    new_base = self.base_commit
+                else:
                     new_base = self.sh.git("commit-tree", self.base_tree,
                                            "-p", branch_base(self.username, diffid),
                                            "-p", self.base_commit,
-                                           input="Update")
-                    self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
+                                           input="Update base")
+                self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
+                base_args = ("-p", new_base)
 
                 #   - Directly blast our current tree as the newest entry of pull,
                 #     merging against the previous pull entry, and the newest base.
@@ -354,8 +386,9 @@ class Submitter(object):
                 tree = RE_RAW_TREE.search(commit).group("tree")
                 new_pull = self.sh.git("commit-tree", tree,
                                        "-p", branch_head(self.username, diffid),
-                                       "-p", new_base,
+                                       *base_args,
                                        input="Update")
+                print("new_pull = {}".format(new_pull))
                 self.sh.git("branch", "-f", branch_head(self.username, diffid), new_pull)
 
                 # History reedit!  Commit message changes only
@@ -381,6 +414,9 @@ class Submitter(object):
         self.base_commit = new_pull
         self.base_orig = new_orig
         self.base_tree = tree
+        print("base_commit = {}".format(self.base_commit))
+        print("base_orig = {}".format(self.base_orig))
+        print("base_tree = {}".format(self.base_tree))
 
 
     def post_process(self):
@@ -416,8 +452,11 @@ class Submitter(object):
                     force_push_branches.append(branch(self.username, s['diffid'], b))
                 else:
                     push_branches.append(branch(self.username, s['diffid'], b))
-        self.sh.git("push", "origin", *push_branches)
-        self.sh.git("push", "origin", "--force", *force_push_branches)
+        # Careful!  Don't push master.
+        if push_branches:
+            self.sh.git("push", "origin", *push_branches)
+        if force_push_branches:
+            self.sh.git("push", "origin", "--force", *force_push_branches)
 
 
 # How to update commit messages?  Probably should reimplement git rebase
