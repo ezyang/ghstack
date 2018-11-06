@@ -183,7 +183,7 @@ Repository state:
 
     This is my first commit
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -246,7 +246,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG2 Update
@@ -336,7 +336,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -370,7 +370,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -380,7 +380,7 @@ Repository state:
 
     A commit with a B
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update
@@ -426,7 +426,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -462,7 +462,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update
@@ -497,7 +497,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update
@@ -508,7 +508,7 @@ Repository state:
 
     A commit with a B
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update
@@ -557,7 +557,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -600,7 +600,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update
@@ -611,7 +611,7 @@ Repository state:
 
     A commit with a B
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update
@@ -663,7 +663,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -710,7 +710,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update
@@ -721,7 +721,7 @@ Repository state:
 
     A commit with a B
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update
@@ -776,7 +776,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -820,7 +820,7 @@ Repository state:
 
     A commit with an A
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -830,7 +830,7 @@ Repository state:
 
     A commit with a B
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update

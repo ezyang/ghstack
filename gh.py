@@ -227,7 +227,7 @@ RE_RAW_AUTHOR = re.compile(r'^author (?P<name>[^<]+?) <(?P<email>[^>]+)>', re.MU
 RE_RAW_PARENT = re.compile(r'^parent (?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_TREE = re.compile(r'^tree (?P<tree>.+)$', re.MULTILINE)
 RE_RAW_COMMIT_MSG_LINE = re.compile(r'^    (?P<line>.*)$', re.MULTILINE)
-RE_RAW_METADATA = re.compile(r'^    Pull Request resolved: https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+) \(gh/(?P<username>[a-zA-Z0-9-]+)/(?P<diffid>[0-9]+)/head\)$', re.MULTILINE)
+RE_RAW_METADATA = re.compile(r'^    gh-metadata: (?P<owner>[^/]+) (?P<repo>[^/]+) (?P<number>[0-9]+) gh/(?P<username>[a-zA-Z0-9-]+)/(?P<diffid>[0-9]+)/head$', re.MULTILINE)
 
 def all_branches(username, diffid):
     return (branch_base(username, diffid),
@@ -352,8 +352,8 @@ class Submitter(object):
             # Update the commit message of the local diff with metadata
             # so we can correlate these later
             commit_msg = ("{commit_msg}\n\n"
-                         "Pull Request resolved: "
-                         "https://github.com/{owner}/{repo}/pull/{number} ({branch_head})"
+                         "gh-metadata: "
+                         "{owner} {repo} {number} {branch_head}"
                          .format(commit_msg=commit_msg.rstrip(),
                                  owner=self.repo_owner,
                                  repo=self.repo_name,
