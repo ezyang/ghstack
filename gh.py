@@ -9,7 +9,13 @@ import json
 import itertools
 import os
 import sys
+import getpass
 from pprint import pprint
+
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
 
 def format_env(env):
     r = []
@@ -87,17 +93,57 @@ class Shell(object):
     def open(self, fn, mode):
         return open(os.path.join(self.cwd, fn), mode)
 
-class Endpoint(object):
-    def __init__(self, endpoint):
+class GraphQLEndpoint(object):
+    def __init__(self, endpoint, future=False):
         self.endpoint = endpoint
+        self.oauth_token = None
+        # Whether or not this API lives "in the future".  Features in
+        # the future don't exist on the real GitHub API.
+        self.future = future
 
     def graphql(self, query, **kwargs):
-        resp = requests.post(self.endpoint, json={"query": query, "variables": kwargs})
+        headers = {}
+        if self.oauth_token:
+            headers['Authorization'] = 'bearer {}'.format(self.oauth_token)
+        resp = requests.post(self.endpoint, json={"query": query, "variables": kwargs}, headers=headers)
+        # Actually, this code is dead on the GitHub GraphQL API, because
+        # they seem to always return 200, even in error case (as of
+        # 11/5/2018)
         try:
             resp.raise_for_status()
         except requests.HTTPError as e:
             raise RuntimeError(json.dumps(resp.json(), indent=1))
-        return resp.json()
+        r = resp.json()
+        if 'errors' in r:
+            raise RuntimeError(json.dumps(r, indent=1))
+        return r
+
+class RESTEndpoint(object):
+    def __init__(self, endpoint):
+        self.endpoint = endpoint
+        self.oauth_token = None
+
+    def headers(self):
+        return {
+          'Authorization': 'token ' + self.oauth_token,
+          'Content-Type': 'application/json',
+          'User-Agent': 'gh',
+          'Accept': 'application/vnd.github.v3+json',
+          }
+
+    def get(self, path, **kwargs):
+        return self.rest('get', path, **kwargs)
+
+    def post(self, path, **kwargs):
+        return self.rest('post', path, **kwargs)
+
+    def patch(self, path, **kwargs):
+        return self.rest('patch', path, **kwargs)
+
+    def rest(self, method, path, **kwargs):
+        r = getattr(requests, method)(self.endpoint + '/' + path, json=kwargs, headers=self.headers())
+        r.raise_for_status()
+        return r.json()
 
 def split_header(s):
     return s.split("\0")[:-1]
@@ -123,12 +169,26 @@ def branch_head(username, diffid):
 def branch_orig(username, diffid):
     return branch(username, diffid, "orig")
 
-def main(github=None, sh=None, repo_owner="pytorch", repo_name="pytorch", username="ezyang"):
-    if github is None:
-        github = Endpoint('http://localhost:4000')
-
+def main(msg=None, github=None, github_rest=None, sh=None, repo_owner=None, repo_name=None, username="ezyang"):
     if sh is None:
+        # Use CWD
         sh = Shell()
+
+    if repo_owner is None or repo_name is None:
+        # Grovel in remotes to figure it out
+        origin_url = sh.git("remote", "get-url", "origin")
+        while True:
+            m = re.match(r'^git@github.com:([^/]+)/([^.]+)\.git$', origin_url)
+            if m:
+                repo_owner = m.group(1)
+                repo_name = m.group(2)
+                break
+            m = re.match(r'https://github.com/([^/]+)/([^.]+).git', origin_url)
+            if m:
+                repo_owner = m.group(1)
+                repo_name = m.group(2)
+                break
+            raise RuntimeError("Couldn't determine repo owner and name from url: {}".format(origin_url))
 
     # TODO: Cache this guy
     repo_id = github.graphql("""
@@ -146,7 +206,14 @@ def main(github=None, sh=None, repo_owner="pytorch", repo_name="pytorch", userna
     print(sh.git("rev-list", "^" + base + "^@", "HEAD"))
     stack = split_header(sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
 
-    submitter = Submitter(github, sh, username, repo_owner, repo_name, repo_id, base)
+    submitter = Submitter(github=github,
+                          github_rest=github_rest,
+                          sh=sh,
+                          username=username,
+                          repo_owner=repo_owner,
+                          repo_name=repo_name,
+                          repo_id=repo_id,
+                          base_commit=base)
 
     # start with the earliest commit
     g = reversed(stack)
@@ -168,8 +235,9 @@ def all_branches(username, diffid):
             branch_orig(username, diffid))
 
 class Submitter(object):
-    def __init__(self, github, sh, username, repo_owner, repo_name, repo_id, base_commit):
+    def __init__(self, github, github_rest, sh, username, repo_owner, repo_name, repo_id, base_commit):
         self.github = github
+        self.github_rest = github_rest
         self.sh = sh
         self.username = username
         self.repo_owner = repo_owner
@@ -248,25 +316,37 @@ class Submitter(object):
             pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
             # Time to open the PR
-            r = self.github.graphql("""
-                mutation ($input : CreatePullRequestInput!) {
-                    createPullRequest(input: $input) {
-                        pullRequest {
-                            id
-                            number
-                            title
+            if self.github.future:
+                r = self.github.graphql("""
+                    mutation ($input : CreatePullRequestInput!) {
+                        createPullRequest(input: $input) {
+                            pullRequest {
+                                id
+                                number
+                                title
+                            }
                         }
                     }
-                }
-            """, input={
-                    "baseRefName": branch_base(self.username, diffid),
-                    "headRefName": branch_head(self.username, diffid),
-                    "title": title,
-                    "body": pr_body,
-                    "ownerId": self.repo_id,
-                })
-            prid = r["data"]["createPullRequest"]["pullRequest"]["id"]
-            number = r["data"]["createPullRequest"]["pullRequest"]["number"]
+                """, input={
+                        "baseRefName": branch_base(self.username, diffid),
+                        "headRefName": branch_head(self.username, diffid),
+                        "title": title,
+                        "body": pr_body,
+                        "ownerId": self.repo_id,
+                    })
+                prid = r["data"]["createPullRequest"]["pullRequest"]["id"]
+                number = r["data"]["createPullRequest"]["pullRequest"]["number"]
+            else:
+                r = self.github_rest.post("repos/{owner}/{repo}/pulls".format(owner=self.repo_owner, repo=self.repo_name),
+                    title=title,
+                    head=branch_head(self.username, diffid),
+                    base=branch_base(self.username, diffid),
+                    body=pr_body,
+                    maintainer_can_modify=True,
+                    )
+                prid = None
+                number = r['number']
+
             print("Opened PR #{}".format(number))
 
             # Update the commit message of the local diff with metadata
@@ -312,18 +392,21 @@ class Submitter(object):
 
             # With the REST API, this is totally unnecessary. Might
             # be better to store these IDs in the commit message itself.
-            r = self.github.graphql("""
-              query ($repo_id: ID!, $number: Int!) {
-                node(id: $repo_id) {
-                  ... on Repository {
-                    pullRequest(number: $number) {
-                      id
+            if self.github.future:
+                r = self.github.graphql("""
+                  query ($repo_id: ID!, $number: Int!) {
+                    node(id: $repo_id) {
+                      ... on Repository {
+                        pullRequest(number: $number) {
+                          id
+                        }
+                      }
                     }
                   }
-                }
-              }
-            """, repo_id=self.repo_id, number=number)
-            prid = r["data"]["node"]["pullRequest"]["id"]
+                """, repo_id=self.repo_id, number=number)
+                prid = r["data"]["node"]["pullRequest"]["id"]
+            else:
+                prid = None
 
             # Check if updating is needed
             clean_commit_id = self.sh.git("rev-parse", branch_orig(self.username, diffid))
@@ -442,20 +525,26 @@ class Submitter(object):
         push_branches = []
         force_push_branches = []
         for i, s in enumerate(self.stack_meta):
-            print("# Updating #{}".format(s["number"]))
-            self.github.graphql("""
-                mutation ($input : UpdatePullRequestInput!) {
-                    updatePullRequest(input: $input) {
-                        clientMutationId
+            print("# Updating https://github.com/{owner}/{repo}/pull/{number}".format(owner=self.repo_owner, repo=self.repo_name, number=s["number"]))
+            if self.github.future:
+                self.github.graphql("""
+                    mutation ($input : UpdatePullRequestInput!) {
+                        updatePullRequest(input: $input) {
+                            clientMutationId
+                        }
                     }
-                }
-            """, input={
-                    'pullRequestId': s['id'],
-                    # "Stack:\n" + format_stack(stack_meta, i) + "\n\n" + 
-                    'body': s['body'],
-                    'title': s['title'],
-                    'baseRefName': s['base']
-                })
+                """, input={
+                        'pullRequestId': s['id'],
+                        # "Stack:\n" + format_stack(stack_meta, i) + "\n\n" + 
+                        'body': s['body'],
+                        'title': s['title'],
+                        'baseRefName': s['base']
+                    })
+            else:
+                self.github_rest.patch("repos/{owner}/{repo}/pulls/{number}".format(owner=self.repo_owner, repo=self.repo_name, number=s['number']),
+                                       body=s['body'],
+                                       title=s['title'],
+                                       base=s['base'])
             # It is VERY important that we do this push AFTER fixing the base,
             # otherwise GitHub will spuriously think that the user pushed a number
             # of patches as part of the PR, when actually they were just from
@@ -477,4 +566,29 @@ class Submitter(object):
 # changes.
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Submit stack of diffs to GitHub.')
+    parser.add_argument('msg', metavar='MSG', default='Update', nargs='?', type=str, help='Description of change you made')
+    parser.add_argument('--github-v4', default=GraphQLEndpoint('https://api.github.com/graphql'), help='GitHub GraphQL API endpoint (V4) to use')
+    parser.add_argument('--github-v3', default=RESTEndpoint('https://api.github.com'), help='GitHub REST API endpoint (V3) to use')
+    args = parser.parse_args()
+
+    config = configparser.ConfigParser()
+    config.read(['.ghrc', os.path.expanduser('~/.ghrc')])
+
+    write_back = False
+    if not config.has_section('gh'):
+        config.add_section('gh')
+    if not config.has_option('gh', 'github_oauth'):
+        github_oauth = config.set('gh', 'github_oauth', getpass.getpass('GitHub OAuth token (make one at https://github.com/settings/tokens -- we need public_repo permissions): ').strip())
+        write_back = True
+    else:
+        github_oauth = config.get('gh', 'github_oauth')
+
+    if write_back:
+        config.write(open(os.path.expanduser('~/.ghrc'), 'w'))
+        print("NB: saved to ~/.ghrc")
+
+    args.github_v4.oauth_token = github_oauth
+    args.github_v3.oauth_token = github_oauth
+
+    main(msg=args.msg, github=args.github_v4, github_rest=args.github_v3)

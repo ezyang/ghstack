@@ -58,7 +58,7 @@ class TestGh(expecttest.TestCase):
                 print("Retrying with port {}".format(port))
                 continue
             break
-        cls.github = gh.Endpoint("http://localhost:{}".format(port))
+        cls.github = gh.GraphQLEndpoint("http://localhost:{}".format(port), future=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -109,7 +109,7 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self):
-        gh.main(github=self.github, sh=self.sh)
+        gh.main(github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
     def dump_github(self):
         r = self.github.graphql("""
