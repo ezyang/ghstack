@@ -134,6 +134,12 @@ class TestGh(expecttest.TestCase):
             pr['commits'] = indent(pr['commits'], '     * ')
             prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n\n"
                        "{body}\n\n{commits}\n\n".format(**pr))
+            # TODO: Use of git --graph here is a bit of a loaded
+            # footgun, because git doesn't really give any guarantees
+            # about what the graph should look like.  So there isn't
+            # really any assurance that this will output the same thing
+            # on multiple test runs.  We'll have to reimplement this
+            # ourselves to do it right.
             refs = self.upstream_sh.git("log", "--graph", "--oneline", "--branches=gh/*/*/head", "--decorate")
         return "".join(prs) + "Repository state:\n\n" + indent(strip_trailing_whitespace(refs), '    ') + "\n\n"
 
@@ -518,6 +524,332 @@ Repository state:
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_amend_all(self):
+        print("####################")
+        print("### test_amend_all")
+        print("###")
+        print("### First commit")
+        self.sh.open("file1.txt", "w").write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+
+        print("###")
+        print("### Second commit")
+        self.sh.open("file2.txt", "w").write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    A commit with a B
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Amend the commits")
+        self.sh.git("checkout", "HEAD~")
+        self.sh.open("file1.txt", "w").write("ABBA")
+        self.sh.git("add", "file1.txt")
+        # Can't use -m here, it will clobber the metadata
+        self.sh.git("commit", "--amend")
+        self.substituteRev("HEAD", "rCOM1A")
+        self.sh.test_tick()
+
+        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
+        self.substituteRev("HEAD", "rCOM2A")
+        self.sh.test_tick()
+
+        self.gh()
+        self.substituteRev("gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+
+     * rMRG1 Commit 1
+     * rMRG1A Update
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Commit 2
+
+    A commit with a B
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+
+     * rMRG2 Commit 2
+     * rMRG2A Update
+
+Repository state:
+
+    *   rMRG2A (gh/ezyang/2/head) Update
+    |\\
+    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update
+    * | rMRG2 Commit 2
+    |/
+    * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_rebase(self):
+        print("####################")
+        print("### test_rebase")
+
+        self.sh.git("checkout", "-b", "feature")
+
+        print("###")
+        print("### First commit")
+        self.sh.open("file1.txt", "w").write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+
+        print("###")
+        print("### Second commit")
+        self.sh.open("file2.txt", "w").write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    A commit with a B
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Push master forward")
+        self.sh.git("checkout", "master")
+        self.sh.open("master.txt", "w").write("M")
+        self.sh.git("add", "master.txt")
+        self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
+        self.substituteRev("HEAD", "rINI2")
+        self.sh.test_tick()
+        self.sh.git("push", "origin", "master")
+
+        print("###")
+        print("### Rebase the commits")
+        self.sh.git("checkout", "feature")
+        self.sh.git("rebase", "origin/master")
+
+        self.substituteRev("HEAD", "rCOM2A")
+        self.substituteRev("HEAD~", "rCOM1A")
+
+        self.gh()
+        self.substituteRev("gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+
+     * rMRG1 Commit 1
+     * rMRG1A Update
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Commit 2
+
+    A commit with a B
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+
+     * rMRG2 Commit 2
+     * rMRG2A Update
+
+Repository state:
+
+    *   rMRG2A (gh/ezyang/2/head) Update
+    |\\
+    | *   rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update
+    | |\\
+    | | * rINI2 (HEAD -> master, gh/ezyang/1/base) Master commit 1
+    * | | rMRG2 Commit 2
+    |/ /
+    * | rMRG1 Commit 1
+    |/
+    * rINI0 Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_cherry_pick(self):
+        print("####################")
+        print("### test_cherry_pick")
+
+        self.sh.git("checkout", "-b", "feature")
+
+        print("###")
+        print("### First commit")
+        self.sh.open("file1.txt", "w").write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+
+        print("###")
+        print("### Second commit")
+        self.sh.open("file2.txt", "w").write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
+        self.sh.test_tick()
+        self.gh()
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    A commit with a B
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Push master forward")
+        self.sh.git("checkout", "master")
+        self.sh.open("master.txt", "w").write("M")
+        self.sh.git("add", "master.txt")
+        self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
+        self.substituteRev("HEAD", "rINI2")
+        self.sh.test_tick()
+        self.sh.git("push", "origin", "master")
+
+        print("###")
+        print("### Cherry-pick the second commit")
+        self.sh.git("cherry-pick", "feature")
+
+        self.substituteRev("HEAD", "rCOM2A")
+
+        self.gh()
+        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Commit 1
+
+    A commit with an A
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500 (gh/ezyang/1/head)
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Commit 2
+
+    A commit with a B
+
+    Pull Request resolved: https://github.com/pytorch/pytorch/pull/501 (gh/ezyang/2/head)
+
+     * rMRG2 Commit 2
+     * rMRG2A Update
+
+Repository state:
+
+    *   rMRG2A (gh/ezyang/2/head) Update
+    |\\
+    | *   c3a8406 (gh/ezyang/2/base) Update base
+    | |\\
+    | | * rINI2 (HEAD -> master) Master commit 1
+    * | | rMRG2 Commit 2
+    |/ /
+    * | rMRG1 (gh/ezyang/1/head) Commit 1
+    |/
+    * rINI0 (gh/ezyang/1/base) Initial commit
+
+''')
+
 
 
 #   def load_tests(loader, tests, ignore):
