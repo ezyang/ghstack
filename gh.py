@@ -51,7 +51,10 @@ class Shell(object):
         if env is not None:
             env = merge_dicts(os.environ, env)
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=stdin, stderr=kwargs.get("stderr"), cwd=self.cwd, env=env)
-        out, err = p.communicate(kwargs.get('input'))
+        input = kwargs.get('input')
+        if input is not None:
+            input = input.encode('utf-8')
+        out, err = p.communicate(input)
         if err is not None:
             print(err, file=sys.stderr, end='')
         if kwargs.get('exitcode'):
@@ -213,7 +216,8 @@ def main(msg=None, github=None, github_rest=None, sh=None, repo_owner=None, repo
                           repo_owner=repo_owner,
                           repo_name=repo_name,
                           repo_id=repo_id,
-                          base_commit=base)
+                          base_commit=base,
+                          msg=msg)
 
     # start with the earliest commit
     g = reversed(stack)
@@ -235,7 +239,7 @@ def all_branches(username, diffid):
             branch_orig(username, diffid))
 
 class Submitter(object):
-    def __init__(self, github, github_rest, sh, username, repo_owner, repo_name, repo_id, base_commit):
+    def __init__(self, github, github_rest, sh, username, repo_owner, repo_name, repo_id, base_commit, msg):
         self.github = github
         self.github_rest = github_rest
         self.sh = sh
@@ -247,6 +251,7 @@ class Submitter(object):
         self.base_orig = base_commit
         self.base_tree = None
         self.stack_meta = []
+        self.msg = msg
 
     def process_base(self, commit):
         self.base_tree = RE_RAW_TREE.search(commit).group("tree")
@@ -472,7 +477,7 @@ class Submitter(object):
                         new_base = self.sh.git("commit-tree", self.base_tree,
                                                "-p", branch_base(self.username, diffid),
                                                "-p", self.base_commit,
-                                               input="Update base")
+                                               input='Update base for {} on "{}"'.format(self.msg, title))
                     base_args = ("-p", new_base)
                 self.sh.git("branch", "-f", branch_base(self.username, diffid), new_base)
 
@@ -483,7 +488,7 @@ class Submitter(object):
                 new_pull = self.sh.git("commit-tree", tree,
                                        "-p", branch_head(self.username, diffid),
                                        *base_args,
-                                       input="Update")
+                                       input='{} on "{}"'.format(self.msg, title))
                 print("new_pull = {}".format(new_pull))
                 self.sh.git("branch", "-f", branch_head(self.username, diffid), new_pull)
 

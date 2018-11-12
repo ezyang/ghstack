@@ -108,8 +108,8 @@ class TestGh(expecttest.TestCase):
         print("substituteRev: {} = {}".format(substitute, h))
         self.substituteExpected(h, substitute)
 
-    def gh(self):
-        gh.main(github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
+    def gh(self, msg='Update'):
+        gh.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
     def dump_github(self):
         r = self.github.graphql("""
@@ -153,7 +153,7 @@ class TestGh(expecttest.TestCase):
         print("### First commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
         self.assertExpected(self.dump_github(), '''\
@@ -173,7 +173,7 @@ Repository state:
         print("### Second commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/2/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
@@ -212,7 +212,7 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
 
@@ -237,7 +237,7 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Update A')
         self.substituteRev("gh/ezyang/1/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -249,11 +249,11 @@ Repository state:
     gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
-     * rMRG2 Update
+     * rMRG2 Update A on "Commit 1"
 
 Repository state:
 
-    * rMRG2 (gh/ezyang/1/head) Update
+    * rMRG2 (gh/ezyang/1/head) Update A on "Commit 1"
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
@@ -277,7 +277,7 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
 
-        self.gh()
+        self.gh('Initial 1 and 2')
         self.substituteRev("HEAD~", "rCOM1")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
@@ -315,7 +315,7 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
 
@@ -325,7 +325,7 @@ Repository state:
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/2/head", "rMRG2")
 
@@ -361,7 +361,7 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM2A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Update A')
         self.substituteRev("gh/ezyang/2/head", "rMRG2A")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -383,11 +383,11 @@ Repository state:
     gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
-     * rMRG2A Update
+     * rMRG2A Update A on "Commit 2"
 
 Repository state:
 
-    * rMRG2A (gh/ezyang/2/head) Update
+    * rMRG2A (gh/ezyang/2/head) Update A on "Commit 2"
     * rMRG2 Commit 2
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
@@ -405,7 +405,7 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
 
@@ -415,7 +415,7 @@ Repository state:
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/2/head", "rMRG2")
 
@@ -453,7 +453,7 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM1A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Update A')
         self.substituteRev("gh/ezyang/1/head", "rMRG1A")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -465,7 +465,7 @@ Repository state:
     gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
-     * rMRG1A Update
+     * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -475,7 +475,7 @@ Repository state:
 
 Repository state:
 
-    * rMRG1A (gh/ezyang/1/head) Update
+    * rMRG1A (gh/ezyang/1/head) Update A on "Commit 1"
     | * rMRG2 (gh/ezyang/2/head) Commit 2
     |/
     * rMRG1 (gh/ezyang/2/base) Commit 1
@@ -487,7 +487,7 @@ Repository state:
         print("### Restack the top commit")
         self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
         self.sh.test_tick()
-        self.gh()
+        self.gh('Update B')
         self.substituteRev("HEAD", "rCOM2A")
         self.substituteRev("gh/ezyang/2/head", "rMRG2A")
         self.assertExpected(self.dump_github(), '''\
@@ -500,7 +500,7 @@ Repository state:
     gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
-     * rMRG1A Update
+     * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -511,13 +511,13 @@ Repository state:
     gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
-     * rMRG2A Update
+     * rMRG2A Update B on "Commit 2"
 
 Repository state:
 
-    *   rMRG2A (gh/ezyang/2/head) Update
+    *   rMRG2A (gh/ezyang/2/head) Update B on "Commit 2"
     |\\
-    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update
+    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update A on "Commit 1"
     * | rMRG2 Commit 2
     |/
     * rMRG1 Commit 1
@@ -536,7 +536,7 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
 
@@ -546,7 +546,7 @@ Repository state:
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/2/head", "rMRG2")
 
@@ -589,7 +589,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
         self.sh.test_tick()
 
-        self.gh()
+        self.gh('Update A')
         self.substituteRev("gh/ezyang/1/head", "rMRG1A")
         self.substituteRev("gh/ezyang/2/head", "rMRG2A")
 
@@ -603,7 +603,7 @@ Repository state:
     gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
-     * rMRG1A Update
+     * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -614,13 +614,13 @@ Repository state:
     gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
-     * rMRG2A Update
+     * rMRG2A Update A on "Commit 2"
 
 Repository state:
 
-    *   rMRG2A (gh/ezyang/2/head) Update
+    *   rMRG2A (gh/ezyang/2/head) Update A on "Commit 2"
     |\\
-    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update
+    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update A on "Commit 1"
     * | rMRG2 Commit 2
     |/
     * rMRG1 Commit 1
@@ -642,7 +642,7 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
 
@@ -652,7 +652,7 @@ Repository state:
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/2/head", "rMRG2")
 
@@ -699,7 +699,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
         self.substituteRev("HEAD~", "rCOM1A")
 
-        self.gh()
+        self.gh('Rebase')
         self.substituteRev("gh/ezyang/1/head", "rMRG1A")
         self.substituteRev("gh/ezyang/2/head", "rMRG2A")
 
@@ -713,7 +713,7 @@ Repository state:
     gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
-     * rMRG1A Update
+     * rMRG1A Rebase on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -724,13 +724,13 @@ Repository state:
     gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
-     * rMRG2A Update
+     * rMRG2A Rebase on "Commit 2"
 
 Repository state:
 
-    *   rMRG2A (gh/ezyang/2/head) Update
+    *   rMRG2A (gh/ezyang/2/head) Rebase on "Commit 2"
     |\\
-    | *   rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update
+    | *   rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Rebase on "Commit 1"
     | |\\
     | | * rINI2 (HEAD -> master, gh/ezyang/1/base) Master commit 1
     * | | rMRG2 Commit 2
@@ -755,7 +755,7 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
 
@@ -765,7 +765,7 @@ Repository state:
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh()
+        self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("gh/ezyang/2/head", "rMRG2")
 
@@ -810,7 +810,7 @@ Repository state:
 
         self.substituteRev("HEAD", "rCOM2A")
 
-        self.gh()
+        self.gh('Cherry pick')
         self.substituteRev("gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
@@ -833,13 +833,13 @@ Repository state:
     gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
-     * rMRG2A Update
+     * rMRG2A Cherry pick on "Commit 2"
 
 Repository state:
 
-    *   rMRG2A (gh/ezyang/2/head) Update
+    *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
     |\\
-    | *   c3a8406 (gh/ezyang/2/base) Update base
+    | *   9f4f026 (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
     | |\\
     | | * rINI2 (HEAD -> master) Master commit 1
     * | | rMRG2 Commit 2
