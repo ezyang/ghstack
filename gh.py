@@ -395,23 +395,20 @@ class Submitter(object):
             for b in all_branches(self.username, diffid):
                 self.sh.git("branch", "-f", b, "origin/" + b)
 
-            # With the REST API, this is totally unnecessary. Might
-            # be better to store these IDs in the commit message itself.
-            if self.github.future:
-                r = self.github.graphql("""
-                  query ($repo_id: ID!, $number: Int!) {
-                    node(id: $repo_id) {
-                      ... on Repository {
-                        pullRequest(number: $number) {
-                          id
-                        }
-                      }
+            r = self.github.graphql("""
+              query ($repo_id: ID!, $number: Int!) {
+                node(id: $repo_id) {
+                  ... on Repository {
+                    pullRequest(number: $number) {
+                      id
+                      body
                     }
                   }
-                """, repo_id=self.repo_id, number=number)
-                prid = r["data"]["node"]["pullRequest"]["id"]
-            else:
-                prid = None
+                }
+              }
+            """, repo_id=self.repo_id, number=number)
+            prid = r["data"]["node"]["pullRequest"]["id"]
+            pr_body = r["data"]["node"]["pullRequest"]["body"]
 
             # Check if updating is needed
             clean_commit_id = self.sh.git("rev-parse", branch_orig(self.username, diffid))
@@ -505,7 +502,9 @@ class Submitter(object):
                 'id': prid,
                 'title': title,
                 'number': number,
-                'body': commit_msg,
+                # NB: Ignore the commit message, and just reuse the old commit
+                # message
+                'body': pr_body,
                 'base': branch_base(self.username, diffid),
                 'diffid': diffid,
                 'push_branches': push_branches

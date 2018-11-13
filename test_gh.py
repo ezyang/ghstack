@@ -179,11 +179,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     This is my first commit
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -242,11 +238,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG2 Update A on "Commit 1"
@@ -332,11 +324,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -366,21 +354,13 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
-    Commit 2
-
     A commit with a B
-
-    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update A on "Commit 2"
@@ -422,11 +402,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -458,11 +434,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
@@ -493,22 +465,14 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
-    Commit 2
-
     A commit with a B
-
-    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update B on "Commit 2"
@@ -553,11 +517,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -596,22 +556,14 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
-    Commit 2
-
     A commit with a B
-
-    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Update A on "Commit 2"
@@ -659,11 +611,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -706,22 +654,14 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
      * rMRG1A Rebase on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
-    Commit 2
-
     A commit with a B
-
-    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Rebase on "Commit 2"
@@ -772,11 +712,7 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
@@ -816,21 +752,13 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Commit 1
-
     A commit with an A
-
-    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
-    Commit 2
-
     A commit with a B
-
-    gh-metadata: pytorch pytorch 501 gh/ezyang/2/head
 
      * rMRG2 Commit 2
      * rMRG2A Cherry pick on "Commit 2"
