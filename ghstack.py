@@ -130,7 +130,7 @@ class RESTEndpoint(object):
         return {
           'Authorization': 'token ' + self.oauth_token,
           'Content-Type': 'application/json',
-          'User-Agent': 'gh',
+          'User-Agent': 'ghstack',
           'Accept': 'application/vnd.github.v3+json',
           }
 
@@ -577,20 +577,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
-    config.read(['.ghrc', os.path.expanduser('~/.ghrc')])
+    config.read(['.ghstackrc', os.path.expanduser('~/.ghstackrc')])
 
     write_back = False
-    if not config.has_section('gh'):
-        config.add_section('gh')
-    if not config.has_option('gh', 'github_oauth'):
-        github_oauth = config.set('gh', 'github_oauth', getpass.getpass('GitHub OAuth token (make one at https://github.com/settings/tokens -- we need public_repo permissions): ').strip())
+    if not config.has_section('ghstack'):
+        config.add_section('ghstack')
+    if not config.has_option('ghstack', 'github_oauth'):
+        github_oauth = config.set('ghstack', 'github_oauth', getpass.getpass('GitHub OAuth token (make one at https://github.com/settings/tokens -- we need public_repo permissions): ').strip())
         write_back = True
     else:
-        github_oauth = config.get('gh', 'github_oauth')
+        github_oauth = config.get('ghstack', 'github_oauth')
 
     if write_back:
-        config.write(open(os.path.expanduser('~/.ghrc'), 'w'))
-        print("NB: saved to ~/.ghrc")
+        config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
+        print("NB: saved to ~/.ghstackrc")
 
     args.github_v4.oauth_token = github_oauth
     args.github_v3.oauth_token = github_oauth
