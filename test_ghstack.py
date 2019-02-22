@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import re
 
-import gh
+import ghstack
 
 
 GH_KEEP_TMP = os.getenv('GH_KEEP_TMP')
@@ -58,7 +58,7 @@ class TestGh(expecttest.TestCase):
                 print("Retrying with port {}".format(port))
                 continue
             break
-        cls.github = gh.GraphQLEndpoint("http://localhost:{}".format(port), future=True)
+        cls.github = ghstack.GraphQLEndpoint("http://localhost:{}".format(port), future=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -81,7 +81,7 @@ class TestGh(expecttest.TestCase):
             self.addCleanup(lambda: print("upstream_dir preserved at: {}".format(upstream_dir)))
         else:
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
-        self.upstream_sh = gh.Shell(cwd=upstream_dir, testing=True)
+        self.upstream_sh = ghstack.Shell(cwd=upstream_dir, testing=True)
         self.upstream_sh.git("init", "--bare")
         tree = self.upstream_sh.git("write-tree")
         commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
@@ -92,7 +92,7 @@ class TestGh(expecttest.TestCase):
             self.addCleanup(lambda: print("local_dir preserved at: {}".format(local_dir)))
         else:
             self.addCleanup(lambda: shutil.rmtree(local_dir))
-        self.sh = gh.Shell(cwd=local_dir, testing=True)
+        self.sh = ghstack.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
 
         self.rev_map = {}
@@ -109,7 +109,7 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg='Update'):
-        gh.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
+        ghstack.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
     def dump_github(self):
         r = self.github.graphql("""
