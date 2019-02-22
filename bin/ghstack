@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+import ghstack.__main__
+ghstack.__main__.main()
+

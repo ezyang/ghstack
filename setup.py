@@ -19,6 +19,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     scripts=['bin/ghstack'],
+    install_requires=[
+        'requests',
+    ],
     # This is not supported by pip 10, which a lot of people have
     # installed (because it's the conda default)
     #
