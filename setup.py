@@ -18,9 +18,13 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    entry_points={
-        'console_scripts': [
-            'ghstack = ghstack.__main__:main'
-        ]
-    },
+    scripts=['bin/ghstack'],
+    # This is not supported by pip 10, which a lot of people have
+    # installed (because it's the conda default)
+    #
+    # entry_points={
+    #     'console_scripts': [
+    #         'ghstack = ghstack.__main__:main'
+    #     ]
+    # },
 )
