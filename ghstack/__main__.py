@@ -2,6 +2,7 @@ import ghstack
 
 import os
 import argparse
+import getpass
 
 try:
     import configparser
