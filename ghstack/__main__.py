@@ -1,4 +1,5 @@
 import ghstack
+import ghstack.endpoint
 
 import os
 import argparse
@@ -18,11 +19,11 @@ def main():
         help='Description of change you made')
     parser.add_argument(
         '--github-v4',
-        default=ghstack.GraphQLEndpoint('https://api.github.com/graphql'),
+        default=ghstack.endpoint.GraphQLEndpoint('https://api.github.com/graphql'),
         help='GitHub GraphQL API endpoint (V4) to use')
     parser.add_argument(
         '--github-v3',
-        default=ghstack.RESTEndpoint('https://api.github.com'),
+        default=ghstack.endpoint.RESTEndpoint('https://api.github.com'),
         help='GitHub REST API endpoint (V3) to use')
     args = parser.parse_args()
 

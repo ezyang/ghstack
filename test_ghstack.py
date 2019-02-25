@@ -11,6 +11,8 @@ import tempfile
 import re
 
 import ghstack
+import ghstack.endpoint
+import ghstack.shell
 
 
 GH_KEEP_TMP = os.getenv('GH_KEEP_TMP')
@@ -83,7 +85,7 @@ class TestGh(expecttest.TestCase):
                 print("Retrying with port {}".format(port))
                 continue
             break
-        cls.github = ghstack.GraphQLEndpoint("http://localhost:{}".format(port), future=True)
+        cls.github = ghstack.endpoint.GraphQLEndpoint("http://localhost:{}".format(port), future=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -106,7 +108,7 @@ class TestGh(expecttest.TestCase):
             self.addCleanup(lambda: print("upstream_dir preserved at: {}".format(upstream_dir)))
         else:
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
-        self.upstream_sh = ghstack.Shell(cwd=upstream_dir, testing=True)
+        self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
         self.upstream_sh.git("init", "--bare")
         tree = self.upstream_sh.git("write-tree")
         commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
@@ -117,7 +119,7 @@ class TestGh(expecttest.TestCase):
             self.addCleanup(lambda: print("local_dir preserved at: {}".format(local_dir)))
         else:
             self.addCleanup(lambda: shutil.rmtree(local_dir))
-        self.sh = ghstack.Shell(cwd=local_dir, testing=True)
+        self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
 
         self.rev_map = {}
