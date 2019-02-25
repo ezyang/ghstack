@@ -3,15 +3,31 @@ import requests
 
 
 class GraphQLEndpoint(object):
+    """
+    A class representing a GraphQL endpoint we can send queries to.
+    At the moment, specifically engineered for GitHub.
+    """
+
     def __init__(self, endpoint, future=False):
+        """
+        Args:
+            endpoint: URL of the endpoint in question
+        """
         self.endpoint = endpoint
+        # String OAuth token for authenticating to GitHub
         self.oauth_token = None
+        # String proxy to use for http and https requests
         self.proxy = None
         # Whether or not this API lives "in the future".  Features in
         # the future don't exist on the real GitHub API.
         self.future = future
 
     def graphql(self, query, **kwargs):
+        """
+        Args:
+            query: string GraphQL query to execute
+            **kwargs: values for variables in the graphql query
+        """
         headers = {}
         if self.oauth_token:
             headers['Authorization'] = 'bearer {}'.format(self.oauth_token)
@@ -42,12 +58,19 @@ class GraphQLEndpoint(object):
 
 
 class RESTEndpoint(object):
+    """
+    A class representing a REST endpoint we can send queries to.
+    At the moment, specifically engineered for GitHub.
+    """
+
     def __init__(self, endpoint):
         self.endpoint = endpoint
+        # String OAuth token for authenticating to GitHub
         self.oauth_token = None
+        # String proxy to use for http and https requests
         self.proxy = None
 
-    def headers(self):
+    def _headers(self):
         return {
           'Authorization': 'token ' + self.oauth_token,
           'Content-Type': 'application/json',
@@ -56,15 +79,32 @@ class RESTEndpoint(object):
           }
 
     def get(self, path, **kwargs):
+        """
+        Send a GET request to endpoint 'path'.
+        """
         return self.rest('get', path, **kwargs)
 
     def post(self, path, **kwargs):
+        """
+        Send a POST request to endpoint 'path'.
+        """
         return self.rest('post', path, **kwargs)
 
     def patch(self, path, **kwargs):
+        """
+        Send a PATCH request to endpoint 'path'.
+        """
         return self.rest('patch', path, **kwargs)
 
     def rest(self, method, path, **kwargs):
+        """
+        Send a 'method' request to endpoint 'path'.
+
+        Args:
+            method: 'GET', 'POST', etc.
+            path: relative URL path to access on endpoint
+            **kwargs: dictionary of JSON payload to send
+        """
         if self.proxy:
             proxies = {
                 'http': self.proxy,
@@ -74,7 +114,7 @@ class RESTEndpoint(object):
             proxies = {}
         r = getattr(requests, method)(self.endpoint + '/' + path,
                                       json=kwargs,
-                                      headers=self.headers(),
+                                      headers=self._headers(),
                                       proxies=proxies)
         r.raise_for_status()
         return r.json()
