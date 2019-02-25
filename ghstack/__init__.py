@@ -107,6 +107,7 @@ class GraphQLEndpoint(object):
     def __init__(self, endpoint, future=False):
         self.endpoint = endpoint
         self.oauth_token = None
+        self.proxy = None
         # Whether or not this API lives "in the future".  Features in
         # the future don't exist on the real GitHub API.
         self.future = future
@@ -115,10 +116,18 @@ class GraphQLEndpoint(object):
         headers = {}
         if self.oauth_token:
             headers['Authorization'] = 'bearer {}'.format(self.oauth_token)
+        if self.proxy:
+            proxies = {
+                'http': self.proxy,
+                'https': self.proxy
+            }
+        else:
+            proxies = {}
         resp = requests.post(
             self.endpoint,
             json={"query": query, "variables": kwargs},
-            headers=headers
+            headers=headers,
+            proxies=proxies
         )
         # Actually, this code is dead on the GitHub GraphQL API, because
         # they seem to always return 200, even in error case (as of
@@ -137,6 +146,7 @@ class RESTEndpoint(object):
     def __init__(self, endpoint):
         self.endpoint = endpoint
         self.oauth_token = None
+        self.proxy = None
 
     def headers(self):
         return {
@@ -156,9 +166,17 @@ class RESTEndpoint(object):
         return self.rest('patch', path, **kwargs)
 
     def rest(self, method, path, **kwargs):
+        if self.proxy:
+            proxies = {
+                'http': self.proxy,
+                'https': self.proxy
+            }
+        else:
+            proxies = {}
         r = getattr(requests, method)(self.endpoint + '/' + path,
                                       json=kwargs,
-                                      headers=self.headers())
+                                      headers=self.headers(),
+                                      proxies=proxies)
         r.raise_for_status()
         return r.json()
 
