@@ -42,6 +42,31 @@ def create_pr(github):
     """)
 
 
+def edit_pr_body(github, prid, body):
+    github.graphql("""
+        mutation ($input : UpdatePullRequestInput!) {
+            updatePullRequest(input: $input) {
+                clientMutationId
+            }
+        }
+    """, input={
+            'pullRequestId': prid,
+            'body': body
+        })
+
+def edit_pr_title(github, prid, title):
+    github.graphql("""
+        mutation ($input : UpdatePullRequestInput!) {
+            updatePullRequest(input: $input) {
+                clientMutationId
+            }
+        }
+    """, input={
+            'pullRequestId': prid,
+            'title': title
+        })
+
+
 class TestGh(expecttest.TestCase):
     # Starting up node takes 0.7s.  Don't do it every time.
     @classmethod
@@ -109,7 +134,7 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg='Update'):
-        ghstack.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
+        return ghstack.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
     def dump_github(self):
         r = self.github.graphql("""
@@ -775,6 +800,79 @@ Repository state:
     * | rMRG1 (gh/ezyang/1/head) Commit 1
     |/
     * rINI0 (gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_no_clobber(self):
+        # Check that we don't clobber changes to PR description or title
+
+        print("####################")
+        print("### test_no_clobber")
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
+        self.sh.test_tick()
+        stack = self.gh('Initial 1')
+        prid = stack[0]['id']
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Original message
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Amend the PR")
+        edit_pr_body(self.github, prid, "Directly updated message body")
+        edit_pr_title(self.github, prid, "Directly updated title")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Directly updated message body
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Submit an update")
+        self.sh.git("commit", "--amend", "--allow-empty")
+        self.sh.test_tick()
+        self.gh('Update 1')
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("gh/ezyang/1/head", "rMRG2")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Directly updated message body
+
+     * rMRG1 Commit 1
+     * rMRG2 Update 1 on "Directly updated title"
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/1/head) Update 1 on "Directly updated title"
+    * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
 

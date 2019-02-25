@@ -250,6 +250,9 @@ def main(msg=None, github=None, github_rest=None, sh=None, repo_owner=None,
         submitter.process_commit(s)
     submitter.post_process()
 
+    # NB: earliest first
+    return submitter.stack_meta
+
 
 RE_RAW_COMMIT_ID = re.compile(r'^(?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_AUTHOR = re.compile(r'^author (?P<name>[^<]+?) <(?P<email>[^>]+)>',
@@ -369,6 +372,16 @@ class Submitter(object):
 
             pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
+            # pr_body model:
+            #
+            # We insert a specific "auto-generated" section like:
+            #
+            #   <!-- BEGIN ghstack generated -->
+            #   <!-- END ghstack generated -->
+            #
+            # ghstack reserves the right to clobber this section on
+            # subsequent updates.
+
             # Time to open the PR
             if self.github.future:
                 r = self.github.graphql("""
@@ -463,6 +476,7 @@ class Submitter(object):
                     pullRequest(number: $number) {
                       id
                       body
+                      title
                     }
                   }
                 }
@@ -470,6 +484,12 @@ class Submitter(object):
             """, repo_id=self.repo_id, number=number)
             prid = r["data"]["node"]["pullRequest"]["id"]
             pr_body = r["data"]["node"]["pullRequest"]["body"]
+            # NB: Technically, we don't need to pull this information at
+            # all, but it's more convenient to unconditionally edit
+            # title in the code below
+            # NB: This overrides setting of title previously, from the
+            # commit message.
+            title = r["data"]["node"]["pullRequest"]["title"]
 
             # Check if updating is needed
             clean_commit_id = self.sh.git(
@@ -594,7 +614,10 @@ class Submitter(object):
                 'title': title,
                 'number': number,
                 # NB: Ignore the commit message, and just reuse the old commit
-                # message
+                # message.  This is consistent with 'jf submit' default
+                # behavior.  The idea is that people may have edited the
+                # PR description on GitHub and you don't want to clobber
+                # it.
                 'body': pr_body,
                 'base': branch_base(self.username, diffid),
                 'diffid': diffid,
@@ -660,7 +683,3 @@ class Submitter(object):
             self.sh.git("push", "origin", *push_branches)
         if force_push_branches:
             self.sh.git("push", "origin", "--force", *force_push_branches)
-
-# How to update commit messages?  Probably should reimplement git rebase
-# -i by hand.  Prefer NOT to actually affect working copy when making
-# changes.
