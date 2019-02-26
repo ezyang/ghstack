@@ -79,14 +79,25 @@ class Shell(object):
                 (unlike subprocess default)
             stderr: where to pipe stderr; by default, we pipe it straight
                 to this process's stderr
-            input: string value to pass stdin
+            input: string value to pass stdin.  This is mutually exclusive
+                with stdin
+            stdin: where to pipe stdin from.  This is mutually exclusive
+                with input
+            stdout: where to pipe stdout; by default, we capture the stdout
+                and return it
             exitcode: if True, return a bool rather than string, specifying
                 whether or not the process successfully returned with exit
                 code 0.  We never raise an exception when this is True.
         """
         stdin = None
-        if 'input' in kwargs:
+        if 'stdin' in kwargs:
+            stdin = kwargs['stdin']
+            assert 'input' not in kwargs
+        elif 'input' in kwargs:
             stdin = subprocess.PIPE
+        stdout = subprocess.PIPE
+        if 'stdout' in kwargs:
+            stdout = kwargs['stdout']
         env = kwargs.get("env")
         if not self.quiet:
             log_command(args, env=env)
@@ -94,7 +105,7 @@ class Shell(object):
             env = merge_dicts(os.environ, env)
         p = subprocess.Popen(
             args,
-            stdout=subprocess.PIPE,
+            stdout=stdout,
             stdin=stdin,
             stderr=kwargs.get("stderr"),
             cwd=self.cwd,
@@ -113,7 +124,10 @@ class Shell(object):
                 "{} failed with exit code {}"
                 .format(' '.join(args), p.returncode)
             )
-        return out.decode()
+        if out is not None:
+            return out.decode()
+        else:
+            return None
 
     def git(self, *args, **kwargs):
         """
@@ -146,7 +160,39 @@ class Shell(object):
                 kwargs['stderr'] = subprocess.PIPE
 
         r = self.sh(*(("git",) + args), **kwargs)
-        if kwargs.get('exitcode'):
+        if kwargs.get('exitcode') or not r:
+            return r
+        else:
+            return r.rstrip("\n")
+
+    def hg(self, *args, **kwargs):
+        """
+        Run a hg command.  The returned stdout has trailing newlines stripped.
+
+        Args:
+            *args: Arguments to hg
+            **kwargs: Any valid kwargs for sh()
+        """
+
+        r = self.sh(*(("hg",) + args), **kwargs)
+        if kwargs.get('exitcode') or not r:
+            return r
+        else:
+            return r.rstrip("\n")
+
+    def jf(self, *args, **kwargs):
+        """
+        Run a jf command.  The returned stdout has trailing newlines stripped.
+
+        Args:
+            *args: Arguments to jf
+            **kwargs: Any valid kwargs for sh()
+        """
+
+        kwargs.setdefault('stdout', None)
+
+        r = self.sh(*(("jf",) + args), **kwargs)
+        if kwargs.get('exitcode') or not r:
             return r
         else:
             return r.rstrip("\n")
