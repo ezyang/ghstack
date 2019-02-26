@@ -47,7 +47,10 @@ def main():
     else:
         github_oauth = config.get('ghstack', 'github_oauth')
 
-    proxy = config.get('ghstack', 'proxy', fallback=None)
+    if config.has_option('ghstack', 'proxy'):
+        proxy = config.get('ghstack', 'proxy')
+    else:
+        proxy = None
 
     if write_back:
         config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
