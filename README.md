@@ -2,6 +2,10 @@
 
 Conveniently submit stacks of diffs to GitHub as separate pull requests.
 
+```
+pip install ghstack
+```
+
 ## How to use
 
 Prepare a series of commits on top of master, then run `ghstack`.  This
