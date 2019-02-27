@@ -106,6 +106,9 @@ RE_RAW_METADATA = re.compile(
     r'gh/(?P<username>[a-zA-Z0-9-]+)/(?P<diffid>[0-9]+)/head$', re.MULTILINE)
 
 
+RE_STACK = re.compile(r'Stack:\n(\* [^\n]+\n)+')
+
+
 def all_branches(username, diffid):
     return (branch_base(username, diffid),
             branch_head(username, diffid),
@@ -211,17 +214,9 @@ class Submitter(object):
                 branch_base(self.username, diffid)
             )
 
-            pr_body = ''.join(commit_msg.splitlines(True)[1:]).lstrip()
-
-            # pr_body model:
-            #
-            # We insert a specific "auto-generated" section like:
-            #
-            #   <!-- BEGIN ghstack generated -->
-            #   <!-- END ghstack generated -->
-            #
-            # ghstack reserves the right to clobber this section on
-            # subsequent updates.
+            pr_body = \
+                "Stack:\n* (to be filled)\n\n" + \
+                ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
             # Time to open the PR
             if self.github.future:
@@ -473,6 +468,15 @@ class Submitter(object):
         print("base_orig = {}".format(self.base_orig))
         print("base_tree = {}".format(self.base_tree))
 
+    def _format_stack(self, index):
+        rows = []
+        for i, s in enumerate(self.stack_meta):
+            if index == i:
+                rows.append('* **#{} {}**'.format(s['number'], s['title']))
+            else:
+                rows.append('* #{} {}'.format(s['number'], s['title']))
+        return 'Stack:\n' + '\n'.join(rows) + '\n'
+
     def post_process(self):
         # fix the HEAD pointer
         self.sh.git("reset", "--soft", self.base_orig)
@@ -496,8 +500,7 @@ class Submitter(object):
                     }
                 """, input={
                         'pullRequestId': s['id'],
-                        # "Stack:\n" + format_stack(stack_meta, i) + "\n\n" +
-                        'body': s['body'],
+                        'body': RE_STACK.sub(self._format_stack(i), s['body']),
                         'title': s['title'],
                         'baseRefName': s['base']
                     })

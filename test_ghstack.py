@@ -186,6 +186,9 @@ class TestGh(expecttest.TestCase):
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+
     This is my first commit
 
      * rMRG1 Commit 1
@@ -206,11 +209,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     This is my first commit
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     This is my second commit
 
@@ -242,6 +253,9 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+
     A commit with an A
 
      * rMRG1 Commit 1
@@ -264,6 +278,9 @@ Repository state:
         self.substituteRev("gh/ezyang/1/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
 
     A commit with an A
 
@@ -305,11 +322,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -351,11 +376,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -381,11 +414,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -429,11 +470,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -461,12 +510,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+
     A commit with an A
 
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -492,12 +548,20 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -544,11 +608,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -583,12 +655,20 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -638,11 +718,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -681,12 +769,20 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
      * rMRG1A Rebase on "Commit 1"
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -739,11 +835,19 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -779,11 +883,18 @@ Repository state:
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
     A commit with an A
 
      * rMRG1 Commit 1
 
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 2**
 
     A commit with a B
 
@@ -822,6 +933,9 @@ Repository state:
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
 
     Original message
 
