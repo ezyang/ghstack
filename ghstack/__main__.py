@@ -1,4 +1,4 @@
-import ghstack
+import ghstack.main
 import ghstack.endpoint
 import ghstack.config
 
@@ -32,7 +32,7 @@ def main():
         proxy=conf.proxy
     )
 
-    ghstack.main(
+    ghstack.main.main(
         msg=args.msg,
         github=github_v4,
         github_rest=github_v3)

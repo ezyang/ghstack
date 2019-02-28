@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import re
 
-import ghstack
+import ghstack.main
 import ghstack.endpoint
 import ghstack.shell
 
@@ -136,7 +136,7 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg='Update'):
-        return ghstack.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
+        return ghstack.main.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
     def dump_github(self):
         r = self.github.graphql("""
