@@ -178,6 +178,13 @@ class Shell(object):
 
         return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
 
+    @overload
+    def hg(self, *args: str) -> str: ...
+    @overload
+    def hg(self, *args: str, input: str) -> str: ...
+    @overload
+    def hg(self, *args: str, **kwargs: Any) -> Union[bool, str, None]: ...
+
     def hg(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
         """
         Run a hg command.  The returned stdout has trailing newlines stripped.
