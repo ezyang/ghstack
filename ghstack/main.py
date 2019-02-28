@@ -151,7 +151,7 @@ class CommitHeader(object):
     def __init__(self, raw_header: str) -> None:
         self.raw_header = raw_header
 
-    def _search_group(self, regex: Pattern, group: str) -> str:
+    def _search_group(self, regex: Pattern[str], group: str) -> str:
         m = regex.search(self.raw_header)
         assert m
         return m.group(group)
@@ -174,7 +174,7 @@ class CommitHeader(object):
     def commit_msg(self) -> str:
         return '\n'.join(m.group("line") for m in RE_RAW_COMMIT_MSG_LINE.finditer(self.raw_header))
 
-    def match_metadata(self) -> Optional[Match]:
+    def match_metadata(self) -> Optional[Match[str]]:
         return RE_RAW_METADATA.search(self.raw_header)
 
 
@@ -403,7 +403,7 @@ class Submitter(object):
                 raise RuntimeError(
                     "cannot handle stack from diffs of other people yet")
 
-            diffid = m_metadata.group("diffid")
+            diffid = StackDiffId(m_metadata.group("diffid"))
             number = int(m_metadata.group("number"))
 
             # synchronize local pull/base state with external state
