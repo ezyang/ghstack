@@ -2,10 +2,29 @@ from __future__ import print_function
 
 import re
 import ghstack.shell
+import ghstack.endpoint
+from typing import List, NewType, Union, Optional, NamedTuple, Tuple, cast, Pattern, Match
+from typing_extensions import Literal
 
 
-def split_header(s):
-    return s.split("\0")[:-1]
+PhabDiffNumber = NewType('PhabDiffNumber', str)  # aka "D1234567"
+GitHubNumber = NewType('GitHubNumber', int)  # aka 1234 (as in #1234)
+GraphQLId = NewType('GraphQLId', str)  # aka MDExOlB1bGxSZXF1ZXN0MjU2NDM3MjQw (GraphQL ID)
+StackDiffId = NewType('StackDiffId', str)  # aka 12 (as in gh/ezyang/12/base)
+BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
+GitCommitHash = NewType('GitCommitHash', str)  # aka commit 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
+GitTreeHash = NewType('GitTreeHash', str)  # aka tree 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
+
+
+DiffMeta = NamedTuple('DiffMeta', [
+    ('id', GraphQLId),
+    ('title', str),
+    ('number', GitHubNumber),
+    ('body', str),
+    ('base', str),
+    ('diffid', StackDiffId),
+    ('push_branches', Tuple[BranchKind, ...]),
+])
 
 # repo layout:
 #   - gh/username/base-2345 -- what we think GitHub's current tip for commit is
@@ -17,24 +36,30 @@ def split_header(s):
 #                      commit description?)
 
 
-def branch(username, diffid, kind):
-    return "gh/{}/{}/{}".format(username, diffid, kind)
+def branch(username: str, diffid: StackDiffId, kind: BranchKind) -> GitCommitHash:
+    return GitCommitHash("gh/{}/{}/{}".format(username, diffid, kind))
 
 
-def branch_base(username, diffid):
+def branch_base(username: str, diffid: StackDiffId) -> GitCommitHash:
     return branch(username, diffid, "base")
 
 
-def branch_head(username, diffid):
+def branch_head(username: str, diffid: StackDiffId) -> GitCommitHash:
     return branch(username, diffid, "head")
 
 
-def branch_orig(username, diffid):
+def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
     return branch(username, diffid, "orig")
 
 
-def main(msg=None, github=None, github_rest=None, sh=None, repo_owner=None,
-         repo_name=None, username="ezyang"):
+def main(msg: Optional[str],
+         github: ghstack.endpoint.GraphQLEndpoint,
+         github_rest: Optional[ghstack.endpoint.RESTEndpoint],  # hmmm
+         sh: Optional[ghstack.shell.Shell] = None,
+         repo_owner: Optional[str] = None,
+         repo_name: Optional[str] = None,
+         username: str = "ezyang") -> List[DiffMeta]:  # TODO: fix hardcoded username
+
     if sh is None:
         # Use CWD
         sh = ghstack.shell.Shell()
@@ -66,13 +91,17 @@ def main(msg=None, github=None, github_rest=None, sh=None, repo_owner=None,
         }""", owner=repo_owner, name=repo_name)["data"]["repository"]["id"]
 
     sh.git("fetch", "origin")
-    base = sh.git("merge-base", "origin/master", "HEAD")
+    base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
 
     # compute the stack of commits to process (reverse chronological order),
     # INCLUDING the base commit
     print(sh.git("rev-list", "^" + base + "^@", "HEAD"))
     stack = split_header(
         sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
+
+    # start with the earliest commit
+    g = reversed(stack)
+    base_obj = next(g)
 
     submitter = Submitter(github=github,
                           github_rest=github_rest,
@@ -82,11 +111,9 @@ def main(msg=None, github=None, github_rest=None, sh=None, repo_owner=None,
                           repo_name=repo_name,
                           repo_id=repo_id,
                           base_commit=base,
+                          base_tree=base_obj.tree(),
                           msg=msg)
 
-    # start with the earliest commit
-    g = reversed(stack)
-    submitter.process_base(next(g))
     for s in g:
         submitter.process_commit(s)
     submitter.post_process()
@@ -109,15 +136,100 @@ RE_RAW_METADATA = re.compile(
 RE_STACK = re.compile(r'Stack:\n(\* [^\n]+\n)+')
 
 
-def all_branches(username, diffid):
+class CommitHeader(object):
+    """
+    Represents the information extracted from `git rev-list --header`
+    """
+    # The unparsed output from git rev-list --header
+    raw_header: str
+
+    def __init__(self, raw_header: str) -> None:
+        self.raw_header = raw_header
+
+    def _search_group(self, regex: Pattern, group: str) -> str:
+        m = regex.search(self.raw_header)
+        assert m
+        return m.group(group)
+
+    def tree(self) -> GitTreeHash:
+        return GitTreeHash(self._search_group(RE_RAW_TREE, "tree"))
+
+    def title(self) -> str:
+        return self._search_group(RE_RAW_COMMIT_MSG_LINE, "line")
+
+    def commit_id(self) -> GitCommitHash:
+        return GitCommitHash(self._search_group(RE_RAW_COMMIT_ID, "commit"))
+
+    def parents(self) -> List[GitCommitHash]:
+        return [GitCommitHash(m.group("commit")) for m in RE_RAW_PARENT.finditer(self.raw_header)]
+
+    def author(self) -> str:
+        return self._search_group(RE_RAW_AUTHOR, "author")
+
+    def commit_msg(self) -> str:
+        return '\n'.join(m.group("line") for m in RE_RAW_COMMIT_MSG_LINE.finditer(self.raw_header))
+
+    def match_metadata(self) -> Optional[Match]:
+        return RE_RAW_METADATA.search(self.raw_header)
+
+
+def split_header(s: str) -> List[CommitHeader]:
+    return list(map(CommitHeader, s.split("\0")[:-1]))
+
+
+def all_branches(username: str, diffid: StackDiffId) -> Tuple[str, str, str]:
     return (branch_base(username, diffid),
             branch_head(username, diffid),
             branch_orig(username, diffid))
 
 
 class Submitter(object):
-    def __init__(self, github, github_rest, sh, username, repo_owner,
-                 repo_name, repo_id, base_commit, msg):
+    # GraphQL endpoint to access GitHub
+    github: ghstack.endpoint.GraphQLEndpoint
+
+    # REST endpoint to access GitHub (None during testing)
+    github_rest: Optional[ghstack.endpoint.RESTEndpoint]
+
+    # Shell inside git checkout that we are submitting
+    sh: ghstack.shell.Shell
+
+    # GitHub username who is doing the submitting
+    username: str
+
+    # Owner of the repository we are submitting to.  Usually 'pytorch'
+    repo_owner: str
+
+    # Name of the repository we are submitting to.  Usually 'pytorch'
+    repo_name: str
+
+    # GraphQL ID of the repository
+    repo_id: GraphQLId
+
+    # The base commit of the next diff we are submitting
+    base_commit: GitCommitHash
+
+    # The base tree of the next diff we are submitting
+    base_tree: GitTreeHash
+
+    # Message describing the update to the stack that was done
+    msg: Optional[str]
+
+    # Description of all the diffs we submitted; to be populated
+    # by Submitter.
+    stack_meta: List[DiffMeta]
+
+    def __init__(
+            self,
+            github: ghstack.endpoint.GraphQLEndpoint,
+            github_rest: Optional[ghstack.endpoint.RESTEndpoint],
+            sh: ghstack.shell.Shell,
+            username: str,
+            repo_owner: str,
+            repo_name: str,
+            repo_id: GraphQLId,
+            base_commit: GitCommitHash,
+            base_tree: GitTreeHash,
+            msg: Optional[str]) -> None:
         self.github = github
         self.github_rest = github_rest
         self.sh = sh
@@ -127,18 +239,15 @@ class Submitter(object):
         self.repo_id = repo_id
         self.base_commit = base_commit
         self.base_orig = base_commit
-        self.base_tree = None
+        self.base_tree = base_tree
         self.stack_meta = []
         self.msg = msg
 
-    def process_base(self, commit):
-        self.base_tree = RE_RAW_TREE.search(commit).group("tree")
-
-    def process_commit(self, commit):
-        title = RE_RAW_COMMIT_MSG_LINE.search(commit).group("line")
-        commit_id = RE_RAW_COMMIT_ID.search(commit).group("commit")
-        tree = RE_RAW_TREE.search(commit).group("tree")
-        parents = [m.group("commit") for m in RE_RAW_PARENT.finditer(commit)]
+    def process_commit(self, commit: CommitHeader) -> None:
+        title = commit.title()
+        commit_id = commit.commit_id()
+        tree = commit.tree()
+        parents = commit.parents()
         new_orig = commit_id
 
         print("# Processing {} {}".format(commit_id[:9], title))
@@ -149,19 +258,10 @@ class Submitter(object):
                   "`git rebase -i` your diffs into a stack, then try again.")
         parent = parents[0]
 
-        # check if we authored the commit.  We don't touch shit we didn't
-        # create. (OPTIONAL)
-        m = RE_RAW_AUTHOR.search(commit)
-        if m is None:
-            raise RuntimeError("malformed commit object:\n\n{}".format(commit))
-        # TODO: Actually do this check
-        # Maybe this doesn't matter: assume that commits that are not
-        # ours are "appropriately formatted"
-        # if m.group("email") != 'ezyang@fb.com':
-        #     return
+        # TODO: check if we authored the commit.  We don't touch shit we didn't
+        # create.
 
-        commit_msg = '\n'.join(map(lambda m: m.group("line"),
-                               RE_RAW_COMMIT_MSG_LINE.finditer(commit)))
+        commit_msg = commit.commit_msg()
 
         # check if the commit message says what pull request it's associated
         # with
@@ -174,7 +274,7 @@ class Submitter(object):
         # fetch up to date pull request information
         # TODO
 
-        m_metadata = RE_RAW_METADATA.search(commit)
+        m_metadata = commit.match_metadata()
         if m_metadata is None:
             # Determine the next available UUID.  We do this by
             # iterating through known branches and keeping track
@@ -188,7 +288,7 @@ class Submitter(object):
                 "--format=%(refname)").split()
             max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
                 if refs else 0
-            diffid = str(max_ref_num + 1)
+            diffid = StackDiffId(str(max_ref_num + 1))
 
             # Record the base branch per the previous commit on the
             # stack
@@ -198,9 +298,9 @@ class Submitter(object):
                 self.base_commit)
 
             # Create the incremental pull request diff
-            new_pull = self.sh.git("commit-tree", tree,
+            new_pull = GitCommitHash(self.sh.git("commit-tree", tree,
                                    "-p", self.base_commit,
-                                   input=commit_msg)
+                                   input=commit_msg))
             self.sh.git(
                 "branch",
                 "-f", branch_head(self.username, diffid),
@@ -219,7 +319,7 @@ class Submitter(object):
                 ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
             # Time to open the PR
-            if self.github.future:
+            if self.github.future or not self.github_rest:
                 r = self.github.graphql("""
                     mutation ($input : CreatePullRequestInput!) {
                         createPullRequest(input: $input) {
@@ -238,7 +338,7 @@ class Submitter(object):
                         "ownerId": self.repo_id,
                     })
                 pullRequest = r["data"]["createPullRequest"]["pullRequest"]
-                prid = pullRequest["id"]
+                prid = GraphQLId(pullRequest["id"])
                 number = pullRequest["number"]
             else:
                 r = self.github_rest.post(
@@ -250,7 +350,7 @@ class Submitter(object):
                     body=pr_body,
                     maintainer_can_modify=True,
                     )
-                prid = None
+                prid = GraphQLId(r['node_id'])  # not used, but let's type it
                 number = r['number']
 
             print("Opened PR #{}".format(number))
@@ -270,11 +370,11 @@ class Submitter(object):
             # TODO: Try harder to preserve the old author/commit
             # information (is it really necessary? Check what
             # --amend does...)
-            new_orig = self.sh.git(
+            new_orig = GitCommitHash(self.sh.git(
                 "commit-tree",
                 tree,
                 "-p", self.base_orig,
-                input=commit_msg)
+                input=commit_msg))
 
             # Update the orig pointer
             self.sh.git(
@@ -282,15 +382,15 @@ class Submitter(object):
                 "-f", branch_orig(self.username, diffid),
                 new_orig)
 
-            self.stack_meta.append({
-                'id': prid,
-                'title': title,
-                'number': number,
-                'body': pr_body,
-                'base': branch_base(self.username, diffid),
-                'diffid': diffid,
-                'push_branches': ('orig', ),
-                })
+            self.stack_meta.append(DiffMeta(
+                id=prid,
+                title=title,
+                number=number,
+                body=pr_body,
+                base=branch_base(self.username, diffid),
+                diffid=diffid,
+                push_branches=('orig', ),
+            ))
 
         else:
             if m_metadata.group("username") != self.username:
@@ -318,7 +418,7 @@ class Submitter(object):
                 }
               }
             """, repo_id=self.repo_id, number=number)
-            prid = r["data"]["node"]["pullRequest"]["id"]
+            prid = GraphQLId(r["data"]["node"]["pullRequest"]["id"])
             pr_body = r["data"]["node"]["pullRequest"]["body"]
             # NB: Technically, we don't need to pull this information at
             # all, but it's more convenient to unconditionally edit
@@ -328,10 +428,11 @@ class Submitter(object):
             title = r["data"]["node"]["pullRequest"]["title"]
 
             # Check if updating is needed
-            clean_commit_id = self.sh.git(
+            clean_commit_id = GitCommitHash(self.sh.git(
                 "rev-parse",
                 branch_orig(self.username, diffid)
-            )
+            ))
+            push_branches: Tuple[BranchKind, ...]
             if clean_commit_id == commit_id:
                 print("Nothing to do")
                 # NB: NOT commit_id, that's the orig commit!
@@ -378,6 +479,7 @@ class Submitter(object):
                 # merge base.  (--is-ancestor check here is acceptable,
                 # because the base_commit in our stack could not have
                 # gone backwards)
+                base_args: Tuple[str, ...]
                 if self.sh.git(
                         "merge-base",
                         "--is-ancestor", self.base_commit,
@@ -402,12 +504,12 @@ class Submitter(object):
                         # Our base changed in a strange way, and we are
                         # now obligated to create a synthetic base
                         # commit.
-                        new_base = self.sh.git(
+                        new_base = GitCommitHash(self.sh.git(
                             "commit-tree", self.base_tree,
                             "-p", branch_base(self.username, diffid),
                             "-p", self.base_commit,
                             input='Update base for {} on "{}"'
-                                  .format(self.msg, title))
+                                  .format(self.msg, title)))
                     base_args = ("-p", new_base)
 
                 self.sh.git(
@@ -419,12 +521,12 @@ class Submitter(object):
                 #   pull, merging against the previous pull entry, and the
                 #   newest base.
 
-                tree = RE_RAW_TREE.search(commit).group("tree")
-                new_pull = self.sh.git(
+                tree = commit.tree()
+                new_pull = GitCommitHash(self.sh.git(
                     "commit-tree", tree,
                     "-p", branch_head(self.username, diffid),
                     *base_args,
-                    input='{} on "{}"'.format(self.msg, title))
+                    input='{} on "{}"'.format(self.msg, title)))
                 print("new_pull = {}".format(new_pull))
                 self.sh.git(
                     "branch",
@@ -434,9 +536,9 @@ class Submitter(object):
                 # History reedit!  Commit message changes only
                 if parent != self.base_orig:
                     print("Restacking commit on {}".format(self.base_orig))
-                    new_orig = self.sh.git(
+                    new_orig = GitCommitHash(self.sh.git(
                         "commit-tree", tree,
-                        "-p", self.base_orig, input=commit_msg)
+                        "-p", self.base_orig, input=commit_msg))
 
                 self.sh.git(
                     "branch",
@@ -445,20 +547,20 @@ class Submitter(object):
 
                 push_branches = ("base", "head", "orig")
 
-            self.stack_meta.append({
-                'id': prid,
-                'title': title,
-                'number': number,
+            self.stack_meta.append(DiffMeta(
+                id=prid,
+                title=title,
+                number=number,
                 # NB: Ignore the commit message, and just reuse the old commit
                 # message.  This is consistent with 'jf submit' default
                 # behavior.  The idea is that people may have edited the
                 # PR description on GitHub and you don't want to clobber
                 # it.
-                'body': pr_body,
-                'base': branch_base(self.username, diffid),
-                'diffid': diffid,
-                'push_branches': push_branches
-                })
+                body=pr_body,
+                base=branch_base(self.username, diffid),
+                diffid=diffid,
+                push_branches=push_branches
+            ))
 
         # The current pull request head commit, is the new base commit
         self.base_commit = new_pull
@@ -468,16 +570,16 @@ class Submitter(object):
         print("base_orig = {}".format(self.base_orig))
         print("base_tree = {}".format(self.base_tree))
 
-    def _format_stack(self, index):
+    def _format_stack(self, index: int) -> str:
         rows = []
         for i, s in enumerate(self.stack_meta):
             if index == i:
-                rows.append('* **#{} {}**'.format(s['number'], s['title']))
+                rows.append('* **#{} {}**'.format(s.number, s.title))
             else:
-                rows.append('* #{} {}'.format(s['number'], s['title']))
+                rows.append('* #{} {}'.format(s.number, s.title))
         return 'Stack:\n' + '\n'.join(rows) + '\n'
 
-    def post_process(self):
+    def post_process(self) -> None:
         # fix the HEAD pointer
         self.sh.git("reset", "--soft", self.base_orig)
 
@@ -490,8 +592,8 @@ class Submitter(object):
             print("# Updating https://github.com/{owner}/{repo}/pull/{number}"
                   .format(owner=self.repo_owner,
                           repo=self.repo_name,
-                          number=s["number"]))
-            if self.github.future:
+                          number=s.number))
+            if self.github.future or not self.github_rest:
                 self.github.graphql("""
                     mutation ($input : UpdatePullRequestInput!) {
                         updatePullRequest(input: $input) {
@@ -499,29 +601,29 @@ class Submitter(object):
                         }
                     }
                 """, input={
-                        'pullRequestId': s['id'],
-                        'body': RE_STACK.sub(self._format_stack(i), s['body']),
-                        'title': s['title'],
-                        'baseRefName': s['base']
+                        'pullRequestId': s.id,
+                        'body': RE_STACK.sub(self._format_stack(i), s.body),
+                        'title': s.title,
+                        'baseRefName': s.base
                     })
             else:
                 self.github_rest.patch(
                     "repos/{owner}/{repo}/pulls/{number}"
                     .format(owner=self.repo_owner, repo=self.repo_name,
-                            number=s['number']),
-                    body=s['body'],
-                    title=s['title'],
-                    base=s['base'])
+                            number=s.number),
+                    body=s.body,
+                    title=s.title,
+                    base=s.base)
             # It is VERY important that we do this push AFTER fixing the base,
             # otherwise GitHub will spuriously think that the user pushed a
             # number of patches as part of the PR, when actually they were just
             # from the (new) upstream branch
-            for b in s['push_branches']:
+            for b in s.push_branches:
                 if b == 'orig':
                     force_push_branches.append(
-                        branch(self.username, s['diffid'], b))
+                        branch(self.username, s.diffid, b))
                 else:
-                    push_branches.append(branch(self.username, s['diffid'], b))
+                    push_branches.append(branch(self.username, s.diffid, b))
         # Careful!  Don't push master.
         if push_branches:
             self.sh.git("push", "origin", *push_branches)

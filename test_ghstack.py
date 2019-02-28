@@ -136,7 +136,7 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg='Update'):
-        return ghstack.main.main(msg=msg, github=self.github, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
+        return ghstack.main.main(msg=msg, github=self.github, github_rest=None, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
     def dump_github(self):
         r = self.github.graphql("""
@@ -926,7 +926,7 @@ Repository state:
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
         stack = self.gh('Initial 1')
-        prid = stack[0]['id']
+        prid = stack[0].id
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")

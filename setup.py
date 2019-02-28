@@ -21,6 +21,7 @@ setuptools.setup(
     scripts=['bin/ghstack'],
     install_requires=[
         'requests',
+        'typing_extensions',
     ],
     # This is not supported by pip 10, which a lot of people have
     # installed (because it's the conda default)

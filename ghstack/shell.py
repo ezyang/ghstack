@@ -3,7 +3,7 @@ from __future__ import print_function
 import subprocess
 import os
 import sys
-from typing import Dict, Sequence, Optional, TypeVar, Union, Any
+from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload
 
 
 def log_command(args: Sequence[str]) -> None:
@@ -136,6 +136,13 @@ class Shell(object):
             return s.rstrip()
         else:
             return s
+
+    @overload
+    def git(self, *args: str) -> str: ...
+    @overload
+    def git(self, *args: str, input: str) -> str: ...
+    @overload
+    def git(self, *args: str, **kwargs) -> Union[bool, str, None]: ...
 
     def git(self, *args: str, **kwargs) -> Union[bool, str, None]:
         """
