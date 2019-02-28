@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import NewType, Pattern, Match, List, Optional
 import re
 
@@ -5,8 +7,11 @@ import re
 # Actually, sometimes we smuggle revs in here.  It doesn't seem to
 # matter at the moment, but it might be good to make a better
 # distinction here.
-GitCommitHash = NewType('GitCommitHash', str)  # aka commit 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
-GitTreeHash = NewType('GitTreeHash', str)  # aka tree 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
+# commit 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
+GitCommitHash = NewType('GitCommitHash', str)
+
+# tree 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
+GitTreeHash = NewType('GitTreeHash', str)
 
 
 RE_RAW_COMMIT_ID = re.compile(r'^(?P<commit>[a-f0-9]+)$', re.MULTILINE)
@@ -42,16 +47,20 @@ class CommitHeader(object):
         return self._search_group(RE_RAW_COMMIT_MSG_LINE, "line")
 
     def commit_id(self) -> GitCommitHash:
-        return GitCommitHash(self._search_group(RE_RAW_COMMIT_ID, "commit"))
+        return GitCommitHash(
+            self._search_group(RE_RAW_COMMIT_ID, "commit"))
 
     def parents(self) -> List[GitCommitHash]:
-        return [GitCommitHash(m.group("commit")) for m in RE_RAW_PARENT.finditer(self.raw_header)]
+        return [GitCommitHash(m.group("commit"))
+                for m in RE_RAW_PARENT.finditer(self.raw_header)]
 
     def author(self) -> str:
         return self._search_group(RE_RAW_AUTHOR, "author")
 
     def commit_msg(self) -> str:
-        return '\n'.join(m.group("line") for m in RE_RAW_COMMIT_MSG_LINE.finditer(self.raw_header))
+        return '\n'.join(
+            m.group("line")
+            for m in RE_RAW_COMMIT_MSG_LINE.finditer(self.raw_header))
 
     def match_metadata(self) -> Optional[Match[str]]:
         return RE_RAW_METADATA.search(self.raw_header)

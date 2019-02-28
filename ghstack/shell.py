@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from __future__ import print_function
 
 import subprocess
@@ -50,7 +52,10 @@ class Shell(object):
     # The current Unix timestamp.  Only used during testing mode.
     testing_time: int
 
-    def __init__(self, quiet: bool = False, cwd: Optional[str] = None, testing: bool = False):
+    def __init__(self,
+                 quiet: bool = False,
+                 cwd: Optional[str] = None,
+                 testing: bool = False):
         """
         Args:
             cwd: Current working directory of the shell.  Pass None to
@@ -133,20 +138,29 @@ class Shell(object):
         else:
             return None
 
-    def _maybe_rstrip(self, s: Union[bool, str, None]) -> Union[bool, str, None]:
+    def _maybe_rstrip(self, s: Union[bool, str, None]
+                      ) -> Union[bool, str, None]:
         if isinstance(s, str):
             return s.rstrip()
         else:
             return s
 
-    @overload
-    def git(self, *args: str) -> str: ...
-    @overload
-    def git(self, *args: str, input: str) -> str: ...
-    @overload
-    def git(self, *args: str, **kwargs: Any) -> Union[bool, str, None]: ...
+    @overload  # noqa: F811
+    def git(self, *args: str) -> str:
+        ...
 
+    @overload  # noqa: F811
+    def git(self, *args: str, input: str) -> str:
+
+        ...
+
+    @overload  # noqa: F811
     def git(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
+
+        ...
+
+    def git(self, *args: str, **kwargs: Any  # noqa: F811
+            ) -> Union[bool, str, None]:
         """
         Run a git command.  The returned stdout has trailing newlines stripped.
 
@@ -178,14 +192,21 @@ class Shell(object):
 
         return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
 
-    @overload
-    def hg(self, *args: str) -> str: ...
-    @overload
-    def hg(self, *args: str, input: str) -> str: ...
-    @overload
-    def hg(self, *args: str, **kwargs: Any) -> Union[bool, str, None]: ...
+    @overload  # noqa: F811
+    def hg(self, *args: str) -> str:
+        ...
 
-    def hg(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
+    @overload  # noqa: F811
+    def hg(self, *args: str, input: str) -> str:
+        ...
+
+    @overload  # noqa: F811
+    def hg(self, *args: str, **kwargs: Any
+           ) -> Union[bool, str, None]:
+        ...
+
+    def hg(self, *args: str, **kwargs: Any  # noqa: F811
+           ) -> Union[bool, str, None]:
         """
         Run a hg command.  The returned stdout has trailing newlines stripped.
 

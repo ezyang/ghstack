@@ -1,18 +1,25 @@
+#!/usr/bin/env python3
+
 from __future__ import print_function
 
 import re
 import ghstack.git
 import ghstack.shell
 import ghstack.endpoint
-from typing import List, NewType, Union, Optional, NamedTuple, Tuple, cast, Pattern, Match
+from typing import List, NewType, Union, Optional, NamedTuple, Tuple
 from ghstack.git import GitCommitHash, GitTreeHash
 from typing_extensions import Literal
 
 
 PhabDiffNumber = NewType('PhabDiffNumber', str)  # aka "D1234567"
 GitHubNumber = NewType('GitHubNumber', int)  # aka 1234 (as in #1234)
-GraphQLId = NewType('GraphQLId', str)  # aka MDExOlB1bGxSZXF1ZXN0MjU2NDM3MjQw (GraphQL ID)
-StackDiffId = NewType('StackDiffId', str)  # aka 12 (as in gh/ezyang/12/base)
+
+# aka MDExOlB1bGxSZXF1ZXN0MjU2NDM3MjQw (GraphQL ID)
+GraphQLId = NewType('GraphQLId', str)
+
+# aka 12 (as in gh/ezyang/12/base)
+StackDiffId = NewType('StackDiffId', str)
+
 BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
 
 DiffMeta = NamedTuple('DiffMeta', [
@@ -39,7 +46,8 @@ RE_STACK = re.compile(r'Stack:\n(\* [^\n]+\n)+')
 #                      commit description?)
 
 
-def branch(username: str, diffid: StackDiffId, kind: BranchKind) -> GitCommitHash:
+def branch(username: str, diffid: StackDiffId, kind: BranchKind
+           ) -> GitCommitHash:
     return GitCommitHash("gh/{}/{}/{}".format(username, diffid, kind))
 
 
@@ -61,7 +69,8 @@ def main(msg: Optional[str],
          sh: Optional[ghstack.shell.Shell] = None,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
-         username: str = "ezyang") -> List[DiffMeta]:  # TODO: fix hardcoded username
+         username: str = "ezyang"
+         ) -> List[DiffMeta]:  # TODO: fix hardcoded username
 
     if sh is None:
         # Use CWD
@@ -73,25 +82,31 @@ def main(msg: Optional[str],
         while True:
             m = re.match(r'^git@github.com:([^/]+)/([^.]+)\.git$', origin_url)
             if m:
-                repo_owner = m.group(1)
-                repo_name = m.group(2)
+                repo_owner_nonopt = m.group(1)
+                repo_name_nonopt = m.group(2)
                 break
             m = re.match(r'https://github.com/([^/]+)/([^.]+).git', origin_url)
             if m:
-                repo_owner = m.group(1)
-                repo_name = m.group(2)
+                repo_owner_nonopt = m.group(1)
+                repo_name_nonopt = m.group(2)
                 break
             raise RuntimeError(
                     "Couldn't determine repo owner and name from url: {}"
                     .format(origin_url))
+    else:
+        repo_owner_nonopt = repo_owner
+        repo_name_nonopt = repo_name
 
     # TODO: Cache this guy
-    repo_id = github.graphql("""
+    repo_id = github.graphql(
+        """
         query ($owner: String!, $name: String!) {
             repository(name: $name, owner: $owner) {
                 id
             }
-        }""", owner=repo_owner, name=repo_name)["data"]["repository"]["id"]
+        }""",
+        owner=repo_owner_nonopt,
+        name=repo_name_nonopt)["data"]["repository"]["id"]
 
     sh.git("fetch", "origin")
     base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
@@ -110,8 +125,8 @@ def main(msg: Optional[str],
                           github_rest=github_rest,
                           sh=sh,
                           username=username,
-                          repo_owner=repo_owner,
-                          repo_name=repo_name,
+                          repo_owner=repo_owner_nonopt,
+                          repo_name=repo_name_nonopt,
                           repo_id=repo_id,
                           base_commit=base,
                           base_tree=base_obj.tree(),
@@ -246,9 +261,10 @@ class Submitter(object):
                 self.base_commit)
 
             # Create the incremental pull request diff
-            new_pull = GitCommitHash(self.sh.git("commit-tree", tree,
-                                   "-p", self.base_commit,
-                                   input=commit_msg))
+            new_pull = GitCommitHash(
+                self.sh.git("commit-tree", tree,
+                            "-p", self.base_commit,
+                            input=commit_msg))
             self.sh.git(
                 "branch",
                 "-f", branch_head(self.username, diffid),

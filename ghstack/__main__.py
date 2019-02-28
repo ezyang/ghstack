@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+
 import ghstack.main
 import ghstack.endpoint
 import ghstack.config
 
 import argparse
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(

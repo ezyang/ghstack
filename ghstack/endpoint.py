@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import json
 import requests
 from typing import Optional, Dict, Any
@@ -94,7 +96,8 @@ class RESTEndpoint(object):
     # String proxy to use for http and https requests
     proxy: Optional[str]
 
-    def __init__(self, endpoint: str, oauth_token: str, proxy: Optional[str] = None) -> None:
+    def __init__(self, endpoint: str, oauth_token: str,
+                 proxy: Optional[str] = None) -> None:
         self.endpoint = endpoint
         self.oauth_token = oauth_token
         self.proxy = proxy
