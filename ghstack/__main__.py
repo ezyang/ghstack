@@ -4,7 +4,7 @@ import ghstack.config
 
 import argparse
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description='Submit stack of diffs to GitHub.')
     parser.add_argument(
