@@ -1,22 +1,18 @@
 import os
-import collections
 import getpass
-
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser  # type: ignore
+import configparser
+from typing import NamedTuple, Optional
 
 
-Config = collections.namedtuple('Config', [
-    'proxy',
-    'github_oauth',
-    'fbsource_path',
-    'github_path'
+Config = NamedTuple('Config', [
+    ('proxy', Optional[str]),
+    ('github_oauth', str),
+    ('fbsource_path', str),
+    ('github_path', str)
 ])
 
 
-def read_config():
+def read_config() -> Config:
     config = configparser.ConfigParser()
     config.read(['.ghstackrc', os.path.expanduser('~/.ghstackrc')])
 
@@ -26,21 +22,21 @@ def read_config():
         config.add_section('ghstack')
 
     if not config.has_option('ghstack', 'github_oauth'):
-        github_oauth = config.set(
+        github_oauth = getpass.getpass(
+            'GitHub OAuth token (make one at '
+            'https://github.com/settings/tokens -- '
+            'we need public_repo permissions): ').strip()
+        config.set(
             'ghstack',
             'github_oauth',
-            getpass.getpass(
-                'GitHub OAuth token (make one at '
-                'https://github.com/settings/tokens -- '
-                'we need public_repo permissions): ').strip())
+            github_oauth)
         write_back = True
     else:
         github_oauth = config.get('ghstack', 'github_oauth')
 
+    proxy = None
     if config.has_option('ghstack', 'proxy'):
         proxy = config.get('ghstack', 'proxy')
-    else:
-        proxy = None
 
     if write_back:
         config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
