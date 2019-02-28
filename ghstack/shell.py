@@ -127,7 +127,9 @@ class Shell(object):
                 .format(' '.join(args), p.returncode)
             )
         if out is not None:
-            return out.decode()
+            r = out.decode()
+            assert isinstance(r, str)
+            return r
         else:
             return None
 
@@ -142,9 +144,9 @@ class Shell(object):
     @overload
     def git(self, *args: str, input: str) -> str: ...
     @overload
-    def git(self, *args: str, **kwargs) -> Union[bool, str, None]: ...
+    def git(self, *args: str, **kwargs: Any) -> Union[bool, str, None]: ...
 
-    def git(self, *args: str, **kwargs) -> Union[bool, str, None]:
+    def git(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
         """
         Run a git command.  The returned stdout has trailing newlines stripped.
 
@@ -176,7 +178,7 @@ class Shell(object):
 
         return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
 
-    def hg(self, *args: str, **kwargs) -> Union[bool, str, None]:
+    def hg(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
         """
         Run a hg command.  The returned stdout has trailing newlines stripped.
 
@@ -187,7 +189,7 @@ class Shell(object):
 
         return self._maybe_rstrip(self.sh(*(("hg",) + args), **kwargs))
 
-    def jf(self, *args: str, **kwargs) -> Union[bool, str, None]:
+    def jf(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
         """
         Run a jf command.  The returned stdout has trailing newlines stripped.
 
