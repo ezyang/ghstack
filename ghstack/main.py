@@ -12,7 +12,12 @@ GitHubNumber = NewType('GitHubNumber', int)  # aka 1234 (as in #1234)
 GraphQLId = NewType('GraphQLId', str)  # aka MDExOlB1bGxSZXF1ZXN0MjU2NDM3MjQw (GraphQL ID)
 StackDiffId = NewType('StackDiffId', str)  # aka 12 (as in gh/ezyang/12/base)
 BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
+
+# Actually, sometimes we smuggle revs in here.  It doesn't seem to
+# matter at the moment, but it might be good to make a better
+# distinction here.
 GitCommitHash = NewType('GitCommitHash', str)  # aka commit 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
+
 GitTreeHash = NewType('GitTreeHash', str)  # aka tree 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
 
 

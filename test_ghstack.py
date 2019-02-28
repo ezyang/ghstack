@@ -10,23 +10,30 @@ import shutil
 import tempfile
 import re
 
+from typing import ClassVar, Dict, NewType, List
+
 import ghstack.main
 import ghstack.endpoint
 import ghstack.shell
+
+from ghstack.main import GraphQLId, GitCommitHash
 
 
 GH_KEEP_TMP = os.getenv('GH_KEEP_TMP')
 
 
-def strip_trailing_whitespace(text):
+SubstituteRev = NewType('SubstituteRev', str)
+
+
+def strip_trailing_whitespace(text: str) -> str:
     return re.sub(r' +$', '', text, flags=re.MULTILINE)
 
 
-def indent(text, prefix):
+def indent(text: str, prefix: str) -> str:
     return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
 
 
-def create_pr(github):
+def create_pr(github: ghstack.endpoint.GraphQLEndpoint):
     github.graphql("""
       mutation {
         createPullRequest(input: {
@@ -44,7 +51,7 @@ def create_pr(github):
     """)
 
 
-def edit_pr_body(github, prid, body):
+def edit_pr_body(github: ghstack.endpoint.GraphQLEndpoint, prid, body):
     github.graphql("""
         mutation ($input : UpdatePullRequestInput!) {
             updatePullRequest(input: $input) {
@@ -54,9 +61,11 @@ def edit_pr_body(github, prid, body):
     """, input={
             'pullRequestId': prid,
             'body': body
-        })
+    })
 
-def edit_pr_title(github, prid, title):
+def edit_pr_title(
+        github: ghstack.endpoint.GraphQLEndpoint,
+        prid: GraphQLId, title: str):
     github.graphql("""
         mutation ($input : UpdatePullRequestInput!) {
             updatePullRequest(input: $input) {
@@ -64,12 +73,17 @@ def edit_pr_title(github, prid, title):
             }
         }
     """, input={
-            'pullRequestId': prid,
-            'title': title
-        })
-
+        'pullRequestId': prid,
+        'title': title
+    })
 
 class TestGh(expecttest.TestCase):
+    proc: ClassVar[subprocess.Popen]
+    github: ghstack.endpoint.GraphQLEndpoint
+    rev_map: Dict[SubstituteRev, GitCommitHash]
+    upstream_sh: ghstack.shell.Shell
+    sh: ghstack.shell.Shell
+
     # Starting up node takes 0.7s.  Don't do it every time.
     @classmethod
     def setUpClass(cls):
@@ -92,7 +106,7 @@ class TestGh(expecttest.TestCase):
         cls.proc.terminate()
         cls.proc.wait()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.github.graphql("""
           mutation {
             resetGitHub(input: {}) {
@@ -123,22 +137,22 @@ class TestGh(expecttest.TestCase):
         self.sh.git("clone", upstream_dir, ".")
 
         self.rev_map = {}
-        self.substituteRev("HEAD", "rINI0")
+        self.substituteRev(GitCommitHash("HEAD"), SubstituteRev("rINI0"))
 
-    def lookupRev(self, substitute):
-        return self.rev_map[substitute]
+    def lookupRev(self, substitute: str) -> GitCommitHash:
+        return self.rev_map[SubstituteRev(substitute)]
 
-    def substituteRev(self, rev, substitute):
+    def substituteRev(self, rev: str, substitute: str) -> None:
         # short doesn't really have to be here if we do substituteRev
-        h = self.sh.git("rev-parse", "--short", rev)
-        self.rev_map[substitute] = h
+        h = GitCommitHash(self.sh.git("rev-parse", "--short", rev))
+        self.rev_map[SubstituteRev(substitute)] = h
         print("substituteRev: {} = {}".format(substitute, h))
         self.substituteExpected(h, substitute)
 
-    def gh(self, msg='Update'):
+    def gh(self, msg: str = 'Update') -> List[ghstack.main.DiffMeta]:
         return ghstack.main.main(msg=msg, github=self.github, github_rest=None, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
 
-    def dump_github(self):
+    def dump_github(self) -> str:
         r = self.github.graphql("""
           query {
             repository(name: "pytorch", owner: "pytorch") {
@@ -172,7 +186,7 @@ class TestGh(expecttest.TestCase):
 
     # ------------------------------------------------------------------------- #
 
-    def test_simple(self):
+    def test_simple(self) -> None:
         print("####################")
         print("### test_simple")
         print("###")
@@ -237,7 +251,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_amend(self):
+    def test_amend(self) -> None:
         print("####################")
         print("### test_amend")
         print("###")
@@ -297,7 +311,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_multi(self):
+    def test_multi(self) -> None:
         print("####################")
         print("### test_multi")
         print("###")
@@ -350,7 +364,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_amend_top(self):
+    def test_amend_top(self) -> None:
         print("####################")
         print("### test_amend_top")
         print("###")
@@ -444,7 +458,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_amend_bottom(self):
+    def test_amend_bottom(self) -> None:
         print("####################")
         print("### test_amend_bottom")
         print("###")
@@ -582,7 +596,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_amend_all(self):
+    def test_amend_all(self) -> None:
         print("####################")
         print("### test_amend_all")
         print("###")
@@ -689,7 +703,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_rebase(self):
+    def test_rebase(self) -> None:
         print("####################")
         print("### test_rebase")
 
@@ -806,7 +820,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_cherry_pick(self):
+    def test_cherry_pick(self) -> None:
         print("####################")
         print("### test_cherry_pick")
 
@@ -918,7 +932,7 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    def test_no_clobber(self):
+    def test_no_clobber(self) -> None:
         # Check that we don't clobber changes to PR description or title
 
         print("####################")
