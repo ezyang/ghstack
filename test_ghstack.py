@@ -85,7 +85,7 @@ class TestGh(expecttest.TestCase):
                 print("Retrying with port {}".format(port))
                 continue
             break
-        cls.github = ghstack.endpoint.GraphQLEndpoint("http://localhost:{}".format(port), future=True)
+        cls.github = ghstack.endpoint.GraphQLEndpoint("http://localhost:{}".format(port), oauth_token="DUMMY", future=True)
 
     @classmethod
     def tearDownClass(cls):

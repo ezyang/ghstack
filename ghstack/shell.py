@@ -3,24 +3,10 @@ from __future__ import print_function
 import subprocess
 import os
 import sys
+from typing import Dict, Sequence, Optional, TypeVar, Union, Any
 
 
-def format_env(env):
-    """
-    Formats the explicitly specified environment in a human readable way.
-
-    This isn't really actually used.
-
-    Args:
-        env: The environment dictionary you wish to format
-    """
-    r = []
-    for k, v in env.items():
-        r.append("{}={}".format(k, subprocess.list2cmdline([v])))
-    return ' '.join(r)
-
-
-def log_command(args, env=None):
+def log_command(args: Sequence[str]) -> None:
     """
     Given a command, print it in a both machine and human readable way.
 
@@ -29,12 +15,16 @@ def log_command(args, env=None):
         env: the dictionary of environment variable settings for the command
     """
     cmd = subprocess.list2cmdline(args).replace("\n", "\\n")
-    # if env is not None:
-    #     cmd = "{} {}".format(format_env(env), cmd)
     print("$ " + cmd)
 
 
-def merge_dicts(x, y):
+K = TypeVar('K')
+
+
+V = TypeVar('V')
+
+
+def merge_dicts(x: Dict[K, V], y: Dict[K, V]) -> Dict[K, V]:
     z = x.copy()
     z.update(y)
     return z
@@ -47,7 +37,20 @@ class Shell(object):
     also the necessary accoutrements for testing.
     """
 
-    def __init__(self, quiet=False, cwd=None, testing=False):
+    # Current working directory of shell.
+    cwd: str
+
+    # Whether or not to suppress printing of command executed.
+    quiet: bool
+
+    # Whether or not shell is in testing mode; some commands are made
+    # more deterministic in this case.
+    testing: bool
+
+    # The current Unix timestamp.  Only used during testing mode.
+    testing_time: int
+
+    def __init__(self, quiet: bool = False, cwd: Optional[str] = None, testing: bool = False):
         """
         Args:
             cwd: Current working directory of the shell.  Pass None to
@@ -66,7 +69,13 @@ class Shell(object):
         self.testing = testing
         self.testing_time = 1112911993
 
-    def sh(self, *args, **kwargs):
+    def sh(self, *args: str,
+           env: Optional[Dict[str, str]] = None,
+           stderr: Optional[Any] = None,
+           input: Optional[str] = None,
+           stdin: Optional[Any] = None,
+           stdout: Optional[Any] = subprocess.PIPE,
+           exitcode: bool = False) -> Union[bool, str, None]:
         """
         Run a command specified by args, and return string representing
         the stdout of the run command, raising an error if exit code
@@ -89,35 +98,28 @@ class Shell(object):
                 whether or not the process successfully returned with exit
                 code 0.  We never raise an exception when this is True.
         """
-        stdin = None
-        if 'stdin' in kwargs:
-            stdin = kwargs['stdin']
-            assert 'input' not in kwargs
-        elif 'input' in kwargs:
+        assert not (stdin and input)
+        if input:
             stdin = subprocess.PIPE
-        stdout = subprocess.PIPE
-        if 'stdout' in kwargs:
-            stdout = kwargs['stdout']
-        env = kwargs.get("env")
         if not self.quiet:
-            log_command(args, env=env)
+            log_command(args)
         if env is not None:
-            env = merge_dicts(os.environ, env)
+            env = merge_dicts(dict(os.environ), env)
         p = subprocess.Popen(
             args,
             stdout=stdout,
             stdin=stdin,
-            stderr=kwargs.get("stderr"),
+            stderr=stderr,
             cwd=self.cwd,
             env=env
         )
-        input = kwargs.get('input')
+        input_bytes = None
         if input is not None:
-            input = input.encode('utf-8')
-        out, err = p.communicate(input)
+            input_bytes = input.encode('utf-8')
+        out, err = p.communicate(input_bytes)
         if err is not None:
             print(err, file=sys.stderr, end='')
-        if kwargs.get('exitcode'):
+        if exitcode:
             return p.returncode == 0
         if p.returncode != 0:
             raise RuntimeError(
@@ -129,7 +131,13 @@ class Shell(object):
         else:
             return None
 
-    def git(self, *args, **kwargs):
+    def _maybe_rstrip(self, s: Union[bool, str, None]) -> Union[bool, str, None]:
+        if isinstance(s, str):
+            return s.rstrip()
+        else:
+            return s
+
+    def git(self, *args: str, **kwargs) -> Union[bool, str, None]:
         """
         Run a git command.  The returned stdout has trailing newlines stripped.
 
@@ -159,13 +167,9 @@ class Shell(object):
             if 'stderr' not in kwargs:
                 kwargs['stderr'] = subprocess.PIPE
 
-        r = self.sh(*(("git",) + args), **kwargs)
-        if kwargs.get('exitcode') or not r:
-            return r
-        else:
-            return r.rstrip("\n")
+        return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
 
-    def hg(self, *args, **kwargs):
+    def hg(self, *args: str, **kwargs) -> Union[bool, str, None]:
         """
         Run a hg command.  The returned stdout has trailing newlines stripped.
 
@@ -174,13 +178,9 @@ class Shell(object):
             **kwargs: Any valid kwargs for sh()
         """
 
-        r = self.sh(*(("hg",) + args), **kwargs)
-        if kwargs.get('exitcode') or not r:
-            return r
-        else:
-            return r.rstrip("\n")
+        return self._maybe_rstrip(self.sh(*(("hg",) + args), **kwargs))
 
-    def jf(self, *args, **kwargs):
+    def jf(self, *args: str, **kwargs) -> Union[bool, str, None]:
         """
         Run a jf command.  The returned stdout has trailing newlines stripped.
 
@@ -191,19 +191,15 @@ class Shell(object):
 
         kwargs.setdefault('stdout', None)
 
-        r = self.sh(*(("jf",) + args), **kwargs)
-        if kwargs.get('exitcode') or not r:
-            return r
-        else:
-            return r.rstrip("\n")
+        return self._maybe_rstrip(self.sh(*(("jf",) + args), **kwargs))
 
-    def test_tick(self):
+    def test_tick(self) -> None:
         """
         Increase the current time.  Useful when testing is True.
         """
         self.testing_time += 60
 
-    def open(self, fn, mode):
+    def open(self, fn: str, mode: str) -> Any:
         """
         Open a file, relative to the current working directory.
 
@@ -213,7 +209,7 @@ class Shell(object):
         """
         return open(os.path.join(self.cwd, fn), mode)
 
-    def cd(self, d):
+    def cd(self, d: str) -> None:
         """
         Change the current working directory.
 
