@@ -29,7 +29,7 @@ class GraphQLEndpoint(object):
                  endpoint: str,
                  oauth_token: str,
                  proxy: Optional[str] = None,
-                 future: bool = False) -> None:
+                 future: bool = False):
         """
         Args:
             endpoint: URL of the endpoint in question
@@ -44,6 +44,8 @@ class GraphQLEndpoint(object):
         Args:
             query: string GraphQL query to execute
             **kwargs: values for variables in the graphql query
+
+        Returns: parsed JSON response
         """
         headers = {}
         if self.oauth_token:
@@ -97,7 +99,7 @@ class RESTEndpoint(object):
     proxy: Optional[str]
 
     def __init__(self, endpoint: str, oauth_token: str,
-                 proxy: Optional[str] = None) -> None:
+                 proxy: Optional[str] = None):
         self.endpoint = endpoint
         self.oauth_token = oauth_token
         self.proxy = proxy
@@ -113,18 +115,24 @@ class RESTEndpoint(object):
     def get(self, path: str, **kwargs: Any) -> Any:
         """
         Send a GET request to endpoint 'path'.
+
+        Returns: parsed JSON response
         """
         return self.rest('get', path, **kwargs)
 
     def post(self, path: str, **kwargs: Any) -> Any:
         """
         Send a POST request to endpoint 'path'.
+
+        Returns: parsed JSON response
         """
         return self.rest('post', path, **kwargs)
 
     def patch(self, path: str, **kwargs: Any) -> Any:
         """
         Send a PATCH request to endpoint 'path'.
+
+        Returns: parsed JSON response
         """
         return self.rest('patch', path, **kwargs)
 
@@ -136,6 +144,8 @@ class RESTEndpoint(object):
             method: 'GET', 'POST', etc.
             path: relative URL path to access on endpoint
             **kwargs: dictionary of JSON payload to send
+
+        Returns: parsed JSON response
         """
         if self.proxy:
             proxies = {

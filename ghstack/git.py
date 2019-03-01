@@ -32,7 +32,7 @@ class CommitHeader(object):
     # The unparsed output from git rev-list --header
     raw_header: str
 
-    def __init__(self, raw_header: str) -> None:
+    def __init__(self, raw_header: str):
         self.raw_header = raw_header
 
     def _search_group(self, regex: Pattern[str], group: str) -> str:

@@ -192,7 +192,7 @@ class Submitter(object):
             repo_id: GraphQLId,
             base_commit: GitCommitHash,
             base_tree: GitTreeHash,
-            msg: Optional[str]) -> None:
+            msg: Optional[str]):
         self.github = github
         self.github_rest = github_rest
         self.sh = sh

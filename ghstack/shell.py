@@ -5,7 +5,13 @@ from __future__ import print_function
 import subprocess
 import os
 import sys
-from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload
+from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO
+
+
+# Shell commands generally return str, but with exitcode=True
+# they return a bool, and if stdout is piped straight to sys.stdout
+# they return None.
+_SHELL_RET = Union[bool, str, None]
 
 
 def log_command(args: Sequence[str]) -> None:
@@ -80,7 +86,7 @@ class Shell(object):
            input: Optional[str] = None,
            stdin: Optional[Any] = None,
            stdout: Optional[Any] = subprocess.PIPE,
-           exitcode: bool = False) -> Union[bool, str, None]:
+           exitcode: bool = False) -> _SHELL_RET:
         """
         Run a command specified by args, and return string representing
         the stdout of the run command, raising an error if exit code
@@ -138,8 +144,7 @@ class Shell(object):
         else:
             return None
 
-    def _maybe_rstrip(self, s: Union[bool, str, None]
-                      ) -> Union[bool, str, None]:
+    def _maybe_rstrip(self, s: _SHELL_RET) -> _SHELL_RET:
         if isinstance(s, str):
             return s.rstrip()
         else:
@@ -155,12 +160,12 @@ class Shell(object):
         ...
 
     @overload  # noqa: F811
-    def git(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
+    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET:
 
         ...
 
     def git(self, *args: str, **kwargs: Any  # noqa: F811
-            ) -> Union[bool, str, None]:
+            ) -> _SHELL_RET:
         """
         Run a git command.  The returned stdout has trailing newlines stripped.
 
@@ -201,12 +206,11 @@ class Shell(object):
         ...
 
     @overload  # noqa: F811
-    def hg(self, *args: str, **kwargs: Any
-           ) -> Union[bool, str, None]:
+    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         ...
 
     def hg(self, *args: str, **kwargs: Any  # noqa: F811
-           ) -> Union[bool, str, None]:
+           ) -> _SHELL_RET:
         """
         Run a hg command.  The returned stdout has trailing newlines stripped.
 
@@ -217,7 +221,7 @@ class Shell(object):
 
         return self._maybe_rstrip(self.sh(*(("hg",) + args), **kwargs))
 
-    def jf(self, *args: str, **kwargs: Any) -> Union[bool, str, None]:
+    def jf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
         Run a jf command.  The returned stdout has trailing newlines stripped.
 
@@ -236,7 +240,7 @@ class Shell(object):
         """
         self.testing_time += 60
 
-    def open(self, fn: str, mode: str) -> Any:
+    def open(self, fn: str, mode: str) -> IO[Any]:
         """
         Open a file, relative to the current working directory.
 
