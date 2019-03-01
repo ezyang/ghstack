@@ -7,10 +7,22 @@ from typing import NamedTuple, Optional
 
 
 Config = NamedTuple('Config', [
+    # Proxy to use when making connections to GitHub
     ('proxy', Optional[str]),
+    # OAuth token to authenticate to GitHub with
     ('github_oauth', str),
+
+    # These config parameters are not used by ghstack, but other
+    # tools that reuse this module
+
+    # Path to working fbsource checkout
     ('fbsource_path', str),
-    ('github_path', str)
+    # Path to working git checkout (ghstack infers your git checkout
+    # based on CWD)
+    ('github_path', str),
+    # Path to project directory inside fbsource, to default when
+    # autodetection fails
+    ('default_project_dir', str),
 ])
 
 
@@ -23,7 +35,12 @@ def read_config() -> Config:
     if not config.has_section('ghstack'):
         config.add_section('ghstack')
 
-    if not config.has_option('ghstack', 'github_oauth'):
+    # Environment variable overrides config file
+    # This envvar is legacy from ghexport days
+    github_oauth = os.getenv("OAUTH_TOKEN")
+    if github_oauth is None and config.has_option('ghstack', 'github_oauth'):
+        github_oauth = config.get('ghstack', 'github_oauth')
+    if github_oauth is None:
         github_oauth = getpass.getpass(
             'GitHub OAuth token (make one at '
             'https://github.com/settings/tokens -- '
@@ -33,16 +50,10 @@ def read_config() -> Config:
             'github_oauth',
             github_oauth)
         write_back = True
-    else:
-        github_oauth = config.get('ghstack', 'github_oauth')
 
     proxy = None
     if config.has_option('ghstack', 'proxy'):
         proxy = config.get('ghstack', 'proxy')
-
-    if write_back:
-        config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
-        print("NB: saved to ~/.ghstackrc")
 
     if config.has_option('ghstack', 'fbsource_path'):
         fbsource_path = config.get('ghstack', 'fbsource_path')
@@ -54,8 +65,18 @@ def read_config() -> Config:
     else:
         github_path = os.path.expanduser('~/local/ghstack-pytorch')
 
+    if config.has_option('ghstack', 'default_project'):
+        default_project_dir = config.get('ghstack', 'default_project_dir')
+    else:
+        default_project_dir = 'fbcode/caffe2'
+
+    if write_back:
+        config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
+        print("NB: saved to ~/.ghstackrc")
+
     return Config(
         github_oauth=github_oauth,
         proxy=proxy,
         fbsource_path=fbsource_path,
-        github_path=github_path)
+        github_path=github_path,
+        default_project_dir=default_project_dir)
