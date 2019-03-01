@@ -14,6 +14,9 @@ from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO
 _SHELL_RET = Union[bool, str, None]
 
 
+_HANDLE = Union[None, int, IO[Any]]
+
+
 def log_command(args: Sequence[str]) -> None:
     """
     Given a command, print it in a both machine and human readable way.
@@ -82,10 +85,10 @@ class Shell(object):
 
     def sh(self, *args: str,
            env: Optional[Dict[str, str]] = None,
-           stderr: Optional[Any] = None,
+           stderr: _HANDLE = None,
            input: Optional[str] = None,
-           stdin: Optional[Any] = None,
-           stdout: Optional[Any] = subprocess.PIPE,
+           stdin: _HANDLE = None,
+           stdout: _HANDLE = subprocess.PIPE,
            exitcode: bool = False) -> _SHELL_RET:
         """
         Run a command specified by args, and return string representing
