@@ -89,13 +89,18 @@ class Node:
 class PullRequestConnection:
     nodes: List[PullRequest]
 
+def github_state(info: graphql.GraphQLResolveInfo) -> GitHubState:
+    context = info.context
+    assert isinstance(context, GitHubState)
+    return context
+
 @dataclass
 class Repository(Node):
     name: str
     nameWithOwner: str
 
     def pullRequest(self, info: graphql.GraphQLResolveInfo, number: GitHubNumber) -> PullRequest:
-        for pr in info.context.pull_requests.values():
+        for pr in github_state(info).pull_requests.values():
             if self == pr.repository(info) and pr.number == number:
                 return pr
         raise RuntimeError(
@@ -104,7 +109,7 @@ class Repository(Node):
 
     def pullRequests(self, info: graphql.GraphQLResolveInfo) -> PullRequestConnection:
         return PullRequestConnection(
-                nodes=list(filter(lambda pr: self == pr.repository(info), info.context.pull_requests.values())))
+                nodes=list(filter(lambda pr: self == pr.repository(info), github_state(info).pull_requests.values())))
 
 @dataclass
 class PullRequest(Node):
@@ -123,7 +128,7 @@ class PullRequest(Node):
     url: str
 
     def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
-        return info.context.repositories[self._repository]
+        return github_state(info).repositories[self._repository]
 
 @dataclass
 class UpdatePullRequestPayload:
@@ -138,16 +143,16 @@ class CreatePullRequestPayload:
 class Root:
     def repository(self, info: graphql.GraphQLResolveInfo, owner: str, name: str) -> Repository:
         nameWithOwner = "{}/{}".format(owner, name)
-        for r in info.context.repositories.values():
+        for r in github_state(info).repositories.values():
             if r.nameWithOwner == nameWithOwner:
                 return r
         raise RuntimeError("unknown repository {}".format(nameWithOwner))
 
     def node(self, info: graphql.GraphQLResolveInfo, id: GraphQLId) -> Node:
-        if id in info.context.repositories:
-            return info.context.repositories[id]
-        elif id in info.context.pull_requests:
-            return info.context.pull_requests[id]
+        if id in github_state(info).repositories:
+            return github_state(info).repositories[id]
+        elif id in github_state(info).pull_requests:
+            return github_state(info).pull_requests[id]
         else:
             raise RuntimeError("unknown id {}".format(id))
 
@@ -155,7 +160,7 @@ class Root:
                           info: graphql.GraphQLResolveInfo,
                           input: UpdatePullRequestInput
                           ) -> UpdatePullRequestPayload:
-        pr = info.context.pull_requests[input['pullRequestId']]
+        pr = github_state(info).pull_requests[input['pullRequestId']]
         # If I say input.get('title') is not None, mypy
         # is unable to infer input['title'] is not None
         if 'title' in input and input['title'] is not None:
@@ -172,9 +177,9 @@ class Root:
                           info: graphql.GraphQLResolveInfo,
                           input: CreatePullRequestInput
                           ) -> CreatePullRequestPayload:
-        id = info.context.next_id()
-        repo = info.context.repositories[input['ownerId']]
-        number = info.context.next_pull_request_number(input['ownerId'])
+        id = github_state(info).next_id()
+        repo = github_state(info).repositories[input['ownerId']]
+        number = github_state(info).next_pull_request_number(input['ownerId'])
         pr = PullRequest(
             id=id,
             _repository=input['ownerId'],
@@ -185,7 +190,7 @@ class Root:
             title=input['title'],
             body=input['body'],
         )
-        info.context.pull_requests[id] = pr
+        github_state(info).pull_requests[id] = pr
         return CreatePullRequestPayload(
                 clientMutationId=input.get('clientMutationId'),
                 pullRequest=pr)
@@ -198,11 +203,11 @@ with open('github-fake/src/schema.graphql') as f:
 # after a quick read of default_resolve_type_fn it doesn't look like
 # we ever actually look to value for type of information.  This is
 # pretty clunky lol.
-GITHUB_SCHEMA.get_type('Repository').is_type_of = lambda obj, info: isinstance(obj, Repository)
-GITHUB_SCHEMA.get_type('PullRequest').is_type_of = lambda obj, info: isinstance(obj, PullRequest)
+GITHUB_SCHEMA.get_type('Repository').is_type_of = lambda obj, info: isinstance(obj, Repository)  # type: ignore
+GITHUB_SCHEMA.get_type('PullRequest').is_type_of = lambda obj, info: isinstance(obj, PullRequest)  # type: ignore
 
 class FakeGitHubGraphQLEndpoint(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.context = GitHubState()
         self.future = True
 
