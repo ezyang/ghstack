@@ -15,6 +15,7 @@ from typing import ClassVar, Dict, NewType, List
 import ghstack.main
 import ghstack.endpoint
 import ghstack.shell
+import ghstack.github_fake
 
 from ghstack.main import GraphQLId, GitCommitHash
 
