@@ -85,36 +85,8 @@ class TestGh(expecttest.TestCase):
     upstream_sh: ghstack.shell.Shell
     sh: ghstack.shell.Shell
 
-    # Starting up node takes 0.7s.  Don't do it every time.
-    @classmethod
-    def setUpClass(cls):
-        port = 49152
-        # Find an open port to run our tests on
-        while True:
-            cls.proc = subprocess.Popen(['node', 'github-fake/src/index.js', str(port)], stdout=subprocess.PIPE)
-            r = cls.proc.stdout.readline()
-            if not r.strip():
-                cls.proc.terminate()
-                cls.proc.wait()
-                port +=1
-                print("Retrying with port {}".format(port))
-                continue
-            break
-        cls.github = ghstack.endpoint.GraphQLEndpoint("http://localhost:{}".format(port), oauth_token="DUMMY", future=True)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.proc.terminate()
-        cls.proc.wait()
-
     def setUp(self) -> None:
-        self.github.graphql("""
-          mutation {
-            resetGitHub(input: {}) {
-              clientMutationId
-            }
-          }
-        """)
+        self.github = ghstack.github_fake.FakeGitHubGraphQLEndpoint()
         tmp_dir = tempfile.mkdtemp()
 
         # Set up a "parent" repository with an empty initial commit that we'll operate on
@@ -170,6 +142,7 @@ class TestGh(expecttest.TestCase):
           }
         """)
         prs = []
+        refs = ""
         for pr in r['data']['repository']['pullRequests']['nodes']:
             pr['body'] = indent(pr['body'], '    ')
             pr['commits'] = self.upstream_sh.git("log", "--reverse", "--pretty=format:%h %s", pr["baseRefName"] + ".." + pr["headRefName"])
