@@ -20,6 +20,7 @@ import ghstack.shell
 
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
+GitObjectID = NewType('GitObjectID', str)
 
 UpdatePullRequestInput = TypedDict('UpdatePullRequestInput', {
     'baseRefName': Optional[str],
@@ -128,12 +129,29 @@ class Repository(Node):
                 nodes=list(filter(lambda pr: self == pr.repository(info), github_state(info).pull_requests.values())))
 
 @dataclass
+class GitObject(Node):
+    oid: GitObjectID
+    _repository: GraphQLId
+
+    def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+@dataclass
+class Ref(Node):
+    name: str
+    _repository: GraphQLId
+    target: GitObject
+
+    def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+@dataclass
 class PullRequest(Node):
-    # baseRef: Optional[Ref]
+    baseRef: Optional[Ref]
     baseRefName: str
     body: str
     # closed: bool
-    # headRef: Optional[Ref]
+    headRef: Optional[Ref]
     headRefName: str
     # headRepository: Optional[Repository]
     # maintainerCanModify: bool
@@ -193,15 +211,51 @@ class Root:
                           info: graphql.GraphQLResolveInfo,
                           input: CreatePullRequestInput
                           ) -> CreatePullRequestPayload:
-        id = github_state(info).next_id()
-        repo = github_state(info).repositories[input['ownerId']]
-        number = github_state(info).next_pull_request_number(input['ownerId'])
+        state = github_state(info)
+        id = state.next_id()
+        repo_id = input['ownerId']
+        repo = state.repositories[repo_id]
+        number = state.next_pull_request_number(input['ownerId'])
+        baseRef = None
+        headRef = None
+        # TODO: When we support forks, this needs rewriting to stop
+        # hard coded the repo we opened the pull request on
+        if state.upstream_sh:
+            baseRefName = input['baseRefName']
+            baseGitObject = GitObject(
+                id=state.next_id(),
+                oid=state.upstream_sh.git('rev-parse', baseRefName),
+                _repository=repo_id,
+            )
+            baseRef = Ref(
+                id=state.next_id(),
+                name=baseRefName,
+                _repository=repo_id,
+                target=baseGitObject,
+            )
+
+            headRefName = input['headRefName']
+            headGitObject = GitObject(
+                # TODO: use of upstream here is not necessarily
+                # accurate
+                id=state.next_id(),
+                oid=state.upstream_sh.git('rev-parse', headRefName),
+                _repository=repo_id,
+            )
+            headRef = Ref(
+                id=state.next_id(),
+                name=headRefName,
+                _repository=repo_id,  # invalid use of upstream
+                target=headGitObject,
+            )
         pr = PullRequest(
             id=id,
-            _repository=input['ownerId'],
+            _repository=repo_id,
             number=number,
             url="https://github.com/{}/pull/{}".format(repo.nameWithOwner, number),
+            baseRef=baseRef,
             baseRefName=input['baseRefName'],
+            headRef=headRef,
             headRefName=input['headRefName'],
             title=input['title'],
             body=input['body'],

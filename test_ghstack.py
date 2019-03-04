@@ -20,6 +20,10 @@ import ghstack.github_fake
 from ghstack.main import GraphQLId, GitCommitHash
 
 
+# TODO: Figure out how to make all git stuff in memory, so it runs
+# faster.  Need to work on OSX.
+
+
 GH_KEEP_TMP = os.getenv('GH_KEEP_TMP')
 
 
