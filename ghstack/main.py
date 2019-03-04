@@ -271,12 +271,14 @@ class Submitter(object):
                 new_pull)
 
             # Push the branches, so that we can create a PR for them
+            new_branches = (branch_head(self.username, diffid),
+                            branch_base(self.username, diffid))
             self.sh.git(
                 "push",
                 "origin",
-                branch_head(self.username, diffid),
-                branch_base(self.username, diffid)
+                *new_branches,
             )
+            self.github.push_hook(new_branches)
 
             pr_body = \
                 "Stack:\n* (to be filled)\n\n" + \
@@ -589,7 +591,12 @@ class Submitter(object):
                 else:
                     push_branches.append(branch(self.username, s.diffid, b))
         # Careful!  Don't push master.
+        #
+        # TODO: Does the order I specify these branches matter?  Does
+        # GitHub calculate the changes atomically?
         if push_branches:
             self.sh.git("push", "origin", *push_branches)
+            self.github.push_hook(push_branches)
         if force_push_branches:
             self.sh.git("push", "origin", "--force", *force_push_branches)
+            self.github.push_hook(force_push_branches)

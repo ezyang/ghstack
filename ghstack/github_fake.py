@@ -51,6 +51,9 @@ class PullRequest:
 class Root:
     ...
 
+class Ref:
+    ...
+
 # The "database" for our mock instance
 class GitHubState:
     repositories: Dict[GraphQLId, Repository]
@@ -69,6 +72,15 @@ class GitHubState:
         r = GitHubNumber(self._next_pull_request_number[repo_id])
         self._next_pull_request_number[repo_id] += 1
         return r
+
+    def push_hook(self, refs: List[str]) -> None:
+        updated_refs = set(refs)
+        for pr in self.pull_requests:
+            # TODO: this assumes only origin repository
+            #if pr.headRefName in updated_refs:
+            #    pr.headRef = 
+            pass
+        pass
 
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
         self.repositories = {}
@@ -128,6 +140,26 @@ class Repository(Node):
         return PullRequestConnection(
                 nodes=list(filter(lambda pr: self == pr.repository(info), github_state(info).pull_requests.values())))
 
+    # TODO: This should take which repository the ref is in
+    def _make_ref(self, state: GitHubState, refName: str) -> Ref:
+        # TODO: Probably should preserve object identity here when
+        # you call this with refName/oid that are the same
+        gitObject = GitObject(
+            id=state.next_id(),
+            # TODO: this upstream_sh hardcode wrong, but ok for now
+            # because we only have one repo
+            oid=state.upstream_sh.git('rev-parse', refName),
+            _repository=self.id,
+        )
+        ref = Ref(
+            id=state.next_id(),
+            name=refName,
+            _repository=self.id,
+            target=gitObject,
+        )
+        return ref
+
+
 @dataclass
 class GitObject(Node):
     oid: GitObjectID
@@ -174,6 +206,7 @@ class CreatePullRequestPayload:
     clientMutationId: Optional[str]
     pullRequest: PullRequest
 
+
 class Root:
     def repository(self, info: graphql.GraphQLResolveInfo, owner: str, name: str) -> Repository:
         nameWithOwner = "{}/{}".format(owner, name)
@@ -194,13 +227,16 @@ class Root:
                           info: graphql.GraphQLResolveInfo,
                           input: UpdatePullRequestInput
                           ) -> UpdatePullRequestPayload:
-        pr = github_state(info).pull_requests[input['pullRequestId']]
+        state = github_state(info)
+        pr = state.pull_requests[input['pullRequestId']]
+        repo = pr.repository(info)
         # If I say input.get('title') is not None, mypy
         # is unable to infer input['title'] is not None
         if 'title' in input and input['title'] is not None:
             pr.title = input['title']
         if 'baseRefName' in input and input['baseRefName'] is not None:
             pr.baseRefName = input['baseRefName']
+            pr.baseRef = repo._make_ref(state, pr.baseRefName)
         if 'body' in input and input['body'] is not None:
             pr.body = input['body']
         return UpdatePullRequestPayload(
@@ -221,33 +257,8 @@ class Root:
         # TODO: When we support forks, this needs rewriting to stop
         # hard coded the repo we opened the pull request on
         if state.upstream_sh:
-            baseRefName = input['baseRefName']
-            baseGitObject = GitObject(
-                id=state.next_id(),
-                oid=state.upstream_sh.git('rev-parse', baseRefName),
-                _repository=repo_id,
-            )
-            baseRef = Ref(
-                id=state.next_id(),
-                name=baseRefName,
-                _repository=repo_id,
-                target=baseGitObject,
-            )
-
-            headRefName = input['headRefName']
-            headGitObject = GitObject(
-                # TODO: use of upstream here is not necessarily
-                # accurate
-                id=state.next_id(),
-                oid=state.upstream_sh.git('rev-parse', headRefName),
-                _repository=repo_id,
-            )
-            headRef = Ref(
-                id=state.next_id(),
-                name=headRefName,
-                _repository=repo_id,  # invalid use of upstream
-                target=headGitObject,
-            )
+            baseRef = repo._make_ref(state, input['baseRefName'])
+            headRef = repo._make_ref(state, input['headRefName'])
         pr = PullRequest(
             id=id,
             _repository=repo_id,
@@ -260,6 +271,7 @@ class Root:
             title=input['title'],
             body=input['body'],
         )
+        # TODO: compute files changed lol
         github_state(info).pull_requests[id] = pr
         return CreatePullRequestPayload(
                 clientMutationId=input.get('clientMutationId'),
@@ -301,3 +313,6 @@ class FakeGitHubGraphQLEndpoint(object):
         # The top-level object isn't indexable by strings, but
         # everything underneath is, oddly enough
         return {'data': r.data}
+
+    def push_hook(self, refNames: List[str]) -> None:
+        self.context.push_hook(refNames)

@@ -2,7 +2,7 @@
 
 import json
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 class GraphQLEndpoint(object):
@@ -80,6 +80,11 @@ class GraphQLEndpoint(object):
             raise RuntimeError(json.dumps(r, indent=1))
 
         return r
+
+    # Call this whenever you do push
+    # TODO: generalize to any repo
+    def push_hook(self, refName: List[str]) -> None:
+        pass
 
 
 class RESTEndpoint(object):
