@@ -86,7 +86,6 @@ class TestGh(expecttest.TestCase):
     sh: ghstack.shell.Shell
 
     def setUp(self) -> None:
-        self.github = ghstack.github_fake.FakeGitHubGraphQLEndpoint()
         tmp_dir = tempfile.mkdtemp()
 
         # Set up a "parent" repository with an empty initial commit that we'll operate on
@@ -96,10 +95,7 @@ class TestGh(expecttest.TestCase):
         else:
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
-        self.upstream_sh.git("init", "--bare")
-        tree = self.upstream_sh.git("write-tree")
-        commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
-        self.upstream_sh.git("branch", "-f", "master", commit)
+        self.github = ghstack.github_fake.FakeGitHubGraphQLEndpoint(self.upstream_sh)
 
         local_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:

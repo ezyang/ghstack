@@ -16,6 +16,8 @@ except ImportError:
     def TypedDict(name, attrs, total=True):  # type: ignore
         return Dict[Any, Any]
 
+import ghstack.shell
+
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
 
@@ -55,6 +57,7 @@ class GitHubState:
     _next_id: int
     _next_pull_request_number: Dict[GraphQLId, int]
     root: Root
+    upstream_sh: Optional[ghstack.shell.Shell]
 
     def next_id(self) -> GraphQLId:
         r = GraphQLId(str(self._next_id))
@@ -66,7 +69,7 @@ class GitHubState:
         self._next_pull_request_number[repo_id] += 1
         return r
 
-    def __init__(self) -> None:
+    def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
         self.repositories = {}
         self.pull_requests = {}
         self._next_id = 5000
@@ -80,6 +83,19 @@ class GitHubState:
             nameWithOwner="pytorch/pytorch",
         )
         self._next_pull_request_number[GraphQLId("1000")] = 500
+
+        self.upstream_sh = upstream_sh
+        if self.upstream_sh is not None:
+            # Setup upstream Git repository representing the
+            # pytorch/pytorch repository in the directory specified
+            # by upstream_sh.  This is useful because some GitHub API
+            # operations depend on repository state (e.g., what
+            # the headRef is at the time a PR is created), so
+            # we need this information
+            self.upstream_sh.git("init", "--bare")
+            tree = self.upstream_sh.git("write-tree")
+            commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
+            self.upstream_sh.git("branch", "-f", "master", commit)
 
 @dataclass
 class Node:
@@ -207,8 +223,11 @@ GITHUB_SCHEMA.get_type('Repository').is_type_of = lambda obj, info: isinstance(o
 GITHUB_SCHEMA.get_type('PullRequest').is_type_of = lambda obj, info: isinstance(obj, PullRequest)  # type: ignore
 
 class FakeGitHubGraphQLEndpoint(object):
-    def __init__(self) -> None:
-        self.context = GitHubState()
+    context: GitHubState
+    future: bool
+
+    def __init__(self, upstream_sh: Optional[ghstack.shell.Shell] = None) -> None:
+        self.context = GitHubState(upstream_sh)
         self.future = True
 
     def graphql(self, query: str, **kwargs: Any) -> Any:
