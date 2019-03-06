@@ -37,6 +37,7 @@ def main() -> None:
 
     ghstack.main.main(
         msg=args.msg,
+        username=args.github_username,
         github=github_v4,
         github_rest=github_v3)
 

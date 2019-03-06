@@ -11,6 +11,8 @@ Config = NamedTuple('Config', [
     ('proxy', Optional[str]),
     # OAuth token to authenticate to GitHub with
     ('github_oauth', str),
+    # GitHub username; used to namespace branches we create
+    ('github_username', str),
 
     # These config parameters are not used by ghstack, but other
     # tools that reuse this module
@@ -51,6 +53,17 @@ def read_config() -> Config:
             github_oauth)
         write_back = True
 
+    github_username = None
+    if config.has_option('ghstack', 'github_username'):
+        github_username = config.get('ghstack', 'github_username')
+    if github_username is None
+        github_username = raw_input('GitHub username: ')
+        config.set(
+            'ghstack',
+            'github_username',
+            github_username)
+        write_back = True
+
     proxy = None
     if config.has_option('ghstack', 'proxy'):
         proxy = config.get('ghstack', 'proxy')
@@ -76,6 +89,7 @@ def read_config() -> Config:
 
     return Config(
         github_oauth=github_oauth,
+        github_username=github_username,
         proxy=proxy,
         fbsource_path=fbsource_path,
         github_path=github_path,

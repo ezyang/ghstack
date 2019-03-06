@@ -37,9 +37,9 @@ RE_STACK = re.compile(r'Stack:\n(\* [^\n]+\n)+')
 
 
 # repo layout:
-#   - gh/username/base-2345 -- what we think GitHub's current tip for commit is
-#   - gh/username/head-2345 -- what we think base commit for commit is
-#   - gh/username/orig-2345 -- the "clean" commit history, i.e., what we're
+#   - gh/username/23/base -- what we think GitHub's current tip for commit is
+#   - gh/username/23/head -- what we think base commit for commit is
+#   - gh/username/23/orig -- the "clean" commit history, i.e., what we're
 #                      rebasing, what you'd like to cherry-pick (???)
 #                      (Maybe this isn't necessary, because you can
 #                      get the "whole" diff from GitHub?  What about
@@ -64,13 +64,13 @@ def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
 
 
 def main(msg: Optional[str],
+         username: str,
          github: ghstack.endpoint.GraphQLEndpoint,
-         github_rest: Optional[ghstack.endpoint.RESTEndpoint],  # hmmm
+         github_rest: Optional[ghstack.endpoint.RESTEndpoint],
          sh: Optional[ghstack.shell.Shell] = None,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
-         username: str = "ezyang"
-         ) -> List[DiffMeta]:  # TODO: fix hardcoded username
+         ) -> List[DiffMeta]:
 
     if sh is None:
         # Use CWD

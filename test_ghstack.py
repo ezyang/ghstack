@@ -123,7 +123,14 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg: str = 'Update') -> List[ghstack.main.DiffMeta]:
-        return ghstack.main.main(msg=msg, github=self.github, github_rest=None, sh=self.sh, repo_owner='pytorch', repo_name='pytorch')
+        return ghstack.main.main(
+            msg=msg,
+            username='ezyang',
+            github=self.github,
+            github_rest=None,
+            sh=self.sh,
+            repo_owner='pytorch',
+            repo_name='pytorch')
 
     def dump_github(self) -> str:
         r = self.github.graphql("""
