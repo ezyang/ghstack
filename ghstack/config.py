@@ -57,7 +57,7 @@ def read_config() -> Config:
     if config.has_option('ghstack', 'github_username'):
         github_username = config.get('ghstack', 'github_username')
     if github_username is None:
-        github_username = raw_input('GitHub username: ')
+        github_username = input('GitHub username: ')
         config.set(
             'ghstack',
             'github_username',

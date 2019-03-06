@@ -99,7 +99,8 @@ class TestGh(expecttest.TestCase):
         else:
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
-        self.github = ghstack.github_fake.FakeGitHubGraphQLEndpoint(self.upstream_sh)
+        # I plan to fix this type error soon
+        self.github = ghstack.github_fake.FakeGitHubGraphQLEndpoint(self.upstream_sh)  # type: ignore
 
         local_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:

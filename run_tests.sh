@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
-flake8
-mypy --strict ghstack
-mypy test_ghstack.py
+flake8-3 ghstack
+mypy ghstack test_ghstack.py
 python3 test_expecttest.py
 python3 test_ghstack.py

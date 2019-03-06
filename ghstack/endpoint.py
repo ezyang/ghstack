@@ -2,7 +2,7 @@
 
 import json
 import requests
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, Sequence
 
 
 class GraphQLEndpoint(object):
@@ -83,7 +83,7 @@ class GraphQLEndpoint(object):
 
     # Call this whenever you do push
     # TODO: generalize to any repo
-    def push_hook(self, refName: List[str]) -> None:
+    def push_hook(self, refName: Sequence[str]) -> None:
         pass
 
 

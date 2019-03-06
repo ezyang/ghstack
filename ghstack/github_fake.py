@@ -1,7 +1,4 @@
-import asyncio
 import graphql
-import json
-import traceback
 
 # Oof! Python 3.7 only!!
 from dataclasses import dataclass
@@ -41,26 +38,14 @@ CreatePullRequestInput = TypedDict('CreatePullRequestInput', {
     'ownerId': GraphQLId,
 })
 
-# mypy doesn't like these... figure out how to properly forward declare
-class Repository:
-    ...
-
-class PullRequest:
-    ...
-
-class Root:
-    ...
-
-class Ref:
-    ...
 
 # The "database" for our mock instance
 class GitHubState:
-    repositories: Dict[GraphQLId, Repository]
-    pull_requests: Dict[GraphQLId, PullRequest]
+    repositories: Dict[GraphQLId, 'Repository']
+    pull_requests: Dict[GraphQLId, 'PullRequest']
     _next_id: int
     _next_pull_request_number: Dict[GraphQLId, int]
-    root: Root
+    root: 'Root'
     upstream_sh: Optional[ghstack.shell.Shell]
 
     def next_id(self) -> GraphQLId:
@@ -74,12 +59,12 @@ class GitHubState:
         return r
 
     def push_hook(self, refs: List[str]) -> None:
-        updated_refs = set(refs)
-        for pr in self.pull_requests:
-            # TODO: this assumes only origin repository
-            #if pr.headRefName in updated_refs:
-            #    pr.headRef = 
-            pass
+        # updated_refs = set(refs)
+        # for pr in self.pull_requests:
+        #    # TODO: this assumes only origin repository
+        #    # if pr.headRefName in updated_refs:
+        #    #    pr.headRef =
+        #    pass
         pass
 
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
@@ -107,28 +92,32 @@ class GitHubState:
             # we need this information
             self.upstream_sh.git("init", "--bare")
             tree = self.upstream_sh.git("write-tree")
-            commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
+            commit = self.upstream_sh.git(
+                "commit-tree",
+                tree,
+                input="Initial commit")
             self.upstream_sh.git("branch", "-f", "master", commit)
+
 
 @dataclass
 class Node:
     id: GraphQLId
 
-@dataclass
-class PullRequestConnection:
-    nodes: List[PullRequest]
 
 def github_state(info: graphql.GraphQLResolveInfo) -> GitHubState:
     context = info.context
     assert isinstance(context, GitHubState)
     return context
 
+
 @dataclass
 class Repository(Node):
     name: str
     nameWithOwner: str
 
-    def pullRequest(self, info: graphql.GraphQLResolveInfo, number: GitHubNumber) -> PullRequest:
+    def pullRequest(self,
+                    info: graphql.GraphQLResolveInfo,
+                    number: GitHubNumber) -> 'PullRequest':
         for pr in github_state(info).pull_requests.values():
             if self == pr.repository(info) and pr.number == number:
                 return pr
@@ -136,19 +125,25 @@ class Repository(Node):
             "unrecognized pull request #{} in repository {}"
             .format(number, self.nameWithOwner))
 
-    def pullRequests(self, info: graphql.GraphQLResolveInfo) -> PullRequestConnection:
+    def pullRequests(self, info: graphql.GraphQLResolveInfo
+                     ) -> 'PullRequestConnection':
         return PullRequestConnection(
-                nodes=list(filter(lambda pr: self == pr.repository(info), github_state(info).pull_requests.values())))
+                nodes=list(
+                    filter(
+                        lambda pr: self == pr.repository(info),
+                        github_state(info).pull_requests.values())))
 
     # TODO: This should take which repository the ref is in
-    def _make_ref(self, state: GitHubState, refName: str) -> Ref:
+    # This only works if you have upstream_sh
+    def _make_ref(self, state: GitHubState, refName: str) -> 'Ref':
         # TODO: Probably should preserve object identity here when
         # you call this with refName/oid that are the same
+        assert state.upstream_sh
         gitObject = GitObject(
             id=state.next_id(),
             # TODO: this upstream_sh hardcode wrong, but ok for now
             # because we only have one repo
-            oid=state.upstream_sh.git('rev-parse', refName),
+            oid=GitObjectID(state.upstream_sh.git('rev-parse', refName)),
             _repository=self.id,
         )
         ref = Ref(
@@ -168,6 +163,7 @@ class GitObject(Node):
     def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
+
 @dataclass
 class Ref(Node):
     name: str
@@ -176,6 +172,7 @@ class Ref(Node):
 
     def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
+
 
 @dataclass
 class PullRequest(Node):
@@ -196,10 +193,17 @@ class PullRequest(Node):
     def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
+
+@dataclass
+class PullRequestConnection:
+    nodes: List[PullRequest]
+
+
 @dataclass
 class UpdatePullRequestPayload:
     clientMutationId: Optional[str]
     pullRequest: PullRequest
+
 
 @dataclass
 class CreatePullRequestPayload:
@@ -208,7 +212,8 @@ class CreatePullRequestPayload:
 
 
 class Root:
-    def repository(self, info: graphql.GraphQLResolveInfo, owner: str, name: str) -> Repository:
+    def repository(self, info: graphql.GraphQLResolveInfo, owner: str,
+                   name: str) -> Repository:
         nameWithOwner = "{}/{}".format(owner, name)
         for r in github_state(info).repositories.values():
             if r.nameWithOwner == nameWithOwner:
@@ -263,7 +268,8 @@ class Root:
             id=id,
             _repository=repo_id,
             number=number,
-            url="https://github.com/{}/pull/{}".format(repo.nameWithOwner, number),
+            url="https://github.com/{}/pull/{}"
+                .format(repo.nameWithOwner, number),
             baseRef=baseRef,
             baseRefName=input['baseRefName'],
             headRef=headRef,
@@ -277,22 +283,32 @@ class Root:
                 clientMutationId=input.get('clientMutationId'),
                 pullRequest=pr)
 
+
 with open('github-fake/src/schema.graphql') as f:
     GITHUB_SCHEMA = graphql.build_schema(f.read())
+
 
 # Ummm.  I thought there would be a way to stick these on the objects
 # themselves (in the same way resolvers can be put on resolvers) but
 # after a quick read of default_resolve_type_fn it doesn't look like
 # we ever actually look to value for type of information.  This is
 # pretty clunky lol.
-GITHUB_SCHEMA.get_type('Repository').is_type_of = lambda obj, info: isinstance(obj, Repository)  # type: ignore
-GITHUB_SCHEMA.get_type('PullRequest').is_type_of = lambda obj, info: isinstance(obj, PullRequest)  # type: ignore
+def set_is_type_of(name, cls):
+    o = GITHUB_SCHEMA.get_type(name)
+    o.is_type_of = lambda obj, info: isinstance(obj, cls)  # type: ignore
+
+
+set_is_type_of('Repository', Repository)
+set_is_type_of('PullRequest', PullRequest)
+
 
 class FakeGitHubGraphQLEndpoint(object):
     context: GitHubState
     future: bool
 
-    def __init__(self, upstream_sh: Optional[ghstack.shell.Shell] = None) -> None:
+    def __init__(self,
+                 upstream_sh: Optional[ghstack.shell.Shell] = None
+                 ) -> None:
         self.context = GitHubState(upstream_sh)
         self.future = True
 
