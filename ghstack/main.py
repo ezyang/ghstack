@@ -371,6 +371,8 @@ class Submitter(object):
             for b in all_branches(self.username, diffid):
                 self.sh.git("branch", "-f", b, "origin/" + b)
 
+            # TODO: There is no reason to do a node query here; we can
+            # just look up the repo the old fashioned way
             r = self.github.graphql("""
               query ($repo_id: ID!, $number: Int!) {
                 node(id: $repo_id) {
