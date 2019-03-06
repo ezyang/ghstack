@@ -65,8 +65,7 @@ def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
 
 def main(msg: Optional[str],
          username: str,
-         github: ghstack.endpoint.GraphQLEndpoint,
-         github_rest: Optional[ghstack.endpoint.RESTEndpoint],
+         github: ghstack.endpoint.GitHubEndpoint,
          sh: Optional[ghstack.shell.Shell] = None,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
@@ -122,7 +121,6 @@ def main(msg: Optional[str],
     base_obj = next(g)
 
     submitter = Submitter(github=github,
-                          github_rest=github_rest,
                           sh=sh,
                           username=username,
                           repo_owner=repo_owner_nonopt,
@@ -147,11 +145,8 @@ def all_branches(username: str, diffid: StackDiffId) -> Tuple[str, str, str]:
 
 
 class Submitter(object):
-    # GraphQL endpoint to access GitHub
-    github: ghstack.endpoint.GraphQLEndpoint
-
-    # REST endpoint to access GitHub (None during testing)
-    github_rest: Optional[ghstack.endpoint.RESTEndpoint]
+    # Endpoint to access GitHub
+    github: ghstack.endpoint.GitHubEndpoint
 
     # Shell inside git checkout that we are submitting
     sh: ghstack.shell.Shell
@@ -183,8 +178,7 @@ class Submitter(object):
 
     def __init__(
             self,
-            github: ghstack.endpoint.GraphQLEndpoint,
-            github_rest: Optional[ghstack.endpoint.RESTEndpoint],
+            github: ghstack.endpoint.GitHubEndpoint,
             sh: ghstack.shell.Shell,
             username: str,
             repo_owner: str,
@@ -194,7 +188,6 @@ class Submitter(object):
             base_tree: GitTreeHash,
             msg: Optional[str]):
         self.github = github
-        self.github_rest = github_rest
         self.sh = sh
         self.username = username
         self.repo_owner = repo_owner
@@ -285,7 +278,7 @@ class Submitter(object):
                 ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
             # Time to open the PR
-            if self.github.future or not self.github_rest:
+            if self.github.future:
                 r = self.github.graphql("""
                     mutation ($input : CreatePullRequestInput!) {
                         createPullRequest(input: $input) {
@@ -307,7 +300,7 @@ class Submitter(object):
                 prid = GraphQLId(pullRequest["id"])
                 number = pullRequest["number"]
             else:
-                r = self.github_rest.post(
+                r = self.github.post(
                     "repos/{owner}/{repo}/pulls"
                     .format(owner=self.repo_owner, repo=self.repo_name),
                     title=title,
@@ -561,7 +554,7 @@ class Submitter(object):
                   .format(owner=self.repo_owner,
                           repo=self.repo_name,
                           number=s.number))
-            if self.github.future or not self.github_rest:
+            if self.github.future:
                 self.github.graphql("""
                     mutation ($input : UpdatePullRequestInput!) {
                         updatePullRequest(input: $input) {
@@ -575,7 +568,7 @@ class Submitter(object):
                         'baseRefName': s.base
                     })
             else:
-                self.github_rest.patch(
+                self.github.patch(
                     "repos/{owner}/{repo}/pulls/{number}"
                     .format(owner=self.repo_owner, repo=self.repo_name,
                             number=s.number),

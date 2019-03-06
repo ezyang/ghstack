@@ -38,7 +38,7 @@ def indent(text: str, prefix: str) -> str:
     return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
 
 
-def create_pr(github: ghstack.endpoint.GraphQLEndpoint):
+def create_pr(github: ghstack.endpoint.GitHubEndpoint):
     github.graphql("""
       mutation {
         createPullRequest(input: {
@@ -56,7 +56,7 @@ def create_pr(github: ghstack.endpoint.GraphQLEndpoint):
     """)
 
 
-def edit_pr_body(github: ghstack.endpoint.GraphQLEndpoint, prid, body):
+def edit_pr_body(github: ghstack.endpoint.GitHubEndpoint, prid, body):
     github.graphql("""
         mutation ($input : UpdatePullRequestInput!) {
             updatePullRequest(input: $input) {
@@ -69,7 +69,7 @@ def edit_pr_body(github: ghstack.endpoint.GraphQLEndpoint, prid, body):
     })
 
 def edit_pr_title(
-        github: ghstack.endpoint.GraphQLEndpoint,
+        github: ghstack.endpoint.GitHubEndpoint,
         prid: GraphQLId, title: str):
     github.graphql("""
         mutation ($input : UpdatePullRequestInput!) {
@@ -84,7 +84,7 @@ def edit_pr_title(
 
 class TestGh(expecttest.TestCase):
     proc: ClassVar[subprocess.Popen]
-    github: ghstack.endpoint.GraphQLEndpoint
+    github: ghstack.endpoint.GitHubEndpoint
     rev_map: Dict[SubstituteRev, GitCommitHash]
     upstream_sh: ghstack.shell.Shell
     sh: ghstack.shell.Shell
@@ -100,7 +100,7 @@ class TestGh(expecttest.TestCase):
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
         # I plan to fix this type error soon
-        self.github = ghstack.github_fake.FakeGitHubGraphQLEndpoint(self.upstream_sh)  # type: ignore
+        self.github = ghstack.github_fake.FakeGitHubEndpoint(self.upstream_sh)  # type: ignore
 
         local_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:
@@ -128,7 +128,6 @@ class TestGh(expecttest.TestCase):
             msg=msg,
             username='ezyang',
             github=self.github,
-            github_rest=None,
             sh=self.sh,
             repo_owner='pytorch',
             repo_name='pytorch')

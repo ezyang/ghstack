@@ -302,15 +302,14 @@ set_is_type_of('Repository', Repository)
 set_is_type_of('PullRequest', PullRequest)
 
 
-class FakeGitHubGraphQLEndpoint(object):
+class FakeGitHubEndpoint(object):
     context: GitHubState
-    future: bool
+    future: bool = True
 
     def __init__(self,
                  upstream_sh: Optional[ghstack.shell.Shell] = None
                  ) -> None:
         self.context = GitHubState(upstream_sh)
-        self.future = True
 
     def graphql(self, query: str, **kwargs: Any) -> Any:
         r = graphql.graphql_sync(

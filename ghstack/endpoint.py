@@ -2,31 +2,34 @@
 
 import json
 import requests
-from typing import Optional, Dict, Any, Sequence
+from typing import Optional, Any, Sequence
 
 
-class GraphQLEndpoint(object):
+class GitHubEndpoint(object):
     """
-    A class representing a GraphQL endpoint we can send queries to.
-    At the moment, specifically engineered for GitHub.
+    A class representing a GitHub endpoint we can send queries to.
+    It supports both GraphQL and REST interfaces.
     """
 
-    # The URL of the endpoint to connect to
-    endpoint: str
+    # The URL of the GraphQL endpoint to connect to
+    graphql_endpoint: str = 'https://api.github.com/graphql'
+
+    # The base URL of the REST endpoint to connect to (all REST requests
+    # will be subpaths of this URL)
+    rest_endpoint: str = 'https://api.github.com'
 
     # The string OAuth token to authenticate to the GraphQL server with
     oauth_token: str
 
     # The URL of a proxy to use for these connections (for
-    # Facebook users, this is typically http://fwdproxy:8080)
+    # Facebook users, this is typically 'http://fwdproxy:8080')
     proxy: Optional[str]
 
-    # Whether or not this API lives "in the future".  Features in
-    # the future don't exist on the real GitHub API.
+    # Whether or not this GitHub endpoint supports features on GraphQL
+    # that don't exist on real GitHub
     future: bool
 
     def __init__(self,
-                 endpoint: str,
                  oauth_token: str,
                  proxy: Optional[str] = None,
                  future: bool = False):
@@ -34,7 +37,6 @@ class GraphQLEndpoint(object):
         Args:
             endpoint: URL of the endpoint in question
         """
-        self.endpoint = endpoint
         self.oauth_token = oauth_token
         self.proxy = proxy
         self.future = future
@@ -60,7 +62,7 @@ class GraphQLEndpoint(object):
             proxies = {}
 
         resp = requests.post(
-            self.endpoint,
+            self.graphql_endpoint,
             json={"query": query, "variables": kwargs},
             headers=headers,
             proxies=proxies
@@ -81,41 +83,13 @@ class GraphQLEndpoint(object):
 
         return r
 
-    # Call this whenever you do push
+    # This hook function should be invoked when a 'git push' to GitHub
+    # occurs.  This is used by testing to simulate actions GitHub
+    # takes upon branch push, more conveniently than setting up
+    # a branch hook on the repository and receiving events from it.
     # TODO: generalize to any repo
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
-
-
-class RESTEndpoint(object):
-    """
-    A class representing a REST endpoint we can send queries to.
-    At the moment, specifically engineered for GitHub.
-    """
-
-    # The base URL of the endpoint to connect to (all requests will
-    # be subpaths of this URL)
-    endpoint: str
-
-    # String OAuth token for authenticating to GitHub
-    oauth_token: str
-
-    # String proxy to use for http and https requests
-    proxy: Optional[str]
-
-    def __init__(self, endpoint: str, oauth_token: str,
-                 proxy: Optional[str] = None):
-        self.endpoint = endpoint
-        self.oauth_token = oauth_token
-        self.proxy = proxy
-
-    def _headers(self) -> Dict[str, str]:
-        return {
-            'Authorization': 'token ' + self.oauth_token,
-            'Content-Type': 'application/json',
-            'User-Agent': 'ghstack',
-            'Accept': 'application/vnd.github.v3+json',
-        }
 
     def get(self, path: str, **kwargs: Any) -> Any:
         """
@@ -159,9 +133,18 @@ class RESTEndpoint(object):
             }
         else:
             proxies = {}
-        r = getattr(requests, method)(self.endpoint + '/' + path,
+
+        headers = {
+            'Authorization': 'token ' + self.oauth_token,
+            'Content-Type': 'application/json',
+            'User-Agent': 'ghstack',
+            'Accept': 'application/vnd.github.v3+json',
+        }
+
+        r = getattr(requests, method)(self.rest_endpoint + '/' + path,
                                       json=kwargs,
-                                      headers=self._headers(),
+                                      headers=headers,
                                       proxies=proxies)
         r.raise_for_status()
+
         return r.json()
