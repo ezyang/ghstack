@@ -13,8 +13,8 @@ import re
 from typing import ClassVar, Dict, NewType, List
 
 import ghstack.main
-import ghstack.endpoint
 import ghstack.shell
+import ghstack.github
 import ghstack.github_fake
 
 from ghstack.main import GraphQLId, GitCommitHash
@@ -38,7 +38,7 @@ def indent(text: str, prefix: str) -> str:
     return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
 
 
-def create_pr(github: ghstack.endpoint.GitHubEndpoint):
+def create_pr(github: ghstack.github.GitHubEndpoint):
     github.graphql("""
       mutation {
         createPullRequest(input: {
@@ -56,7 +56,7 @@ def create_pr(github: ghstack.endpoint.GitHubEndpoint):
     """)
 
 
-def edit_pr_body(github: ghstack.endpoint.GitHubEndpoint, prid, body):
+def edit_pr_body(github: ghstack.github.GitHubEndpoint, prid, body):
     github.graphql("""
         mutation ($input : UpdatePullRequestInput!) {
             updatePullRequest(input: $input) {
@@ -69,7 +69,7 @@ def edit_pr_body(github: ghstack.endpoint.GitHubEndpoint, prid, body):
     })
 
 def edit_pr_title(
-        github: ghstack.endpoint.GitHubEndpoint,
+        github: ghstack.github.GitHubEndpoint,
         prid: GraphQLId, title: str):
     github.graphql("""
         mutation ($input : UpdatePullRequestInput!) {
@@ -84,7 +84,7 @@ def edit_pr_title(
 
 class TestGh(expecttest.TestCase):
     proc: ClassVar[subprocess.Popen]
-    github: ghstack.endpoint.GitHubEndpoint
+    github: ghstack.github.GitHubEndpoint
     rev_map: Dict[SubstituteRev, GitCommitHash]
     upstream_sh: ghstack.shell.Shell
     sh: ghstack.shell.Shell
@@ -100,7 +100,7 @@ class TestGh(expecttest.TestCase):
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
         # I plan to fix this type error soon
-        self.github = ghstack.github_fake.FakeGitHubEndpoint(self.upstream_sh)  # type: ignore
+        self.github = ghstack.github_fake.FakeGitHubEndpoint(self.upstream_sh)
 
         local_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:

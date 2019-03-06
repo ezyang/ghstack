@@ -5,7 +5,7 @@ from __future__ import print_function
 import re
 import ghstack.git
 import ghstack.shell
-import ghstack.endpoint
+import ghstack.github
 from typing import List, NewType, Union, Optional, NamedTuple, Tuple
 from ghstack.git import GitCommitHash, GitTreeHash
 from typing_extensions import Literal
@@ -65,7 +65,7 @@ def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
 
 def main(msg: Optional[str],
          username: str,
-         github: ghstack.endpoint.GitHubEndpoint,
+         github: ghstack.github.GitHubEndpoint,
          sh: Optional[ghstack.shell.Shell] = None,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
@@ -146,7 +146,7 @@ def all_branches(username: str, diffid: StackDiffId) -> Tuple[str, str, str]:
 
 class Submitter(object):
     # Endpoint to access GitHub
-    github: ghstack.endpoint.GitHubEndpoint
+    github: ghstack.github.GitHubEndpoint
 
     # Shell inside git checkout that we are submitting
     sh: ghstack.shell.Shell
@@ -178,7 +178,7 @@ class Submitter(object):
 
     def __init__(
             self,
-            github: ghstack.endpoint.GitHubEndpoint,
+            github: ghstack.github.GitHubEndpoint,
             sh: ghstack.shell.Shell,
             username: str,
             repo_owner: str,

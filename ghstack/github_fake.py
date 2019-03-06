@@ -3,7 +3,7 @@ import graphql
 # Oof! Python 3.7 only!!
 from dataclasses import dataclass
 
-from typing import Dict, NewType, List, Optional, Any
+from typing import Dict, NewType, List, Optional, Any, Sequence
 # TODO: do something better about this...
 try:
     from mypy_extensions import TypedDict
@@ -14,6 +14,7 @@ except ImportError:
         return Dict[Any, Any]
 
 import ghstack.shell
+import ghstack.github
 
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
@@ -58,7 +59,7 @@ class GitHubState:
         self._next_pull_request_number[repo_id] += 1
         return r
 
-    def push_hook(self, refs: List[str]) -> None:
+    def push_hook(self, refs: Sequence[str]) -> None:
         # updated_refs = set(refs)
         # for pr in self.pull_requests:
         #    # TODO: this assumes only origin repository
@@ -302,8 +303,9 @@ set_is_type_of('Repository', Repository)
 set_is_type_of('PullRequest', PullRequest)
 
 
-class FakeGitHubEndpoint(object):
+class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     context: GitHubState
+
     future: bool = True
 
     def __init__(self,
@@ -329,5 +331,8 @@ class FakeGitHubEndpoint(object):
         # everything underneath is, oddly enough
         return {'data': r.data}
 
-    def push_hook(self, refNames: List[str]) -> None:
+    def push_hook(self, refNames: Sequence[str]) -> None:
         self.context.push_hook(refNames)
+
+    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+        raise NotImplementedError("FakeGitHubEndpoint.rest not implemented")

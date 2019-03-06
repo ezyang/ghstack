@@ -4,8 +4,10 @@ import json
 import requests
 from typing import Optional, Any, Sequence
 
+import ghstack.github
 
-class GitHubEndpoint(object):
+
+class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
     A class representing a GitHub endpoint we can send queries to.
     It supports both GraphQL and REST interfaces.
@@ -25,9 +27,7 @@ class GitHubEndpoint(object):
     # Facebook users, this is typically 'http://fwdproxy:8080')
     proxy: Optional[str]
 
-    # Whether or not this GitHub endpoint supports features on GraphQL
-    # that don't exist on real GitHub
-    future: bool
+    future: bool = False
 
     def __init__(self,
                  oauth_token: str,
@@ -41,14 +41,10 @@ class GitHubEndpoint(object):
         self.proxy = proxy
         self.future = future
 
-    def graphql(self, query: str, **kwargs: Any) -> Any:
-        """
-        Args:
-            query: string GraphQL query to execute
-            **kwargs: values for variables in the graphql query
+    def push_hook(self, refName: Sequence[str]) -> None:
+        pass
 
-        Returns: parsed JSON response
-        """
+    def graphql(self, query: str, **kwargs: Any) -> Any:
         headers = {}
         if self.oauth_token:
             headers['Authorization'] = 'bearer {}'.format(self.oauth_token)
@@ -83,49 +79,7 @@ class GitHubEndpoint(object):
 
         return r
 
-    # This hook function should be invoked when a 'git push' to GitHub
-    # occurs.  This is used by testing to simulate actions GitHub
-    # takes upon branch push, more conveniently than setting up
-    # a branch hook on the repository and receiving events from it.
-    # TODO: generalize to any repo
-    def push_hook(self, refName: Sequence[str]) -> None:
-        pass
-
-    def get(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a GET request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self.rest('get', path, **kwargs)
-
-    def post(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a POST request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self.rest('post', path, **kwargs)
-
-    def patch(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a PATCH request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self.rest('patch', path, **kwargs)
-
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        """
-        Send a 'method' request to endpoint 'path'.
-
-        Args:
-            method: 'GET', 'POST', etc.
-            path: relative URL path to access on endpoint
-            **kwargs: dictionary of JSON payload to send
-
-        Returns: parsed JSON response
-        """
         if self.proxy:
             proxies = {
                 'http': self.proxy,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import ghstack.main
-import ghstack.endpoint
+import ghstack.github_real
 import ghstack.config
 
 import argparse
@@ -16,7 +16,7 @@ def main() -> None:
     args = parser.parse_args()
 
     conf = ghstack.config.read_config()
-    github = ghstack.endpoint.GitHubEndpoint(
+    github = ghstack.github_real.RealGitHubEndpoint(
         oauth_token=conf.github_oauth,
         proxy=conf.proxy
     )
