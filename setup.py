@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/pypa/ghexport",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=("graphql", "graphql.*",)),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
