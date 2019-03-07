@@ -65,6 +65,7 @@ def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
 def main(msg: Optional[str],
          username: str,
          github: ghstack.github.GitHubEndpoint,
+         update_fields: bool = False,
          sh: Optional[ghstack.shell.Shell] = None,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
@@ -127,6 +128,7 @@ def main(msg: Optional[str],
                           repo_id=repo_id,
                           base_commit=base,
                           base_tree=base_obj.tree(),
+                          update_fields=update_fields,
                           msg=msg)
 
     for s in g:
@@ -175,6 +177,9 @@ class Submitter(object):
     # by Submitter.
     stack_meta: List[DiffMeta]
 
+    # Clobber existing PR description with local commit message
+    update_fields: bool
+
     def __init__(
             self,
             github: ghstack.github.GitHubEndpoint,
@@ -185,6 +190,7 @@ class Submitter(object):
             repo_id: GraphQLId,
             base_commit: GitCommitHash,
             base_tree: GitTreeHash,
+            update_fields: bool,
             msg: Optional[str]):
         self.github = github
         self.sh = sh
@@ -195,11 +201,20 @@ class Submitter(object):
         self.base_commit = base_commit
         self.base_orig = base_commit
         self.base_tree = base_tree
+        self.update_fields = update_fields
         self.stack_meta = []
         self.msg = msg
 
-    def process_commit(self, commit: ghstack.git.CommitHeader) -> None:
+    def _default_title_and_body(self, commit: ghstack.git.CommitHeader
+                                ) -> Tuple[str, str]:
         title = commit.title()
+        pr_body = \
+            "Stack:\n* (to be filled)\n\n" + \
+            ''.join(commit.commit_msg().splitlines(True)[1:]).lstrip()
+        return title, pr_body
+
+    def process_commit(self, commit: ghstack.git.CommitHeader) -> None:
+        title, pr_body = self._default_title_and_body(commit)
         commit_id = commit.commit_id()
         tree = commit.tree()
         parents = commit.parents()
@@ -271,10 +286,6 @@ class Submitter(object):
                 *new_branches,
             )
             self.github.push_hook(new_branches)
-
-            pr_body = \
-                "Stack:\n* (to be filled)\n\n" + \
-                ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
             # Time to open the PR
             # NB: GraphQL API does not support opening PRs
@@ -362,6 +373,9 @@ class Submitter(object):
             # NB: This overrides setting of title previously, from the
             # commit message.
             title = r["data"]["node"]["pullRequest"]["title"]
+
+            if self.update_fields:
+                title, pr_body = self._default_title_and_body(commit)
 
             # Check if updating is needed
             clean_commit_id = GitCommitHash(self.sh.git(

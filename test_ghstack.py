@@ -79,12 +79,14 @@ class TestGh(expecttest.TestCase):
         print("substituteRev: {} = {}".format(substitute, h))
         self.substituteExpected(h, substitute)
 
-    def gh(self, msg: str = 'Update') -> List[ghstack.main.DiffMeta]:
+    def gh(self, msg: str = 'Update',
+           update_fields: bool = False) -> List[ghstack.main.DiffMeta]:
         return ghstack.main.main(
             msg=msg,
             username='ezyang',
             github=self.github,
             sh=self.sh,
+            update_fields=update_fields,
             repo_owner='pytorch',
             repo_name='pytorch')
 
@@ -939,6 +941,81 @@ Repository state:
 
     * rMRG2 (gh/ezyang/1/head) Update 1 on "Directly updated title"
     * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_update_fields(self) -> None:
+        # Check that we do clobber fields when explicitly asked
+
+        print("####################")
+        print("### test_update_fields")
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
+        self.sh.test_tick()
+        stack = self.gh('Initial 1')
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    Original message
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Amend the PR")
+        self.github.patch("repos/pytorch/pytorch/pulls/500",
+                          body="Directly updated message body",
+                          title="Directly updated title")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Directly updated message body
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Force update fields")
+        self.gh('Update 1', update_fields=True)
+        self.sh.test_tick()
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    Original message
+
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')

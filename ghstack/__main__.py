@@ -11,8 +11,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description='Submit stack of diffs to GitHub.')
     parser.add_argument(
-        'msg', metavar='MSG', default='Update', nargs='?', type=str,
+        '--message', '-m',
+        default='Update',
         help='Description of change you made')
+    parser.add_argument(
+        '--update-fields', '-u', action='store_true',
+        help='Update GitHub pull request summary from the local commit')
+
     args = parser.parse_args()
 
     conf = ghstack.config.read_config()
@@ -22,9 +27,11 @@ def main() -> None:
     )
 
     ghstack.main.main(
-        msg=args.msg,
+        msg=args.message,
         username=conf.github_username,
-        github=github)
+        github=github,
+        update_fields=args.update_fields
+        )
 
 
 if __name__ == "__main__":
