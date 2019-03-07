@@ -38,50 +38,6 @@ def indent(text: str, prefix: str) -> str:
     return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
 
 
-def create_pr(github: ghstack.github.GitHubEndpoint):
-    github.graphql("""
-      mutation {
-        createPullRequest(input: {
-            baseRefName: "master",
-            headRefName: "blah",
-            title: "New PR",
-            body: "What a nice PR this is",
-            ownerId: 1000,
-          }) {
-          pullRequest {
-            number
-          }
-        }
-      }
-    """)
-
-
-def edit_pr_body(github: ghstack.github.GitHubEndpoint, prid, body):
-    github.graphql("""
-        mutation ($input : UpdatePullRequestInput!) {
-            updatePullRequest(input: $input) {
-                clientMutationId
-            }
-        }
-    """, input={
-            'pullRequestId': prid,
-            'body': body
-    })
-
-def edit_pr_title(
-        github: ghstack.github.GitHubEndpoint,
-        prid: GraphQLId, title: str):
-    github.graphql("""
-        mutation ($input : UpdatePullRequestInput!) {
-            updatePullRequest(input: $input) {
-                clientMutationId
-            }
-        }
-    """, input={
-        'pullRequestId': prid,
-        'title': title
-    })
-
 class TestGh(expecttest.TestCase):
     proc: ClassVar[subprocess.Popen]
     github: ghstack.github.GitHubEndpoint
@@ -921,7 +877,6 @@ Repository state:
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
         stack = self.gh('Initial 1')
-        prid = stack[0].id
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("gh/ezyang/1/head", "rMRG1")
@@ -945,8 +900,9 @@ Repository state:
 
         print("###")
         print("### Amend the PR")
-        edit_pr_body(self.github, prid, "Directly updated message body")
-        edit_pr_title(self.github, prid, "Directly updated title")
+        self.github.patch("repos/pytorch/pytorch/pulls/500",
+                          body="Directly updated message body",
+                          title="Directly updated title")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)

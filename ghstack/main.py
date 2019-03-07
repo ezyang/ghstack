@@ -23,7 +23,6 @@ StackDiffId = NewType('StackDiffId', str)
 BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
 
 DiffMeta = NamedTuple('DiffMeta', [
-    ('id', GraphQLId),
     ('title', str),
     ('number', GitHubNumber),
     ('body', str),
@@ -278,39 +277,17 @@ class Submitter(object):
                 ''.join(commit_msg.splitlines(True)[1:]).lstrip()
 
             # Time to open the PR
-            if self.github.future:
-                r = self.github.graphql("""
-                    mutation ($input : CreatePullRequestInput!) {
-                        createPullRequest(input: $input) {
-                            pullRequest {
-                                id
-                                number
-                                title
-                            }
-                        }
-                    }
-                """, input={
-                        "baseRefName": branch_base(self.username, diffid),
-                        "headRefName": branch_head(self.username, diffid),
-                        "title": title,
-                        "body": pr_body,
-                        "ownerId": self.repo_id,
-                    })
-                pullRequest = r["data"]["createPullRequest"]["pullRequest"]
-                prid = GraphQLId(pullRequest["id"])
-                number = pullRequest["number"]
-            else:
-                r = self.github.post(
-                    "repos/{owner}/{repo}/pulls"
-                    .format(owner=self.repo_owner, repo=self.repo_name),
-                    title=title,
-                    head=branch_head(self.username, diffid),
-                    base=branch_base(self.username, diffid),
-                    body=pr_body,
-                    maintainer_can_modify=True,
-                    )
-                prid = GraphQLId(r['node_id'])  # not used, but let's type it
-                number = r['number']
+            # NB: GraphQL API does not support opening PRs
+            r = self.github.post(
+                "repos/{owner}/{repo}/pulls"
+                .format(owner=self.repo_owner, repo=self.repo_name),
+                title=title,
+                head=branch_head(self.username, diffid),
+                base=branch_base(self.username, diffid),
+                body=pr_body,
+                maintainer_can_modify=True,
+                )
+            number = r['number']
 
             print("Opened PR #{}".format(number))
 
@@ -342,7 +319,6 @@ class Submitter(object):
                 new_orig)
 
             self.stack_meta.append(DiffMeta(
-                id=prid,
                 title=title,
                 number=number,
                 body=pr_body,
@@ -379,7 +355,6 @@ class Submitter(object):
                 }
               }
             """, repo_id=self.repo_id, number=number)
-            prid = GraphQLId(r["data"]["node"]["pullRequest"]["id"])
             pr_body = r["data"]["node"]["pullRequest"]["body"]
             # NB: Technically, we don't need to pull this information at
             # all, but it's more convenient to unconditionally edit
@@ -509,7 +484,6 @@ class Submitter(object):
                 push_branches = ("base", "head", "orig")
 
             self.stack_meta.append(DiffMeta(
-                id=prid,
                 title=title,
                 number=number,
                 # NB: Ignore the commit message, and just reuse the old commit
@@ -554,27 +528,14 @@ class Submitter(object):
                   .format(owner=self.repo_owner,
                           repo=self.repo_name,
                           number=s.number))
-            if self.github.future:
-                self.github.graphql("""
-                    mutation ($input : UpdatePullRequestInput!) {
-                        updatePullRequest(input: $input) {
-                            clientMutationId
-                        }
-                    }
-                """, input={
-                        'pullRequestId': s.id,
-                        'body': RE_STACK.sub(self._format_stack(i), s.body),
-                        'title': s.title,
-                        'baseRefName': s.base
-                    })
-            else:
-                self.github.patch(
-                    "repos/{owner}/{repo}/pulls/{number}"
-                    .format(owner=self.repo_owner, repo=self.repo_name,
-                            number=s.number),
-                    body=s.body,
-                    title=s.title,
-                    base=s.base)
+            # NB: GraphQL API does not support modifying PRs
+            self.github.patch(
+                "repos/{owner}/{repo}/pulls/{number}"
+                .format(owner=self.repo_owner, repo=self.repo_name,
+                        number=s.number),
+                body=RE_STACK.sub(self._format_stack(i), s.body),
+                title=s.title,
+                base=s.base)
             # It is VERY important that we do this push AFTER fixing the base,
             # otherwise GitHub will spuriously think that the user pushed a
             # number of patches as part of the PR, when actually they were just

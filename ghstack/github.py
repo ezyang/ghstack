@@ -3,10 +3,6 @@ from typing import Any, Sequence
 
 
 class GitHubEndpoint(metaclass=ABCMeta):
-    # Whether or not this GitHub endpoint supports features on GraphQL
-    # that don't exist on real GitHub
-    future: bool
-
     @abstractmethod
     def graphql(self, query: str, **kwargs: Any) -> Any:
         """

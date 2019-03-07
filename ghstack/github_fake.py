@@ -1,9 +1,11 @@
 import graphql
+import re
+import os.path
 
 # Oof! Python 3.7 only!!
 from dataclasses import dataclass
 
-from typing import Dict, NewType, List, Optional, Any, Sequence
+from typing import Dict, NewType, List, Optional, Any, Sequence, cast
 # TODO: do something better about this...
 try:
     from mypy_extensions import TypedDict
@@ -21,22 +23,21 @@ GitHubNumber = NewType('GitHubNumber', int)
 GitObjectID = NewType('GitObjectID', str)
 
 UpdatePullRequestInput = TypedDict('UpdatePullRequestInput', {
-    'baseRefName': Optional[str],
+    'base': Optional[str],
     'title': Optional[str],
     'body': Optional[str],
-
-    'clientMutationId': Optional[str],
-    'pullRequestId': GraphQLId,
 })
 
 CreatePullRequestInput = TypedDict('CreatePullRequestInput', {
-    'baseRefName': str,
-    'headRefName': str,
+    'base': str,
+    'head': str,
     'title': str,
     'body': str,
+    'maintainer_can_modify': bool,
+})
 
-    'clientMutationId': Optional[str],
-    'ownerId': GraphQLId,
+CreatePullRequestPayload = TypedDict('CreatePullRequestPayload', {
+    'number': int,
 })
 
 
@@ -48,6 +49,22 @@ class GitHubState:
     _next_pull_request_number: Dict[GraphQLId, int]
     root: 'Root'
     upstream_sh: Optional[ghstack.shell.Shell]
+
+    def repository(self, owner: str, name: str) -> 'Repository':
+        nameWithOwner = "{}/{}".format(owner, name)
+        for r in self.repositories.values():
+            if r.nameWithOwner == nameWithOwner:
+                return r
+        raise RuntimeError("unknown repository {}".format(nameWithOwner))
+
+    def pull_request(self, repo: 'Repository', number: GitHubNumber
+                     ) -> 'PullRequest':
+        for pr in self.pull_requests.values():
+            if repo.id == pr._repository and pr.number == number:
+                return pr
+        raise RuntimeError(
+            "unrecognized pull request #{} in repository {}"
+            .format(number, repo.nameWithOwner))
 
     def next_id(self) -> GraphQLId:
         r = GraphQLId(str(self._next_id))
@@ -119,12 +136,7 @@ class Repository(Node):
     def pullRequest(self,
                     info: graphql.GraphQLResolveInfo,
                     number: GitHubNumber) -> 'PullRequest':
-        for pr in github_state(info).pull_requests.values():
-            if self == pr.repository(info) and pr.number == number:
-                return pr
-        raise RuntimeError(
-            "unrecognized pull request #{} in repository {}"
-            .format(number, self.nameWithOwner))
+        return github_state(info).pull_request(self, number)
 
     def pullRequests(self, info: graphql.GraphQLResolveInfo
                      ) -> 'PullRequestConnection':
@@ -200,26 +212,10 @@ class PullRequestConnection:
     nodes: List[PullRequest]
 
 
-@dataclass
-class UpdatePullRequestPayload:
-    clientMutationId: Optional[str]
-    pullRequest: PullRequest
-
-
-@dataclass
-class CreatePullRequestPayload:
-    clientMutationId: Optional[str]
-    pullRequest: PullRequest
-
-
 class Root:
     def repository(self, info: graphql.GraphQLResolveInfo, owner: str,
                    name: str) -> Repository:
-        nameWithOwner = "{}/{}".format(owner, name)
-        for r in github_state(info).repositories.values():
-            if r.nameWithOwner == nameWithOwner:
-                return r
-        raise RuntimeError("unknown repository {}".format(nameWithOwner))
+        return github_state(info).repository(owner, name)
 
     def node(self, info: graphql.GraphQLResolveInfo, id: GraphQLId) -> Node:
         if id in github_state(info).repositories:
@@ -229,63 +225,9 @@ class Root:
         else:
             raise RuntimeError("unknown id {}".format(id))
 
-    def updatePullRequest(self,
-                          info: graphql.GraphQLResolveInfo,
-                          input: UpdatePullRequestInput
-                          ) -> UpdatePullRequestPayload:
-        state = github_state(info)
-        pr = state.pull_requests[input['pullRequestId']]
-        repo = pr.repository(info)
-        # If I say input.get('title') is not None, mypy
-        # is unable to infer input['title'] is not None
-        if 'title' in input and input['title'] is not None:
-            pr.title = input['title']
-        if 'baseRefName' in input and input['baseRefName'] is not None:
-            pr.baseRefName = input['baseRefName']
-            pr.baseRef = repo._make_ref(state, pr.baseRefName)
-        if 'body' in input and input['body'] is not None:
-            pr.body = input['body']
-        return UpdatePullRequestPayload(
-                clientMutationId=input.get('clientMutationId'),
-                pullRequest=pr)
 
-    def createPullRequest(self,
-                          info: graphql.GraphQLResolveInfo,
-                          input: CreatePullRequestInput
-                          ) -> CreatePullRequestPayload:
-        state = github_state(info)
-        id = state.next_id()
-        repo_id = input['ownerId']
-        repo = state.repositories[repo_id]
-        number = state.next_pull_request_number(input['ownerId'])
-        baseRef = None
-        headRef = None
-        # TODO: When we support forks, this needs rewriting to stop
-        # hard coded the repo we opened the pull request on
-        if state.upstream_sh:
-            baseRef = repo._make_ref(state, input['baseRefName'])
-            headRef = repo._make_ref(state, input['headRefName'])
-        pr = PullRequest(
-            id=id,
-            _repository=repo_id,
-            number=number,
-            url="https://github.com/{}/pull/{}"
-                .format(repo.nameWithOwner, number),
-            baseRef=baseRef,
-            baseRefName=input['baseRefName'],
-            headRef=headRef,
-            headRefName=input['headRefName'],
-            title=input['title'],
-            body=input['body'],
-        )
-        # TODO: compute files changed lol
-        github_state(info).pull_requests[id] = pr
-        return CreatePullRequestPayload(
-                clientMutationId=input.get('clientMutationId'),
-                pullRequest=pr)
-
-
-with open('github-fake/src/schema.graphql') as f:
+with open(os.path.join(os.path.dirname(__file__),
+          'github_schema.graphql')) as f:
     GITHUB_SCHEMA = graphql.build_schema(f.read())
 
 
@@ -304,21 +246,19 @@ set_is_type_of('PullRequest', PullRequest)
 
 
 class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
-    context: GitHubState
-
-    future: bool = True
+    state: GitHubState
 
     def __init__(self,
                  upstream_sh: Optional[ghstack.shell.Shell] = None
                  ) -> None:
-        self.context = GitHubState(upstream_sh)
+        self.state = GitHubState(upstream_sh)
 
     def graphql(self, query: str, **kwargs: Any) -> Any:
         r = graphql.graphql_sync(
                 schema=GITHUB_SCHEMA,
                 source=query,
-                root_value=self.context.root,
-                context_value=self.context,
+                root_value=self.state.root,
+                context_value=self.state,
                 variable_values=kwargs)
         if r.errors:
             # The GraphQL implementation loses all the stack traces!!!
@@ -332,7 +272,75 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         return {'data': r.data}
 
     def push_hook(self, refNames: Sequence[str]) -> None:
-        self.context.push_hook(refNames)
+        self.state.push_hook(refNames)
+
+    # NB: This technically does have a payload, but we don't
+    # use it so I didn't bother constructing it.
+    def _create_pull(self, owner: str, name: str,
+                     input: CreatePullRequestInput) -> CreatePullRequestPayload:
+        state = self.state
+        id = state.next_id()
+        repo = state.repository(owner, name)
+        number = state.next_pull_request_number(repo.id)
+        baseRef = None
+        headRef = None
+        # TODO: When we support forks, this needs rewriting to stop
+        # hard coded the repo we opened the pull request on
+        if state.upstream_sh:
+            baseRef = repo._make_ref(state, input['base'])
+            headRef = repo._make_ref(state, input['head'])
+        pr = PullRequest(
+            id=id,
+            _repository=repo.id,
+            number=number,
+            url="https://github.com/{}/pull/{}"
+                .format(repo.nameWithOwner, number),
+            baseRef=baseRef,
+            baseRefName=input['base'],
+            headRef=headRef,
+            headRefName=input['head'],
+            title=input['title'],
+            body=input['body'],
+        )
+        # TODO: compute files changed
+        state.pull_requests[id] = pr
+        # This is only a subset of what the actual REST endpoint
+        # returns.
+        return {
+            'number': number,
+        }
+
+    # NB: This technically does have a payload, but we don't
+    # use it so I didn't bother constructing it.
+    def _update_pull(self, owner: str, name: str, number: GitHubNumber,
+                     input: UpdatePullRequestInput) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        pr = state.pull_request(repo, number)
+        # If I say input.get('title') is not None, mypy
+        # is unable to infer input['title'] is not None
+        if 'title' in input and input['title'] is not None:
+            pr.title = input['title']
+        if 'base' in input and input['base'] is not None:
+            pr.baseRefName = input['base']
+            pr.baseRef = repo._make_ref(state, pr.baseRefName)
+        if 'body' in input and input['body'] is not None:
+            pr.body = input['body']
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        raise NotImplementedError("FakeGitHubEndpoint.rest not implemented")
+        if method == 'post':
+            m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
+            if m:
+                print(kwargs)
+                return self._create_pull(m.group(1), m.group(2),
+                                         cast(CreatePullRequestInput, kwargs))
+        elif method == 'patch':
+            m = re.match(r'^repos/([^/]+)/([^/]+)/pulls/([^/]+)$', path)
+            if m:
+                return self._update_pull(
+                    m.group(1), m.group(2), GitHubNumber(int(m.group(3))),
+                    cast(UpdatePullRequestInput, kwargs))
+        raise NotImplementedError(
+            "FakeGitHubEndpoint REST {} {} not implemented"
+            .format(method.upper(), path)
+        )

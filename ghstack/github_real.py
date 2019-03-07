@@ -27,19 +27,15 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     # Facebook users, this is typically 'http://fwdproxy:8080')
     proxy: Optional[str]
 
-    future: bool = False
-
     def __init__(self,
                  oauth_token: str,
-                 proxy: Optional[str] = None,
-                 future: bool = False):
+                 proxy: Optional[str] = None):
         """
         Args:
             endpoint: URL of the endpoint in question
         """
         self.oauth_token = oauth_token
         self.proxy = proxy
-        self.future = future
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
