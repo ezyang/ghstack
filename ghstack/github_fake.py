@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import graphql
 import re
 import os.path
