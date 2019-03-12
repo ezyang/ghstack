@@ -7,9 +7,6 @@ import graphql  # type: ignore
 import re
 import os.path
 
-# Oof! Python 3.7 only!!
-from dataclasses import dataclass
-
 from typing import Dict, NewType, List, Optional, Any, Sequence, cast
 # TODO: do something better about this...
 try:
@@ -122,9 +119,11 @@ class GitHubState:
             self.upstream_sh.git("branch", "-f", "master", commit)
 
 
-@dataclass
 class Node:
     id: GraphQLId
+
+    def __init__(self, id: GraphQLId):
+        self.id = id
 
 
 GraphQLResolveInfo = Any  # for now
@@ -136,10 +135,14 @@ def github_state(info: GraphQLResolveInfo) -> GitHubState:
     return context
 
 
-@dataclass
 class Repository(Node):
     name: str
     nameWithOwner: str
+
+    def __init__(self, id: GraphQLId, name: str, nameWithOwner: str):
+        self.id = id
+        self.name = name
+        self.nameWithOwner = nameWithOwner
 
     def pullRequest(self,
                     info: GraphQLResolveInfo,
@@ -174,26 +177,36 @@ class Repository(Node):
         return ref
 
 
-@dataclass
 class GitObject(Node):
     oid: GitObjectID
     _repository: GraphQLId
+
+    def __init__(self, id: GraphQLId, oid: GitObjectID,
+                 _repository: GraphQLId):
+        self.id = id
+        self.oid = oid
+        self._repository = _repository
 
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
 
-@dataclass
 class Ref(Node):
     name: str
     _repository: GraphQLId
     target: GitObject
 
+    def __init__(self, id: GraphQLId, name: str, _repository: GraphQLId,
+                 target: GitObject):
+        self.id = id
+        self.name = name
+        self._repository = _repository
+        self.target = target
+
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
 
-@dataclass
 class PullRequest(Node):
     baseRef: Optional[Ref]
     baseRefName: str
@@ -209,13 +222,30 @@ class PullRequest(Node):
     title: str
     url: str
 
+    def __init__(self, id: GraphQLId, baseRef: Optional[Ref], baseRefName: str,
+                 body: str, headRef: Optional[Ref], headRefName: str,
+                 number: GitHubNumber, _repository: GraphQLId,
+                 title: str, url: str):
+        self.id = id
+        self.baseRef = baseRef
+        self.baseRefName = baseRefName
+        self.body = body
+        self.headRef = headRef
+        self.headRefName = headRefName
+        self.number = number
+        self._repository = _repository
+        self.title = title
+        self.url = url
+
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
 
-@dataclass
 class PullRequestConnection:
     nodes: List[PullRequest]
+
+    def __init__(self, nodes: List[PullRequest]):
+        self.nodes = nodes
 
 
 class Root:
