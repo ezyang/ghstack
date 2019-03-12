@@ -90,8 +90,8 @@ def main(msg: Optional[str],
                 repo_name_nonopt = m.group(2)
                 break
             raise RuntimeError(
-                    "Couldn't determine repo owner and name from url: {}"
-                    .format(origin_url))
+                "Couldn't determine repo owner and name from url: {}"
+                .format(origin_url))
     else:
         repo_owner_nonopt = repo_owner
         repo_name_nonopt = repo_name
@@ -297,7 +297,7 @@ class Submitter(object):
                 base=branch_base(self.username, diffid),
                 body=pr_body,
                 maintainer_can_modify=True,
-                )
+            )
             number = r['number']
 
             print("Opened PR #{}".format(number))
@@ -443,10 +443,11 @@ class Submitter(object):
                     # of gh/ezyang/1/head.  If it is, we'll do a merge,
                     # but we don't need to create a synthetic base
                     # commit.
-                    if self.sh.git(
-                          "merge-base",
-                          "--is-ancestor", branch_base(self.username, diffid),
-                          self.base_commit, exitcode=True):
+                    is_ancestor = self.sh.git(
+                        "merge-base",
+                        "--is-ancestor", branch_base(self.username, diffid),
+                        self.base_commit, exitcode=True)
+                    if is_ancestor:
 
                         new_base = self.base_commit
 

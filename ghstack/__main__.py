@@ -31,7 +31,7 @@ def main() -> None:
         username=conf.github_username,
         github=github,
         update_fields=args.update_fields
-        )
+    )
 
 
 if __name__ == "__main__":

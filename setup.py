@@ -14,6 +14,9 @@ setuptools.setup(
     url="https://github.com/pypa/ghexport",
     packages=setuptools.find_packages(exclude=("graphql", "graphql.*",)),
     include_package_data=True,
+    package_data={
+        'ghstack': ['py.typed'],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

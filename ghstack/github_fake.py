@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
-import graphql
+# Only for now; see
+# https://github.com/graphql-python/graphql-core-next/issues/26
+import graphql  # type: ignore
+
 import re
 import os.path
 
@@ -124,7 +127,10 @@ class Node:
     id: GraphQLId
 
 
-def github_state(info: graphql.GraphQLResolveInfo) -> GitHubState:
+GraphQLResolveInfo = Any  # for now
+
+
+def github_state(info: GraphQLResolveInfo) -> GitHubState:
     context = info.context
     assert isinstance(context, GitHubState)
     return context
@@ -136,17 +142,15 @@ class Repository(Node):
     nameWithOwner: str
 
     def pullRequest(self,
-                    info: graphql.GraphQLResolveInfo,
+                    info: GraphQLResolveInfo,
                     number: GitHubNumber) -> 'PullRequest':
         return github_state(info).pull_request(self, number)
 
-    def pullRequests(self, info: graphql.GraphQLResolveInfo
+    def pullRequests(self, info: GraphQLResolveInfo
                      ) -> 'PullRequestConnection':
-        return PullRequestConnection(
-                nodes=list(
-                    filter(
-                        lambda pr: self == pr.repository(info),
-                        github_state(info).pull_requests.values())))
+        return PullRequestConnection(nodes=list(filter(
+            lambda pr: self == pr.repository(info),
+            github_state(info).pull_requests.values())))
 
     # TODO: This should take which repository the ref is in
     # This only works if you have upstream_sh
@@ -175,7 +179,7 @@ class GitObject(Node):
     oid: GitObjectID
     _repository: GraphQLId
 
-    def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
 
@@ -185,7 +189,7 @@ class Ref(Node):
     _repository: GraphQLId
     target: GitObject
 
-    def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
 
@@ -205,7 +209,7 @@ class PullRequest(Node):
     title: str
     url: str
 
-    def repository(self, info: graphql.GraphQLResolveInfo) -> Repository:
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
 
 
@@ -215,11 +219,11 @@ class PullRequestConnection:
 
 
 class Root:
-    def repository(self, info: graphql.GraphQLResolveInfo, owner: str,
+    def repository(self, info: GraphQLResolveInfo, owner: str,
                    name: str) -> Repository:
         return github_state(info).repository(owner, name)
 
-    def node(self, info: graphql.GraphQLResolveInfo, id: GraphQLId) -> Node:
+    def node(self, info: GraphQLResolveInfo, id: GraphQLId) -> Node:
         if id in github_state(info).repositories:
             return github_state(info).repositories[id]
         elif id in github_state(info).pull_requests:
@@ -238,9 +242,9 @@ with open(os.path.join(os.path.dirname(__file__),
 # after a quick read of default_resolve_type_fn it doesn't look like
 # we ever actually look to value for type of information.  This is
 # pretty clunky lol.
-def set_is_type_of(name, cls):
+def set_is_type_of(name: str, cls: Any) -> None:
     o = GITHUB_SCHEMA.get_type(name)
-    o.is_type_of = lambda obj, info: isinstance(obj, cls)  # type: ignore
+    o.is_type_of = lambda obj, info: isinstance(obj, cls)
 
 
 set_is_type_of('Repository', Repository)
@@ -257,11 +261,11 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
     def graphql(self, query: str, **kwargs: Any) -> Any:
         r = graphql.graphql_sync(
-                schema=GITHUB_SCHEMA,
-                source=query,
-                root_value=self.state.root,
-                context_value=self.state,
-                variable_values=kwargs)
+            schema=GITHUB_SCHEMA,
+            source=query,
+            root_value=self.state.root,
+            context_value=self.state,
+            variable_values=kwargs)
         if r.errors:
             # The GraphQL implementation loses all the stack traces!!!
             # D:  You can 'recover' them by deleting the
