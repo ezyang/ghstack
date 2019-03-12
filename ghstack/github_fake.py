@@ -243,7 +243,9 @@ with open(os.path.join(os.path.dirname(__file__),
 # we ever actually look to value for type of information.  This is
 # pretty clunky lol.
 def set_is_type_of(name: str, cls: Any) -> None:
-    o = GITHUB_SCHEMA.get_type(name)
+    # Can't use a type ignore on the next line because fbcode
+    # and us don't agree that it's necessary hmm.
+    o: Any = GITHUB_SCHEMA.get_type(name)
     o.is_type_of = lambda obj, info: isinstance(obj, cls)
 
 
