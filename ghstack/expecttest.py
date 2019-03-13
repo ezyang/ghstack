@@ -4,11 +4,13 @@ import traceback
 import os
 import string
 
+from typing import List, Dict, Tuple, Match, Optional
+
 
 ACCEPT = os.getenv('EXPECTTEST_ACCEPT')
 
 
-def nth_line(src, lineno):
+def nth_line(src: str, lineno: int) -> int:
     """
     Compute the starting index of the n-th line (where n is 1-indexed)
 
@@ -22,7 +24,7 @@ def nth_line(src, lineno):
     return pos
 
 
-def nth_eol(src, lineno):
+def nth_eol(src: str, lineno: int) -> int:
     """
     Compute the ending index of the n-th line (before the newline,
     where n is 1-indexed)
@@ -39,22 +41,24 @@ def nth_eol(src, lineno):
     return pos
 
 
-def normalize_nl(t):
+def normalize_nl(t: str) -> str:
     return t.replace('\r\n', '\n').replace('\r', '\n')
 
 
-def escape_trailing_quote(s, quote):
+def escape_trailing_quote(s: str, quote: str) -> str:
     if s and s[-1] == quote:
         return s[:-1] + '\\' + quote
     else:
         return s
 
 
-class EditHistory(object):
-    def __init__(self):
+class EditHistory:
+    state: Dict[str, List[Tuple[int, int]]]
+
+    def __init__(self) -> None:
         self.state = {}
 
-    def adjust_lineno(self, fn, lineno):
+    def adjust_lineno(self, fn: str, lineno: int) -> int:
         if fn not in self.state:
             return lineno
         for edit_loc, edit_diff in self.state[fn]:
@@ -62,17 +66,17 @@ class EditHistory(object):
                 lineno += edit_diff
         return lineno
 
-    def seen_file(self, fn):
+    def seen_file(self, fn: str) -> bool:
         return fn in self.state
 
-    def record_edit(self, fn, lineno, delta):
+    def record_edit(self, fn: str, lineno: int, delta: int) -> None:
         self.state.setdefault(fn, []).append((lineno, delta))
 
 
 EDIT_HISTORY = EditHistory()
 
 
-def ok_for_raw_triple_quoted_string(s, quote):
+def ok_for_raw_triple_quoted_string(s: str, quote: str) -> bool:
     """
     Is this string representable inside a raw triple-quoted string?
     Due to the fact that backslashes are always treated literally,
@@ -96,7 +100,8 @@ RE_EXPECT = re.compile(r"^(?P<suffix>[^\n]*?)"
                        r"(?P<raw>r?)", re.DOTALL)
 
 
-def replace_string_literal(src, lineno, new_string):
+def replace_string_literal(src: str, lineno: int, new_string: str
+                           ) -> Tuple[str, int]:
     r"""
     Replace a triple quoted string literal with new contents.
     Only handles printable ASCII correctly at the moment.  This
@@ -131,7 +136,7 @@ def replace_string_literal(src, lineno, new_string):
     if delta[0] > 0:
         delta[0] += 1  # handle the extra \\\n
 
-    def replace(m):
+    def replace(m: Match) -> str:
         s = new_string
         raw = m.group('raw') == 'r'
         if not raw or not ok_for_raw_triple_quoted_string(s, quote=m.group('quote')[0]):
@@ -157,36 +162,41 @@ def replace_string_literal(src, lineno, new_string):
     return (RE_EXPECT.sub(replace, src[:i][::-1], count=1)[::-1] + src[i:], delta[0])
 
 
-def replace_many(rep, text):
-    rep = dict((re.escape(k), v) for k, v in rep.items())
+def replace_many(rep: Dict[str, str], text: str) -> str:
+    rep = {re.escape(k): v for k, v in rep.items()}
     pattern = re.compile("|".join(rep.keys()))
     return pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
 
 
 class TestCase(unittest.TestCase):
-    longMessage = True
-    maxDiff = None
+    longMessage: bool = True
+    maxDiff: Optional[int] = None
+    _expect_filters: Dict[str, str]
 
-    def substituteExpected(self, pattern, replacement):
+    def substituteExpected(self, pattern: str, replacement: str) -> None:
         if not hasattr(self, '_expect_filters'):
             self._expect_filters = {}
+
             def expect_filters_cleanup():
                 del self._expect_filters
             self.addCleanup(expect_filters_cleanup)
         if pattern in self._expect_filters:
-            raise RuntimeError("Cannot remap {} to {} (existing mapping is {})".format(pattern, replacement, self._expect_filters[pattern]))
+            raise RuntimeError(
+                "Cannot remap {} to {} (existing mapping is {})"
+                .format(pattern, replacement, self._expect_filters[pattern]))
         self._expect_filters[pattern] = replacement
 
-    def assertExpected(self, actual, expect, skip=0):
+    def assertExpected(self, actual: str, expect: str, skip: int = 0) -> None:
         if hasattr(self, '_expect_filters'):
             actual = replace_many(self._expect_filters, actual)
 
         if ACCEPT:
             if actual != expect:
                 # current frame and parent frame, plus any requested skip
-                tb = traceback.extract_stack(limit=2+skip)
+                tb = traceback.extract_stack(limit=2 + skip)
                 fn, lineno, _, _ = tb[0]
-                print("Accepting new output for {} at {}:{}".format(self.id(), fn, lineno))
+                print("Accepting new output for {} at {}:{}"
+                      .format(self.id(), fn, lineno))
                 with open(fn, 'r+') as f:
                     old = f.read()
 
@@ -194,7 +204,9 @@ class TestCase(unittest.TestCase):
                     lineno = EDIT_HISTORY.adjust_lineno(fn, lineno)
                     new, delta = replace_string_literal(old, lineno, actual)
 
-                    assert old != new, "Failed to substitute string at {}:{}".format(fn, lineno)
+                    assert old != new, \
+                           ("Failed to substitute string at {}:{}"
+                            .format(fn, lineno))
 
                     # Only write the backup file the first time we hit the
                     # file
@@ -208,7 +220,9 @@ class TestCase(unittest.TestCase):
 
                 EDIT_HISTORY.record_edit(fn, lineno, delta)
         else:
-            help_text = "To accept the new output, re-run test with envvar EXPECTTEST_ACCEPT=1 (we recommend staging/committing your changes before doing this)"
+            help_text = ("To accept the new output, re-run test with envvar "
+                         "EXPECTTEST_ACCEPT=1 (we recommend "
+                         "staging/committing your changes before doing this)")
             if hasattr(self, "assertMultiLineEqual"):
                 self.assertMultiLineEqual(expect, actual, msg=help_text)
             else:

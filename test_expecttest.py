@@ -1,4 +1,4 @@
-import expecttest
+import ghstack.expecttest as expecttest
 
 import unittest
 import string

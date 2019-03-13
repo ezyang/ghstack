@@ -1,7 +1,6 @@
 from __future__ import print_function
 import textwrap
 import doctest
-import expecttest
 import unittest
 import subprocess
 import warnings
@@ -11,6 +10,8 @@ import tempfile
 import re
 
 from typing import ClassVar, Dict, NewType, List
+
+import ghstack.expecttest as expecttest
 
 import ghstack.main
 import ghstack.shell
