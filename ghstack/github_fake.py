@@ -102,6 +102,7 @@ class GitHubState:
             id=GraphQLId("1000"),
             name="pytorch",
             nameWithOwner="pytorch/pytorch",
+            isFork=False,
         )
         self._next_pull_request_number[GraphQLId("1000")] = 500
 
@@ -140,6 +141,7 @@ def github_state(info: GraphQLResolveInfo) -> GitHubState:
 class Repository(Node):
     name: str
     nameWithOwner: str
+    isFork: bool
 
     def pullRequest(self,
                     info: GraphQLResolveInfo,

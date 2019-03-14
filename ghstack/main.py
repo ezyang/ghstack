@@ -97,15 +97,27 @@ def main(msg: Optional[str],
         repo_name_nonopt = repo_name
 
     # TODO: Cache this guy
-    repo_id = github.graphql(
+    repo = github.graphql(
         """
         query ($owner: String!, $name: String!) {
             repository(name: $name, owner: $owner) {
                 id
+                isFork
             }
         }""",
         owner=repo_owner_nonopt,
-        name=repo_name_nonopt)["data"]["repository"]["id"]
+        name=repo_name_nonopt)["data"]["repository"]
+
+    if repo["isFork"]:
+        raise RuntimeError(
+            "Cowardly refusing to upload diffs to a repository that is a "
+            "fork.  ghstack expects 'origin' of your Git checkout to point "
+            "to the upstream repository in question.  If your checkout does "
+            "not comply, please adjust your remotes (by editing .git/config) "
+            "to make it so.  If this message is in error, please register "
+            "your complaint on GitHub issues (or edit this line to delete "
+            "the check above.")
+    repo_id = repo["id"]
 
     sh.git("fetch", "origin")
     base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
