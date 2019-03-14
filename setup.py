@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ghstack",
-    version="0.0.9",
+    version="0.0.10",
     author="Edward Z. Yang",
     author_email="ezyang@mit.edu",
     description="Stack diff support for GitHub",
