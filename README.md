@@ -57,3 +57,32 @@ design decisions on this tool.
    number, so we have no idea what it's going to be until we open
    the pull request, but we can't open the pull request without a
    branch.
+
+## Ripley Cupboard
+
+Channeling Conor McBridge, this section documents mistakes worth
+mentioning.
+
+**Non-stack mode.**  ghstack processes your entire stack when it
+uploads updates, but it doesn't have to be that way; you could
+imagine that you could ask ghstack to only process the topmost
+commit and leave the rest alone.  An easy and attractive
+looking way of doing this is to edit the stack selection algorithm
+to look a single commit, rather than all the commits from
+merge-base to head.
+
+This sounds OK but you try it and you realize two things:
+
+1. This is wrong, if you exclude the commits before your commit
+   you'll end up with a base commit based on the "literal"
+   commit in your Git repository.  But this has no relationship
+   with the base commit that was previously uploaded, which
+   was synthetically constructed.
+
+2. You also have do extra work to pull out an up to date stack
+   to write into the pull request body.
+
+So, this is not impossible to do, but it will need some work.
+You have to work out what the real base commit is, whether
+or not you need to advance it, and also rewrite the stack rendering
+code.
