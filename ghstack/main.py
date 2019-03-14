@@ -29,6 +29,7 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('base', str),
     ('diffid', StackDiffId),
     ('push_branches', Tuple[BranchKind, ...]),
+    ('what', str),
 ])
 
 
@@ -348,6 +349,7 @@ class Submitter(object):
                 base=branch_base(self.username, diffid),
                 diffid=diffid,
                 push_branches=('orig', ),
+                what='Created',
             ))
 
         else:
@@ -521,7 +523,8 @@ class Submitter(object):
                 body=pr_body,
                 base=branch_base(self.username, diffid),
                 diffid=diffid,
-                push_branches=push_branches
+                push_branches=push_branches,
+                what='Updated' if push_branches else 'Skipped',
             ))
 
         # The current pull request head commit, is the new base commit
@@ -583,3 +586,20 @@ class Submitter(object):
         if force_push_branches:
             self.sh.git("push", "origin", "--force", *force_push_branches)
             self.github.push_hook(force_push_branches)
+
+        # Report what happened
+        print()
+        print('# Summary of changes')
+        print()
+        for s in self.stack_meta:
+            url = ("https://github.com/{owner}/{repo}/pull/{number}"
+                   .format(owner=self.repo_owner,
+                           repo=self.repo_name,
+                           number=s.number))
+            print(" - {} {}".format(s.what, url))
+        print()
+        print("Note for Facebook employees: you can import your changes")
+        print("by running (on a Facebook machine):")
+        print()
+        print("    ghimport -s {}".format(url))
+        print()
