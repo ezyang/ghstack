@@ -136,7 +136,7 @@ def replace_string_literal(src: str, lineno: int, new_string: str
     if delta[0] > 0:
         delta[0] += 1  # handle the extra \\\n
 
-    def replace(m: Match) -> str:
+    def replace(m: Match[str]) -> str:
         s = new_string
         raw = m.group('raw') == 'r'
         if not raw or not ok_for_raw_triple_quoted_string(s, quote=m.group('quote')[0]):
@@ -177,7 +177,7 @@ class TestCase(unittest.TestCase):
         if not hasattr(self, '_expect_filters'):
             self._expect_filters = {}
 
-            def expect_filters_cleanup():
+            def expect_filters_cleanup() -> None:
                 del self._expect_filters
             self.addCleanup(expect_filters_cleanup)
         if pattern in self._expect_filters:
