@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import re
+import ghstack
 import ghstack.git
 import ghstack.shell
 import ghstack.github
@@ -589,7 +590,7 @@ class Submitter(object):
 
         # Report what happened
         print()
-        print('# Summary of changes')
+        print('# Summary of changes (ghstack {})'.format(ghstack.__version__))
         print()
         for s in self.stack_meta:
             url = ("https://github.com/{owner}/{repo}/pull/{number}"
