@@ -73,6 +73,8 @@ def main(msg: Optional[str],
          repo_name: Optional[str] = None,
          ) -> List[DiffMeta]:
 
+    print("ghstack {}".format(ghstack.__version__))
+
     if sh is None:
         # Use CWD
         sh = ghstack.shell.Shell()
