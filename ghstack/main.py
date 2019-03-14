@@ -257,9 +257,6 @@ class Submitter(object):
         #       - Otherwise, generate a unique branch name, and attach it to
         #         the commit message
 
-        # fetch up to date pull request information
-        # TODO
-
         m_metadata = commit.match_metadata()
         if m_metadata is None:
             # Determine the next available UUID.  We do this by
