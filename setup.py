@@ -25,7 +25,7 @@ setuptools.setup(
     scripts=['bin/ghstack'],
     install_requires=[
         'requests',
-        'typing_extensions',
+        'typing_extensions>=3.7.2',  # need Literal
         'dataclasses',
     ],
     # This is not supported by pip 10, which a lot of people have
