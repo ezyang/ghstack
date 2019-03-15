@@ -34,7 +34,7 @@ DiffMeta = NamedTuple('DiffMeta', [
 ])
 
 
-RE_STACK = re.compile(r'Stack:\n(\* [^\n]+\n)+')
+RE_STACK = re.compile(r'Stack.*:\n(\* [^\n]+\n)+')
 
 
 # repo layout:
@@ -64,11 +64,15 @@ def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
     return branch(username, diffid, "orig")
 
 
+STACK_HEADER = "Stack from [ghstack](https://github.com/ezyang/ghstack)"
+
+
 def main(msg: Optional[str],
          username: str,
          github: ghstack.github.GitHubEndpoint,
          update_fields: bool = False,
          sh: Optional[ghstack.shell.Shell] = None,
+         stack_header: str = STACK_HEADER,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
          ) -> List[DiffMeta]:
@@ -144,6 +148,7 @@ def main(msg: Optional[str],
                           repo_id=repo_id,
                           base_commit=base,
                           base_tree=base_obj.tree(),
+                          stack_header=stack_header,
                           update_fields=update_fields,
                           msg=msg)
 
@@ -193,6 +198,9 @@ class Submitter(object):
     # by Submitter.
     stack_meta: List[DiffMeta]
 
+    # String used to describe the stack in question
+    stack_header: str
+
     # Clobber existing PR description with local commit message
     update_fields: bool
 
@@ -206,6 +214,7 @@ class Submitter(object):
             repo_id: GraphQLId,
             base_commit: GitCommitHash,
             base_tree: GitTreeHash,
+            stack_header: str,
             update_fields: bool,
             msg: Optional[str]):
         self.github = github
@@ -218,15 +227,18 @@ class Submitter(object):
         self.base_orig = base_commit
         self.base_tree = base_tree
         self.update_fields = update_fields
+        self.stack_header = stack_header
         self.stack_meta = []
         self.msg = msg
 
     def _default_title_and_body(self, commit: ghstack.git.CommitHeader
                                 ) -> Tuple[str, str]:
         title = commit.title()
-        pr_body = \
-            "Stack:\n* (to be filled)\n\n" + \
-            ''.join(commit.commit_msg().splitlines(True)[1:]).lstrip()
+        pr_body = (
+            "{}:\n* (to be filled)\n\n{}"
+            .format(self.stack_header,
+                    ''.join(commit.commit_msg().splitlines(True)[1:]).lstrip())
+        )
         return title, pr_body
 
     def process_commit(self, commit: ghstack.git.CommitHeader) -> None:
@@ -537,12 +549,12 @@ class Submitter(object):
 
     def _format_stack(self, index: int) -> str:
         rows = []
-        for i, s in enumerate(self.stack_meta):
+        for i, s in reversed(list(enumerate(self.stack_meta))):
             if index == i:
-                rows.append('* **#{} {}**'.format(s.number, s.title))
+                rows.append('* **#{} {}**'.format(s.number, s.title.strip()))
             else:
-                rows.append('* #{} {}'.format(s.number, s.title))
-        return 'Stack:\n' + '\n'.join(rows) + '\n'
+                rows.append('* #{} {}'.format(s.number, s.title.strip()))
+        return self.stack_header + ':\n' + '\n'.join(rows) + '\n'
 
     def post_process(self) -> None:
         # fix the HEAD pointer
