@@ -565,6 +565,7 @@ class Submitter(object):
         # push your commits (be sure to do this AFTER you update bases)
         push_branches = []
         force_push_branches = []
+        cleanup_branches: List[str] = []
         for i, s in enumerate(self.stack_meta):
             print("# Updating https://github.com/{owner}/{repo}/pull/{number}"
                   .format(owner=self.repo_owner,
@@ -588,6 +589,7 @@ class Submitter(object):
                         branch(self.username, s.diffid, b))
                 else:
                     push_branches.append(branch(self.username, s.diffid, b))
+            cleanup_branches.extend(all_branches(self.username, s.diffid))
         # Careful!  Don't push master.
         #
         # TODO: Does the order I specify these branches matter?  Does
@@ -598,6 +600,9 @@ class Submitter(object):
         if force_push_branches:
             self.sh.git("push", "origin", "--force", *force_push_branches)
             self.github.push_hook(force_push_branches)
+
+        # Cleanup after ourselves
+        self.sh.git("branch", "-D", *cleanup_branches)
 
         # Report what happened
         print()

@@ -137,7 +137,7 @@ class TestGh(expecttest.TestCase):
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -160,7 +160,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -203,7 +203,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -230,7 +230,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
         self.gh('Update A')
-        self.substituteRev("gh/ezyang/1/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -271,8 +271,8 @@ Repository state:
         self.gh('Initial 1 and 2')
         self.substituteRev("HEAD~", "rCOM1")
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -316,7 +316,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         print("###")
         print("### Second commit")
@@ -326,7 +326,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -365,7 +365,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
         self.sh.test_tick()
         self.gh('Update A')
-        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -410,7 +410,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         print("###")
         print("### Second commit")
@@ -420,7 +420,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -461,7 +461,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1A")
         self.sh.test_tick()
         self.gh('Update A')
-        self.substituteRev("gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -499,7 +499,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Update B')
         self.substituteRev("HEAD", "rCOM2A")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -548,7 +548,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         print("###")
         print("### Second commit")
@@ -558,7 +558,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -604,8 +604,8 @@ Repository state:
         self.sh.test_tick()
 
         self.gh('Update A')
-        self.substituteRev("gh/ezyang/1/head", "rMRG1A")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -658,7 +658,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         print("###")
         print("### Second commit")
@@ -668,7 +668,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -718,8 +718,8 @@ Repository state:
         self.substituteRev("HEAD~", "rCOM1A")
 
         self.gh('Rebase')
-        self.substituteRev("gh/ezyang/1/head", "rMRG1A")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -775,7 +775,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         print("###")
         print("### Second commit")
@@ -785,7 +785,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/2/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -833,7 +833,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
 
         self.gh('Cherry pick')
-        self.substituteRev("gh/ezyang/2/head", "rMRG2A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -883,7 +883,7 @@ Repository state:
         stack = self.gh('Initial 1')
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -929,7 +929,7 @@ Repository state:
         self.gh('Update 1')
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("gh/ezyang/1/head", "rMRG2")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -959,7 +959,7 @@ Repository state:
         stack = self.gh('Initial 1')
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
