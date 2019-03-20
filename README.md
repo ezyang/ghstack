@@ -3,8 +3,10 @@
 Conveniently submit stacks of diffs to GitHub as separate pull requests.
 
 ```
-pip install ghstack
+pip3 install ghstack
 ```
+
+Python 3 only.
 
 ## How to use
 
