@@ -92,7 +92,7 @@ def main(msg: Optional[str],
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
                 break
-            m = re.match(r'^https://github.com/([^/]+)/([^.]+)(?:\.git)?$', origin_url)
+            m = re.search(r'github.com/([^/]+)/([^.]+)', origin_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
