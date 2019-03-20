@@ -87,12 +87,12 @@ def main(msg: Optional[str],
         # Grovel in remotes to figure it out
         origin_url = sh.git("remote", "get-url", "origin")
         while True:
-            m = re.match(r'^git@github.com:([^/]+)/([^.]+)\.git$', origin_url)
+            m = re.match(r'^git@github.com:([^/]+)/([^.]+)(?:\.git)?$', origin_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
                 break
-            m = re.match(r'https://github.com/([^/]+)/([^.]+).git', origin_url)
+            m = re.match(r'^https://github.com/([^/]+)/([^.]+)(?:\.git)?$', origin_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
