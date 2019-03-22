@@ -833,6 +833,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
 
         self.gh('Cherry pick')
+        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
@@ -860,7 +861,7 @@ Repository state:
 
     *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
     |\\
-    | *   9f4f026 (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
+    | *   rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
     | |\\
     | | * rINI2 (HEAD -> master) Master commit 1
     * | | rMRG2 Commit 2

@@ -485,8 +485,8 @@ class Submitter(object):
                             "commit-tree", self.base_tree,
                             "-p", branch_base(self.username, diffid),
                             "-p", self.base_commit,
-                            input='Update base for {} on "{}"'
-                                  .format(self.msg, title)))
+                            input='Update base for {} on "{}"\n\n{}'
+                                  .format(self.msg, title, commit_msg)))
                     base_args = ("-p", new_base)
 
                 self.sh.git(
@@ -503,7 +503,7 @@ class Submitter(object):
                     "commit-tree", tree,
                     "-p", branch_head(self.username, diffid),
                     *base_args,
-                    input='{} on "{}"'.format(self.msg, title)))
+                    input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
                 print("new_pull = {}".format(new_pull))
                 self.sh.git(
                     "branch",
