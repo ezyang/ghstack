@@ -2,6 +2,7 @@
 
 import ghstack
 import ghstack.submit
+import ghstack.unlink
 import ghstack.github_real
 import ghstack.config
 
@@ -27,6 +28,9 @@ def main() -> None:
             '--update-fields', '-u', action='store_true',
             help='Update GitHub pull request summary from the local commit')
 
+    unlink = subparsers.add_parser('unlink')
+    unlink.add_argument('COMMITS', nargs='*')
+
     args = parser.parse_args()
 
     if args.version:
@@ -45,6 +49,10 @@ def main() -> None:
             username=conf.github_username,
             github=github,
             update_fields=args.update_fields
+        )
+    elif args.cmd == 'unlink':
+        ghstack.unlink.main(
+            commits=args.COMMITS
         )
     else:
         raise RuntimeError("Unrecognized command {}".format(args.cmd))
