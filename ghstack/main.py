@@ -7,7 +7,7 @@ import ghstack
 import ghstack.git
 import ghstack.shell
 import ghstack.github
-from typing import List, NewType, Union, Optional, NamedTuple, Tuple
+from typing import List, NewType, Union, Optional, NamedTuple, Tuple, Set
 from ghstack.git import GitCommitHash, GitTreeHash
 from typing_extensions import Literal
 
@@ -198,6 +198,9 @@ class Submitter(object):
     # by Submitter.
     stack_meta: List[DiffMeta]
 
+    # Set of seen diffids
+    seen_diffids: Set[StackDiffId]
+
     # String used to describe the stack in question
     stack_header: str
 
@@ -229,6 +232,7 @@ class Submitter(object):
         self.update_fields = update_fields
         self.stack_header = stack_header
         self.stack_meta = []
+        self.seen_diffids = set()
         self.msg = msg
 
     def _default_title_and_body(self, commit: ghstack.git.CommitHeader
@@ -284,6 +288,8 @@ class Submitter(object):
             max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
                 if refs else 0
             diffid = StackDiffId(str(max_ref_num + 1))
+            assert diffid not in self.seen_diffids
+            self.seen_diffids.add(diffid)
 
             # Record the base branch per the previous commit on the
             # stack
@@ -372,6 +378,15 @@ class Submitter(object):
 
             diffid = StackDiffId(m_metadata.group("diffid"))
             number = int(m_metadata.group("number"))
+
+            if diffid in self.seen_diffids:
+                raise RuntimeError(
+                    "Something very strange has happened: a commit for "
+                    "the pull request #{} occurs twice in your local "
+                    "commit stack.  This is usually because of a botched "
+                    "rebase.  Please take a look at your git log and seek "
+                    "help from your local Git expert.".format(number))
+            self.seen_diffids.add(diffid)
 
             # synchronize local pull/base state with external state
             for b in all_branches(self.username, diffid):
