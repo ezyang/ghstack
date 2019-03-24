@@ -13,12 +13,12 @@ from typing import ClassVar, Dict, NewType, List
 
 import ghstack.expecttest as expecttest
 
-import ghstack.main
+import ghstack.submit
 import ghstack.shell
 import ghstack.github
 import ghstack.github_fake
 
-from ghstack.main import GraphQLId, GitCommitHash
+from ghstack.submit import GraphQLId, GitCommitHash
 
 
 # TODO: Figure out how to make all git stuff in memory, so it runs
@@ -81,8 +81,8 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg: str = 'Update',
-           update_fields: bool = False) -> List[ghstack.main.DiffMeta]:
-        return ghstack.main.main(
+           update_fields: bool = False) -> List[ghstack.submit.DiffMeta]:
+        return ghstack.submit.main(
             msg=msg,
             username='ezyang',
             github=self.github,
