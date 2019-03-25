@@ -17,14 +17,38 @@ import shutil
 import re
 import sys
 
+from typing import Dict
 
-class PlainFormatter(logging.Formatter):
+
+class Formatter(logging.Formatter):
+    redactions: Dict[str, str]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.redactions = {}
+
+    # Remove sensitive information from URLs
+    def _filter(self, s):
+        s = re.sub(r':\/\/(.*?)\@', r'://<USERNAME>:<PASSWORD>@', s)
+        for needle, replace in self.redactions.items():
+            s = s.replace(needle, replace)
+        return s
+
     def formatMessage(self, record):
         if record.levelno == logging.INFO or record.levelno == logging.DEBUG:
             # Log INFO/DEBUG without any adornment
             return record.getMessage()
         else:
             return super().formatMessage(record)
+
+    def format(self, record):
+        return self._filter(super().format(record))
+
+    # Redact specific strings; e.g., authorization tokens.  This won't
+    # retroactively redact stuff you've already leaked, so make sure
+    # you redact things as soon as possible
+    def redact(self, needle, replace='<REDACTED>'):
+        self.redactions[needle] = replace
 
 
 def main() -> None:
@@ -71,14 +95,16 @@ def main() -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
-    plain_formatter = PlainFormatter(
+    formatter = Formatter(
         fmt="%(levelname)s: %(message)s", datefmt="")
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(plain_formatter)
+    console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
+    # TODO: Don't special case rage here; instead, filter it out in the
+    # listing
     if args.cmd != 'rage':
         log_file = os.path.join(ghstack.logging.run_dir(), "ghstack.log")
 
@@ -89,7 +115,10 @@ def main() -> None:
         # in the business of debugging performance bugs, for which
         # timestamps would really be helpful.)  Perhaps reconsider
         # at some point based on how useful this information actually is.
-        file_handler.setFormatter(plain_formatter)
+        #
+        # If you ever switch this, make sure to preserve redaction
+        # logic...
+        file_handler.setFormatter(formatter)
         # file_handler.setFormatter(logging.Formatter(
         #    fmt="[%(asctime)s] [%(levelname)8s] %(message)s"))
         root_logger.addHandler(file_handler)
@@ -107,6 +136,7 @@ def main() -> None:
 
         sh = ghstack.shell.Shell()
         conf = ghstack.config.read_config()
+        formatter.redact(conf.github_oauth, '<GITHUB_OAUTH>')
         github = ghstack.github_real.RealGitHubEndpoint(
             oauth_token=conf.github_oauth,
             proxy=conf.proxy
