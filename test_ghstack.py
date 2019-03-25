@@ -1,9 +1,6 @@
 from __future__ import print_function
-import textwrap
-import doctest
 import unittest
 import subprocess
-import warnings
 import os
 import shutil
 import tempfile
@@ -18,7 +15,7 @@ import ghstack.shell
 import ghstack.github
 import ghstack.github_fake
 
-from ghstack.submit import GraphQLId, GitCommitHash
+from ghstack.submit import GitCommitHash
 
 
 # TODO: Figure out how to make all git stuff in memory, so it runs
@@ -36,7 +33,8 @@ def strip_trailing_whitespace(text: str) -> str:
 
 
 def indent(text: str, prefix: str) -> str:
-    return ''.join(prefix+line if line.strip() else line for line in text.splitlines(True))
+    return ''.join(prefix + line if line.strip() else line
+                   for line in text.splitlines(True))
 
 
 class TestGh(expecttest.TestCase):
@@ -197,7 +195,8 @@ Repository state:
         print("### test_amend")
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
@@ -223,7 +222,8 @@ Repository state:
 ''')
         print("###")
         print("### Amend the commit")
-        self.sh.open("file1.txt", "w").write("ABBA")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("ABBA")
         self.sh.git("add", "file1.txt")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
@@ -257,13 +257,15 @@ Repository state:
         print("### test_multi")
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         print("###")
         print("### Second commit")
-        self.sh.open("file2.txt", "w").write("B")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
@@ -310,7 +312,8 @@ Repository state:
         print("### test_amend_top")
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
@@ -320,7 +323,8 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        self.sh.open("file2.txt", "w").write("B")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
@@ -358,7 +362,8 @@ Repository state:
 ''')
         print("###")
         print("### Amend the top commit")
-        self.sh.open("file2.txt", "w").write("BAAB")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("BAAB")
         self.sh.git("add", "file2.txt")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
@@ -404,7 +409,8 @@ Repository state:
         print("### test_amend_bottom")
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
@@ -414,7 +420,8 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        self.sh.open("file2.txt", "w").write("B")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
@@ -454,7 +461,8 @@ Repository state:
         print("###")
         print("### Amend the bottom commit")
         self.sh.git("checkout", "HEAD~")
-        self.sh.open("file1.txt", "w").write("ABBA")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("ABBA")
         self.sh.git("add", "file1.txt")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
@@ -542,7 +550,8 @@ Repository state:
         print("### test_amend_all")
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
@@ -552,7 +561,8 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        self.sh.open("file2.txt", "w").write("B")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
@@ -592,7 +602,8 @@ Repository state:
         print("###")
         print("### Amend the commits")
         self.sh.git("checkout", "HEAD~")
-        self.sh.open("file1.txt", "w").write("ABBA")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("ABBA")
         self.sh.git("add", "file1.txt")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
@@ -652,7 +663,8 @@ Repository state:
 
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
@@ -662,7 +674,8 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        self.sh.open("file2.txt", "w").write("B")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
@@ -702,7 +715,8 @@ Repository state:
         print("###")
         print("### Push master forward")
         self.sh.git("checkout", "master")
-        self.sh.open("master.txt", "w").write("M")
+        with self.sh.open("master.txt", "w") as f:
+            f.write("M")
         self.sh.git("add", "master.txt")
         self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
         self.substituteRev("HEAD", "rINI2")
@@ -769,7 +783,8 @@ Repository state:
 
         print("###")
         print("### First commit")
-        self.sh.open("file1.txt", "w").write("A")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
@@ -779,7 +794,8 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        self.sh.open("file2.txt", "w").write("B")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
         self.sh.git("add", "file2.txt")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
@@ -819,7 +835,8 @@ Repository state:
         print("###")
         print("### Push master forward")
         self.sh.git("checkout", "master")
-        self.sh.open("master.txt", "w").write("M")
+        with self.sh.open("master.txt", "w") as f:
+            f.write("M")
         self.sh.git("add", "master.txt")
         self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
         self.substituteRev("HEAD", "rINI2")

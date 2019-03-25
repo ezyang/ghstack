@@ -2,7 +2,6 @@
 
 import subprocess
 import os
-import sys
 import logging
 from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO
 

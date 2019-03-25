@@ -31,6 +31,7 @@ def base_dir() -> str:
 
     return base_dir
 
+
 @functools.lru_cache()
 def run_dir() -> str:
     # NB: respects timezone
@@ -47,14 +48,17 @@ def run_dir() -> str:
 
     return cur_dir
 
+
 def record_exception(e: BaseException) -> None:
     with open(os.path.join(run_dir(), "exception"), 'w') as f:
         f.write(type(e).__name__)
+
 
 @functools.lru_cache()
 def record_argv() -> None:
     with open(os.path.join(run_dir(), "argv"), 'w') as f:
         f.write(subprocess.list2cmdline(sys.argv[1:]))
+
 
 def rotate() -> None:
     log_base = base_dir()

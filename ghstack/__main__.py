@@ -13,41 +13,43 @@ import ghstack.config
 import argparse
 import logging
 import os
-import shutil
 import re
 import sys
 
-from typing import Dict
+from typing import Dict, Optional
 
 
 class Formatter(logging.Formatter):
     redactions: Dict[str, str]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, fmt: Optional[str] = None,
+                 datefmt: Optional[str] = None):
+        super().__init__(fmt, datefmt)
         self.redactions = {}
 
     # Remove sensitive information from URLs
-    def _filter(self, s):
+    def _filter(self, s: str) -> str:
         s = re.sub(r':\/\/(.*?)\@', r'://<USERNAME>:<PASSWORD>@', s)
         for needle, replace in self.redactions.items():
             s = s.replace(needle, replace)
         return s
 
-    def formatMessage(self, record):
+    def formatMessage(self, record: logging.LogRecord) -> str:
         if record.levelno == logging.INFO or record.levelno == logging.DEBUG:
             # Log INFO/DEBUG without any adornment
             return record.getMessage()
         else:
-            return super().formatMessage(record)
+            # I'm not sure why, but formatMessage doesn't show up
+            # even though it's in the typeshed for Python >3
+            return super().formatMessage(record)  # type: ignore
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         return self._filter(super().format(record))
 
     # Redact specific strings; e.g., authorization tokens.  This won't
     # retroactively redact stuff you've already leaked, so make sure
     # you redact things as soon as possible
-    def redact(self, needle, replace='<REDACTED>'):
+    def redact(self, needle: str, replace: str = '<REDACTED>') -> None:
         self.redactions[needle] = replace
 
 
