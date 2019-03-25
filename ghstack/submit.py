@@ -8,6 +8,7 @@ import ghstack.github
 from typing import List, NewType, Union, Optional, NamedTuple, Tuple, Set
 from ghstack.git import GitCommitHash, GitTreeHash
 from typing_extensions import Literal
+import logging
 
 
 PhabDiffNumber = NewType('PhabDiffNumber', str)  # aka "D1234567"
@@ -75,8 +76,6 @@ def main(msg: Optional[str],
          repo_name: Optional[str] = None,
          ) -> List[DiffMeta]:
 
-    print("ghstack {}".format(ghstack.__version__))
-
     if sh is None:
         # Use CWD
         sh = ghstack.shell.Shell()
@@ -130,7 +129,6 @@ def main(msg: Optional[str],
 
     # compute the stack of commits to process (reverse chronological order),
     # INCLUDING the base commit
-    print(sh.git("rev-list", "^" + base + "^@", "HEAD"))
     stack = ghstack.git.split_header(
         sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
 
@@ -250,12 +248,14 @@ class Submitter(object):
         parents = commit.parents()
         new_orig = commit_id
 
-        print("# Processing {} {}".format(commit_id[:9], title))
-        print("Base is {}".format(self.base_commit))
+        logging.info("# Processing {} {}".format(commit_id[:9], title))
+        logging.info("Base is {}".format(self.base_commit))
 
         if len(parents) != 1:
-            print("{} parents makes my head explode.  "
-                  "`git rebase -i` your diffs into a stack, then try again.")
+            raise RuntimeError(
+                "The commit {} has {} parents, which makes my head explode.  "
+                "`git rebase -i` your diffs into a stack, then try again."
+                .format(commit_id, len(parents)))
         parent = parents[0]
 
         # TODO: check if we authored the commit.  We don't touch shit we didn't
@@ -329,7 +329,7 @@ class Submitter(object):
             )
             number = r['number']
 
-            print("Opened PR #{}".format(number))
+            logging.info("Opened PR #{}".format(number))
 
             # Update the commit message of the local diff with metadata
             # so we can correlate these later
@@ -423,12 +423,12 @@ class Submitter(object):
             ))
             push_branches: Tuple[BranchKind, ...]
             if clean_commit_id == commit_id:
-                print("Nothing to do")
+                logging.info("Nothing to do")
                 # NB: NOT commit_id, that's the orig commit!
                 new_pull = branch_head(self.username, diffid)
                 push_branches = ()
             else:
-                print("Pushing to #{}".format(number))
+                logging.info("Pushing to #{}".format(number))
 
                 # We've got an update to do!  But what exactly should we
                 # do?
@@ -517,7 +517,6 @@ class Submitter(object):
                     "-p", branch_head(self.username, diffid),
                     *base_args,
                     input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
-                print("new_pull = {}".format(new_pull))
                 self.sh.git(
                     "branch",
                     "-f", branch_head(self.username, diffid),
@@ -525,7 +524,7 @@ class Submitter(object):
 
                 # History reedit!  Commit message changes only
                 if parent != self.base_orig:
-                    print("Restacking commit on {}".format(self.base_orig))
+                    logging.info("Restacking commit on {}".format(self.base_orig))
                     new_orig = GitCommitHash(self.sh.git(
                         "commit-tree", tree,
                         "-p", self.base_orig, input=commit_msg))
@@ -556,9 +555,9 @@ class Submitter(object):
         self.base_commit = new_pull
         self.base_orig = new_orig
         self.base_tree = tree
-        print("base_commit = {}".format(self.base_commit))
-        print("base_orig = {}".format(self.base_orig))
-        print("base_tree = {}".format(self.base_tree))
+        logging.debug("base_commit = {}".format(self.base_commit))
+        logging.debug("base_orig = {}".format(self.base_orig))
+        logging.debug("base_tree = {}".format(self.base_tree))
 
     def _format_stack(self, index: int) -> str:
         rows = []
@@ -580,10 +579,11 @@ class Submitter(object):
         force_push_branches = []
         cleanup_branches: List[str] = []
         for i, s in enumerate(self.stack_meta):
-            print("# Updating https://github.com/{owner}/{repo}/pull/{number}"
-                  .format(owner=self.repo_owner,
-                          repo=self.repo_name,
-                          number=s.number))
+            logging.info(
+                "# Updating https://github.com/{owner}/{repo}/pull/{number}"
+                .format(owner=self.repo_owner,
+                        repo=self.repo_name,
+                        number=s.number))
             # NB: GraphQL API does not support modifying PRs
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}"
