@@ -20,8 +20,9 @@ RE_LOG_DIRNAME = re.compile(
 def base_dir() -> str:
     # Don't use shell here as we are not allowed to log yet!
     git_dir = subprocess.run(
-        ("git", "rev-parse", "--git-dir"), capture_output=True
-    ).stdout.decode("utf-8").rstrip()
+        ("git", "rev-parse", "--git-dir"), stdout=subprocess.PIPE,
+        encoding='utf-8'
+    ).stdout.rstrip()
     base_dir = os.path.join(git_dir, "ghstack", "log")
 
     try:
