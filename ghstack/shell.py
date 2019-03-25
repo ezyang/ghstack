@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
-from __future__ import print_function
-
 import subprocess
 import os
 import sys
+import logging
 from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO
 
 
@@ -26,7 +25,7 @@ def log_command(args: Sequence[str]) -> None:
         env: the dictionary of environment variable settings for the command
     """
     cmd = subprocess.list2cmdline(args).replace("\n", "\\n")
-    print("$ " + cmd)
+    logging.info("$ " + cmd)
 
 
 K = TypeVar('K')
@@ -132,8 +131,10 @@ class Shell(object):
             input_bytes = input.encode('utf-8')
         out, err = p.communicate(input_bytes)
         if err is not None:
-            print(err, file=sys.stderr, end='')
+            # NB: Not debug; we always want to show this to user.
+            logging.info(err)
         if exitcode:
+            logging.debug("Exit code: {}".format(p.returncode))
             return p.returncode == 0
         if p.returncode != 0:
             raise RuntimeError(
@@ -143,6 +144,7 @@ class Shell(object):
         if out is not None:
             r = out.decode()
             assert isinstance(r, str)
+            logging.debug(r.replace('\0', '\\0'))
             return r
         else:
             return None

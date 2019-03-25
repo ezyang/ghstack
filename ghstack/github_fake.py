@@ -341,7 +341,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if method == 'post':
             m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
             if m:
-                print(kwargs)
                 return self._create_pull(m.group(1), m.group(2),
                                          cast(CreatePullRequestInput, kwargs))
         elif method == 'patch':

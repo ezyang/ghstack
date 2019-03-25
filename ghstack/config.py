@@ -3,6 +3,7 @@
 import os
 import getpass
 import configparser
+import logging
 from typing import NamedTuple, Optional
 
 
@@ -85,7 +86,7 @@ def read_config() -> Config:
 
     if write_back:
         config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
-        print("NB: saved to ~/.ghstackrc")
+        logging.info("NB: configuration saved to ~/.ghstackrc")
 
     return Config(
         github_oauth=github_oauth,

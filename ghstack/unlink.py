@@ -5,6 +5,7 @@ import ghstack.shell
 from ghstack.git import GitCommitHash
 import re
 import textwrap
+import logging
 
 from typing import Set, List, Optional
 
@@ -18,8 +19,6 @@ def main(commits: Optional[List[str]] = None,
     # For now, we only process commits on our current
     # stack, because we have no way of knowing how to
     # "restack" for other commits.
-
-    print("ghstack {}".format(ghstack.__version__))
 
     if sh is None:
         # Use CWD
@@ -66,10 +65,10 @@ def main(commits: Optional[List[str]] = None,
 
         rewriting = True
         commit_msg = s.commit_msg()
-        print("commit_msg:\n{}".format(textwrap.indent(commit_msg, '   ')))
+        logging.debug("-- commit_msg:\n{}".format(textwrap.indent(commit_msg, '   ')))
         if should_unlink:
             commit_msg = GH_METADATA_RE.sub('', commit_msg)
-            print("edited commit_msg:\n{}".format(
+            logging.debug("-- edited commit_msg:\n{}".format(
                 textwrap.indent(commit_msg, '   ')))
         head = GitCommitHash(sh.git(
             "commit-tree",
@@ -79,11 +78,12 @@ def main(commits: Optional[List[str]] = None,
 
     sh.git('reset', '--soft', head)
 
-    print()
-    print("Diffs successfully unlinked!")
-    print()
-    print("To undo this operation, run:")
-    print()
-    print("    git reset --soft {}".format(s.commit_id()))
+    logging.info("""
+Diffs successfully unlinked!
+
+To undo this operation, run:
+
+    git reset --soft {}
+""".format(s.commit_id()))
 
     return head
