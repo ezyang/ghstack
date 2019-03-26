@@ -6,15 +6,18 @@ Conveniently submit stacks of diffs to GitHub as separate pull requests.
 pip3 install ghstack
 ```
 
-Python 3 only.
+Python 3.6 and greater only.
 
 ## How to use
 
 Prepare a series of commits on top of master, then run `ghstack`.  This
-tool will push and create individuals for each PR on the stack.
+tool will push and create pull requests for each commit on the stack.
 
 **WARNING.**  You will NOT be able to merge these commits using the
-normal UI method, as their branch bases won't be master.
+normal GitHub UI, as their branch bases won't be master.  For the
+PyTorch repository, we have a special mechanism for landing diffs;
+if you need a way to land these commits on a regular GitHub
+repository, give a holler on issues and we'll add this functionality.
 
 ## Structure of submitted pull requests
 
@@ -32,7 +35,9 @@ pull request and pushes commits onto three branches:
 
 * `gh/username/1/orig` - this is the actual commit as per your local
   copy.  GitHub pull requests never sees this commit, but if you want
-  to get a "clean" commit all by itself, this is an easy way to get it.
+  to get a "clean" commit all by itself, for example, because you
+  want to work on the commits from another machine, this is the best way
+  to get it.
 
 ## Developer notes
 
@@ -44,15 +49,12 @@ Run these tests using `python test_ghstack.py`
 There are some weird aspects about GitHub's design which lead to unusual
 design decisions on this tool.
 
-1. When you create a PR on GitHub, you cannot subsequently change which
-   repository it merges into (you can change which branch merges into).
-   This means you have a hard choice when designing a tool like this:
-   if you want to target the topmost PR to master, you must push
-   branches onto the origin repo; if you give up on this, you can push
-   branches into a fork.  We've decided to give up targets to master so
-   that we can push the branches to your fork.
-
-   (Actually, this is a lie; we still push to origin lol.)
+1. When you create a PR on GitHub, it is ALWAYS created on the
+   repository that the base branch exists on.  Thus, we MUST
+   push branches to the upstream repository that you want
+   PRs to be created on.  This can result in a lot of stale
+   branches hanging around; you'll need to setup some other
+   mechanism for pruning these branches.
 
 2. Branch name does not correspond to pull request number. While this
    would be excellent, we have no way of reserving a pull request
