@@ -13,6 +13,24 @@ Python 3.6 and greater only.
 Prepare a series of commits on top of master, then run `ghstack`.  This
 tool will push and create pull requests for each commit on the stack.
 
+**How do I stack another PR on top of an existing one?** Assuming
+you've checked out the latest commit from the existing PR, just
+`git commit` a new commit on top, and then run `ghstack`.
+
+**How do I modify a PR?**  Just edit the commit in question, and then
+run `ghstack` again.  If the commit is at the top of your stack,
+you can edit it with `git commit --amend`; otherwise, you'll have
+to use `git rebase -i` to edit the commit directly.
+
+**How do I rebase?**  The obvious way: `git rebase origin/master`.
+Don't do a `git merge`; `ghstack` will throw a hissy fit if you
+do that.  (There's also a more fundamental reason why this
+won't work: since each commit is a separate PR, you have to
+resolve conflicts in *each* PR, not just for the entire stack.)
+
+**How do I start a new feature?**  Just checkout master on a new
+branch, and start working on a fresh branch.
+
 **WARNING.**  You will NOT be able to merge these commits using the
 normal GitHub UI, as their branch bases won't be master.  For the
 PyTorch repository, we have a special mechanism for landing diffs;
