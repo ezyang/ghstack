@@ -22,7 +22,7 @@ RE_RAW_TREE = re.compile(r'^tree (?P<tree>.+)$', re.MULTILINE)
 RE_RAW_COMMIT_MSG_LINE = re.compile(r'^    (?P<line>.*)$', re.MULTILINE)
 RE_RAW_METADATA = re.compile(
     r'^    gh-metadata: (?P<owner>[^/]+) (?P<repo>[^/]+) (?P<number>[0-9]+) '
-    r'gh/(?P<username>[a-zA-Z0-9-]+)/(?P<diffid>[0-9]+)/head$', re.MULTILINE)
+    r'gh/(?P<username>[a-zA-Z0-9-]+)/(?P<ghnum>[0-9]+)/head$', re.MULTILINE)
 
 
 class CommitHeader(object):

@@ -5,20 +5,11 @@ import ghstack
 import ghstack.git
 import ghstack.shell
 import ghstack.github
-from typing import List, NewType, Union, Optional, NamedTuple, Tuple, Set
+from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber
+from typing import List, Union, Optional, NamedTuple, Tuple, Set
 from ghstack.git import GitCommitHash, GitTreeHash
 from typing_extensions import Literal
 import logging
-
-
-PhabDiffNumber = NewType('PhabDiffNumber', str)  # aka "D1234567"
-GitHubNumber = NewType('GitHubNumber', int)  # aka 1234 (as in #1234)
-
-# aka MDExOlB1bGxSZXF1ZXN0MjU2NDM3MjQw (GraphQL ID)
-GraphQLId = NewType('GraphQLId', str)
-
-# aka 12 (as in gh/ezyang/12/base)
-StackDiffId = NewType('StackDiffId', str)
 
 BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
 
@@ -27,7 +18,7 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('number', GitHubNumber),
     ('body', str),
     ('base', str),
-    ('diffid', StackDiffId),
+    ('ghnum', GhNumber),
     ('push_branches', Tuple[BranchKind, ...]),
     ('what', str),
 ])
@@ -46,21 +37,21 @@ RE_STACK = re.compile(r'Stack.*:\n(\* [^\n]+\n)+')
 #                      commit description?)
 
 
-def branch(username: str, diffid: StackDiffId, kind: BranchKind
+def branch(username: str, ghnum: GhNumber, kind: BranchKind
            ) -> GitCommitHash:
-    return GitCommitHash("gh/{}/{}/{}".format(username, diffid, kind))
+    return GitCommitHash("gh/{}/{}/{}".format(username, ghnum, kind))
 
 
-def branch_base(username: str, diffid: StackDiffId) -> GitCommitHash:
-    return branch(username, diffid, "base")
+def branch_base(username: str, ghnum: GhNumber) -> GitCommitHash:
+    return branch(username, ghnum, "base")
 
 
-def branch_head(username: str, diffid: StackDiffId) -> GitCommitHash:
-    return branch(username, diffid, "head")
+def branch_head(username: str, ghnum: GhNumber) -> GitCommitHash:
+    return branch(username, ghnum, "head")
 
 
-def branch_orig(username: str, diffid: StackDiffId) -> GitCommitHash:
-    return branch(username, diffid, "orig")
+def branch_orig(username: str, ghnum: GhNumber) -> GitCommitHash:
+    return branch(username, ghnum, "orig")
 
 
 STACK_HEADER = "Stack from [ghstack](https://github.com/ezyang/ghstack)"
@@ -156,10 +147,10 @@ def main(msg: Optional[str],
     return submitter.stack_meta
 
 
-def all_branches(username: str, diffid: StackDiffId) -> Tuple[str, str, str]:
-    return (branch_base(username, diffid),
-            branch_head(username, diffid),
-            branch_orig(username, diffid))
+def all_branches(username: str, ghnum: GhNumber) -> Tuple[str, str, str]:
+    return (branch_base(username, ghnum),
+            branch_head(username, ghnum),
+            branch_orig(username, ghnum))
 
 
 class Submitter(object):
@@ -179,7 +170,7 @@ class Submitter(object):
     repo_name: str
 
     # GraphQL ID of the repository
-    repo_id: GraphQLId
+    repo_id: GitHubRepositoryId
 
     # The base commit of the next diff we are submitting
     base_commit: GitCommitHash
@@ -194,8 +185,8 @@ class Submitter(object):
     # by Submitter.
     stack_meta: List[DiffMeta]
 
-    # Set of seen diffids
-    seen_diffids: Set[StackDiffId]
+    # Set of seen ghnums
+    seen_ghnums: Set[GhNumber]
 
     # String used to describe the stack in question
     stack_header: str
@@ -210,7 +201,7 @@ class Submitter(object):
             username: str,
             repo_owner: str,
             repo_name: str,
-            repo_id: GraphQLId,
+            repo_id: GitHubRepositoryId,
             base_commit: GitCommitHash,
             base_tree: GitTreeHash,
             stack_header: str,
@@ -228,7 +219,7 @@ class Submitter(object):
         self.update_fields = update_fields
         self.stack_header = stack_header
         self.stack_meta = []
-        self.seen_diffids = set()
+        self.seen_ghnums = set()
         self.msg = msg
 
     def _default_title_and_body(self, commit: ghstack.git.CommitHeader
@@ -285,15 +276,15 @@ class Submitter(object):
                 "--format=%(refname)").split()
             max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
                 if refs else 0
-            diffid = StackDiffId(str(max_ref_num + 1))
-            assert diffid not in self.seen_diffids
-            self.seen_diffids.add(diffid)
+            ghnum = GhNumber(str(max_ref_num + 1))
+            assert ghnum not in self.seen_ghnums
+            self.seen_ghnums.add(ghnum)
 
             # Record the base branch per the previous commit on the
             # stack
             self.sh.git(
                 "branch",
-                "-f", branch_base(self.username, diffid),
+                "-f", branch_base(self.username, ghnum),
                 self.base_commit)
 
             # Create the incremental pull request diff
@@ -303,12 +294,12 @@ class Submitter(object):
                             input=commit_msg))
             self.sh.git(
                 "branch",
-                "-f", branch_head(self.username, diffid),
+                "-f", branch_head(self.username, ghnum),
                 new_pull)
 
             # Push the branches, so that we can create a PR for them
-            new_branches = (branch_head(self.username, diffid),
-                            branch_base(self.username, diffid))
+            new_branches = (branch_head(self.username, ghnum),
+                            branch_base(self.username, ghnum))
             self.sh.git(
                 "push",
                 "origin",
@@ -322,8 +313,8 @@ class Submitter(object):
                 "repos/{owner}/{repo}/pulls"
                 .format(owner=self.repo_owner, repo=self.repo_name),
                 title=title,
-                head=branch_head(self.username, diffid),
-                base=branch_base(self.username, diffid),
+                head=branch_head(self.username, ghnum),
+                base=branch_base(self.username, ghnum),
                 body=pr_body,
                 maintainer_can_modify=True,
             )
@@ -341,7 +332,7 @@ class Submitter(object):
                                   repo=self.repo_name,
                                   number=number,
                                   branch_head=branch_head(self.username,
-                                                          diffid)))
+                                                          ghnum)))
 
             # TODO: Try harder to preserve the old author/commit
             # information (is it really necessary? Check what
@@ -355,15 +346,15 @@ class Submitter(object):
             # Update the orig pointer
             self.sh.git(
                 "branch",
-                "-f", branch_orig(self.username, diffid),
+                "-f", branch_orig(self.username, ghnum),
                 new_orig)
 
             self.stack_meta.append(DiffMeta(
                 title=title,
                 number=number,
                 body=pr_body,
-                base=branch_base(self.username, diffid),
-                diffid=diffid,
+                base=branch_base(self.username, ghnum),
+                ghnum=ghnum,
                 push_branches=('orig', ),
                 what='Created',
             ))
@@ -374,20 +365,20 @@ class Submitter(object):
                 raise RuntimeError(
                     "cannot handle stack from diffs of other people yet")
 
-            diffid = StackDiffId(m_metadata.group("diffid"))
+            ghnum = GhNumber(m_metadata.group("ghnum"))
             number = int(m_metadata.group("number"))
 
-            if diffid in self.seen_diffids:
+            if ghnum in self.seen_ghnums:
                 raise RuntimeError(
                     "Something very strange has happened: a commit for "
                     "the pull request #{} occurs twice in your local "
                     "commit stack.  This is usually because of a botched "
                     "rebase.  Please take a look at your git log and seek "
                     "help from your local Git expert.".format(number))
-            self.seen_diffids.add(diffid)
+            self.seen_ghnums.add(ghnum)
 
             # synchronize local pull/base state with external state
-            for b in all_branches(self.username, diffid):
+            for b in all_branches(self.username, ghnum):
                 self.sh.git("branch", "-f", b, "origin/" + b)
 
             # TODO: There is no reason to do a node query here; we can
@@ -419,13 +410,13 @@ class Submitter(object):
             # Check if updating is needed
             clean_commit_id = GitCommitHash(self.sh.git(
                 "rev-parse",
-                branch_orig(self.username, diffid)
+                branch_orig(self.username, ghnum)
             ))
             push_branches: Tuple[BranchKind, ...]
             if clean_commit_id == commit_id:
                 logging.info("Nothing to do")
                 # NB: NOT commit_id, that's the orig commit!
-                new_pull = branch_head(self.username, diffid)
+                new_pull = branch_head(self.username, ghnum)
                 push_branches = ()
             else:
                 logging.info("Pushing to #{}".format(number))
@@ -472,7 +463,7 @@ class Submitter(object):
                 if self.sh.git(
                         "merge-base",
                         "--is-ancestor", self.base_commit,
-                        branch_base(self.username, diffid), exitcode=True):
+                        branch_base(self.username, ghnum), exitcode=True):
 
                     new_base = self.base_commit
                     base_args = ()
@@ -484,7 +475,7 @@ class Submitter(object):
                     # commit.
                     is_ancestor = self.sh.git(
                         "merge-base",
-                        "--is-ancestor", branch_base(self.username, diffid),
+                        "--is-ancestor", branch_base(self.username, ghnum),
                         self.base_commit, exitcode=True)
                     if is_ancestor:
 
@@ -496,7 +487,7 @@ class Submitter(object):
                         # commit.
                         new_base = GitCommitHash(self.sh.git(
                             "commit-tree", self.base_tree,
-                            "-p", branch_base(self.username, diffid),
+                            "-p", branch_base(self.username, ghnum),
                             "-p", self.base_commit,
                             input='Update base for {} on "{}"\n\n{}'
                                   .format(self.msg, title, commit_msg)))
@@ -504,7 +495,7 @@ class Submitter(object):
 
                 self.sh.git(
                     "branch",
-                    "-f", branch_base(self.username, diffid),
+                    "-f", branch_base(self.username, ghnum),
                     new_base)
 
                 #   - Directly blast our current tree as the newest entry of
@@ -514,12 +505,12 @@ class Submitter(object):
                 tree = commit.tree()
                 new_pull = GitCommitHash(self.sh.git(
                     "commit-tree", tree,
-                    "-p", branch_head(self.username, diffid),
+                    "-p", branch_head(self.username, ghnum),
                     *base_args,
                     input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
                 self.sh.git(
                     "branch",
-                    "-f", branch_head(self.username, diffid),
+                    "-f", branch_head(self.username, ghnum),
                     new_pull)
 
                 # History reedit!  Commit message changes only
@@ -531,7 +522,7 @@ class Submitter(object):
 
                 self.sh.git(
                     "branch",
-                    "-f", branch_orig(self.username, diffid),
+                    "-f", branch_orig(self.username, ghnum),
                     new_orig)
 
                 push_branches = ("base", "head", "orig")
@@ -545,8 +536,8 @@ class Submitter(object):
                 # PR description on GitHub and you don't want to clobber
                 # it.
                 body=pr_body,
-                base=branch_base(self.username, diffid),
-                diffid=diffid,
+                base=branch_base(self.username, ghnum),
+                ghnum=ghnum,
                 push_branches=push_branches,
                 what='Updated' if push_branches else 'Skipped',
             ))
@@ -599,10 +590,10 @@ class Submitter(object):
             for b in s.push_branches:
                 if b == 'orig':
                     force_push_branches.append(
-                        branch(self.username, s.diffid, b))
+                        branch(self.username, s.ghnum, b))
                 else:
-                    push_branches.append(branch(self.username, s.diffid, b))
-            cleanup_branches.extend(all_branches(self.username, s.diffid))
+                    push_branches.append(branch(self.username, s.ghnum, b))
+            cleanup_branches.extend(all_branches(self.username, s.ghnum))
         # Careful!  Don't push master.
         #
         # TODO: Does the order I specify these branches matter?  Does
@@ -638,5 +629,5 @@ class Submitter(object):
         print()
         print("     git fetch origin")
         print("     git checkout origin/{}"
-              .format(branch_orig(self.username, s.diffid)))
+              .format(branch_orig(self.username, s.ghnum)))
         print("")
