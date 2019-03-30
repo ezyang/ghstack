@@ -5,6 +5,11 @@ import ghstack.logging
 import os
 import datetime
 import tempfile
+from typing import Dict, NewType
+
+
+RawIndex = NewType('RawIndex', int)
+FilteredIndex = NewType('FilteredIndex', int)
 
 
 def get_argv(log_dir: str) -> str:
@@ -22,11 +27,33 @@ def main(latest: bool = False) -> None:
     logs = os.listdir(log_base)
     logs.sort(reverse=True)
 
-    index = 0
+    filtered_mapping: Dict[FilteredIndex, RawIndex] = {}
+
+    selected_index: FilteredIndex = FilteredIndex(0)
+    next_index: FilteredIndex = FilteredIndex(0)
     if not latest:
         print("Which ghstack invocation would you like to report?")
         print()
-        for (i, fn) in enumerate(logs[:10]):
+        for (i, fn) in enumerate(logs):
+            if next_index > 10:
+                break
+
+            raw_index = RawIndex(i)
+            log_dir = os.path.join(log_base, fn)
+
+            # Filter out rage
+            # NB: This doesn't have to be 100% sound; just need to be
+            # enough to good enough to filter out the majority of cases
+            argv = get_argv(log_dir)
+            argv_list = argv.split()
+            if argv_list and argv_list[0] == "rage":
+                continue
+
+            cur_index = next_index
+            next_index = FilteredIndex(next_index + 1)
+
+            filtered_mapping[cur_index] = raw_index
+
             m = ghstack.logging.RE_LOG_DIRNAME.fullmatch(fn)
             if m:
                 date = datetime.datetime.strptime(
@@ -34,8 +61,6 @@ def main(latest: bool = False) -> None:
                 ).astimezone(tz=None).strftime("%a %b %d %H:%M:%S %Z")
             else:
                 date = "Unknown"
-            log_dir = os.path.join(log_base, fn)
-            argv = get_argv(log_dir)
             exception = "Succeeded"
             exception_fn = os.path.join(log_base, fn, 'exception')
             if os.path.exists(exception_fn):
@@ -43,11 +68,12 @@ def main(latest: bool = False) -> None:
                     exception = "Failed with: " + f.read().rstrip()
 
             print("{:<5}  {}  ghstack [{}]  {}"
-                  .format("[{}].".format(i), date, argv, exception))
+                  .format("[{}].".format(cur_index), date, argv, exception))
         print()
-        index = int(input('(input individual number, for example 1 or 2)\n'))
+        selected_index = FilteredIndex(
+            int(input('(input individual number, for example 1 or 2)\n')))
 
-    log_dir = os.path.join(log_base, logs[index])
+    log_dir = os.path.join(log_base, logs[filtered_mapping[selected_index]])
 
     print()
     print("Writing report, please wait...")
