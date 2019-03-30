@@ -167,6 +167,11 @@ def record_argv() -> None:
         f.write(subprocess.list2cmdline(sys.argv[1:]))
 
 
+def record_status(status: str) -> None:
+    with open(os.path.join(run_dir(), "status"), 'w') as f:
+        f.write(status)
+
+
 def rotate() -> None:
     log_base = base_dir()
     old_logs = os.listdir(log_base)

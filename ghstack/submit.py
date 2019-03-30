@@ -5,6 +5,7 @@ import ghstack
 import ghstack.git
 import ghstack.shell
 import ghstack.github
+import ghstack.logging
 from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber
 from typing import List, Union, Optional, NamedTuple, Tuple, Set
 from ghstack.git import GitCommitHash, GitTreeHash
@@ -122,6 +123,11 @@ def main(msg: Optional[str],
     # INCLUDING the base commit
     stack = ghstack.git.split_header(
         sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
+
+    assert len(stack) > 0
+
+    ghstack.logging.record_status(
+        "{} \"{}\"".format(stack[0].commit_id()[:9], stack[0].title()))
 
     # start with the earliest commit
     g = reversed(stack)

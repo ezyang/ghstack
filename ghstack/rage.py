@@ -21,6 +21,15 @@ def get_argv(log_dir: str) -> str:
     return argv
 
 
+def get_status(log_dir: str) -> str:
+    status = ""
+    status_fn = os.path.join(log_dir, 'status')
+    if os.path.exists(status_fn):
+        with open(status_fn, 'r') as f:
+            status = f.read().rstrip()
+    return status
+
+
 def main(latest: bool = False) -> None:
 
     log_base = ghstack.logging.base_dir()
@@ -49,6 +58,12 @@ def main(latest: bool = False) -> None:
             if argv_list and argv_list[0] == "rage":
                 continue
 
+            status = get_status(log_dir)
+            if status:
+                at_status = " at {}".format(status)
+            else:
+                at_status = ""
+
             cur_index = next_index
             next_index = FilteredIndex(next_index + 1)
 
@@ -67,8 +82,8 @@ def main(latest: bool = False) -> None:
                 with open(exception_fn, 'r') as f:
                     exception = "Failed with: " + f.read().rstrip()
 
-            print("{:<5}  {}  ghstack [{}]  {}"
-                  .format("[{}].".format(cur_index), date, argv, exception))
+            print("{:<5}  {}  ghstack [{}]  {}{}"
+                  .format("[{}].".format(cur_index), date, argv, exception, at_status))
         print()
         selected_index = FilteredIndex(
             int(input('(input individual number, for example 1 or 2)\n')))
@@ -81,6 +96,7 @@ def main(latest: bool = False) -> None:
                                      prefix="ghstack", delete=False) as g:
         g.write("version: {}\n".format(ghstack.__version__))
         g.write("command: ghstack {}\n".format(get_argv(log_dir)))
+        g.write("status: {}\n".format(get_status(log_dir)))
         g.write("\n")
         log_fn = os.path.join(log_dir, "ghstack.log")
         if os.path.exists(log_fn):
