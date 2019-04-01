@@ -122,12 +122,14 @@ def base_dir() -> str:
             ("git", "rev-parse", "--git-dir"),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            check=True,
             encoding='utf-8'
         ).stdout.rstrip()
     except subprocess.CalledProcessError:
         meta_dir = os.path.join(subprocess.run(
             ("hg", "root"), stdout=subprocess.PIPE,
-            encoding='utf-8'
+            encoding='utf-8',
+            check=True
         ).stdout.rstrip(), '.hg')
 
     base_dir = os.path.join(meta_dir, "ghstack", "log")
