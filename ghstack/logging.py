@@ -126,7 +126,7 @@ def base_dir() -> str:
         ).stdout.rstrip()
     except subprocess.CalledProcessError:
         meta_dir = os.path.join(subprocess.run(
-            (), stdout=subprocess.PIPE,
+            ("hg", "root"), stdout=subprocess.PIPE,
             encoding='utf-8'
         ).stdout.rstrip(), '.hg')
 
