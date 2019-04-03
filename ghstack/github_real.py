@@ -54,19 +54,28 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         else:
             proxies = {}
 
-        payload = {"query": query, "variables": kwargs}
-        logging.debug("POST {}".format(self.graphql_endpoint))
-        logging.debug("Request body:\n" + json.dumps(payload, indent=1))
+        logging.debug("# POST {}".format(self.graphql_endpoint))
+        logging.debug("Request GraphQL query:\n{}".format(query))
+        logging.debug("Request GraphQL variables:\n{}"
+                      .format(json.dumps(kwargs, indent=1)))
 
         resp = requests.post(
             self.graphql_endpoint,
-            json=payload,
+            json={"query": query, "variables": kwargs},
             headers=headers,
             proxies=proxies
         )
 
         logging.debug("Response status: {}".format(resp.status_code))
-        logging.debug("Response body:\n{}".format(resp.text))
+
+        try:
+            r = resp.json()
+        except ValueError:
+            logging.debug("Response body:\n{}".format(resp.text))
+            raise
+        else:
+            pretty_json = json.dumps(r, indent=1)
+            logging.debug("Response JSON:\n{}".format(pretty_json))
 
         # Actually, this code is dead on the GitHub GraphQL API, because
         # they seem to always return 200, even in error case (as of
@@ -74,12 +83,10 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         try:
             resp.raise_for_status()
         except requests.HTTPError:
-            raise RuntimeError(json.dumps(resp.json(), indent=1))
-
-        r = resp.json()
+            raise RuntimeError(pretty_json)
 
         if 'errors' in r:
-            raise RuntimeError(json.dumps(r, indent=1))
+            raise RuntimeError(pretty_json)
 
         return r
 
@@ -100,18 +107,29 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         }
 
         url = self.rest_endpoint + '/' + path
-        logging.debug("{} {}".format(method, url))
-        logging.debug("Request body:\n" + json.dumps(kwargs, indent=1))
+        logging.debug("# {} {}".format(method, url))
+        logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
-        r: requests.Response = \
+        resp: requests.Response = \
             getattr(requests, method)(url,
                                       json=kwargs,
                                       headers=headers,
                                       proxies=proxies)
 
-        logging.debug("Response status: {}".format(r.status_code))
-        logging.debug("Response body:\n{}".format(r.text))
+        logging.debug("Response status: {}".format(resp.status_code))
 
-        r.raise_for_status()
+        try:
+            r = resp.json()
+        except ValueError:
+            logging.debug("Response body:\n{}".format(r.text))
+            raise
+        else:
+            pretty_json = json.dumps(r, indent=1)
+            logging.debug("Response JSON:\n{}".format(pretty_json))
 
-        return r.json()
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError:
+            raise RuntimeError(pretty_json)
+
+        return r
