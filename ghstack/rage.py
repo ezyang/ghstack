@@ -41,7 +41,7 @@ def main(latest: bool = False) -> None:
     selected_index: FilteredIndex = FilteredIndex(0)
     next_index: FilteredIndex = FilteredIndex(0)
     if not latest:
-        print("Which ghstack invocation would you like to report?")
+        print("Which invocation would you like to report?")
         print()
         for (i, fn) in enumerate(logs):
             if next_index > 10:
@@ -55,8 +55,19 @@ def main(latest: bool = False) -> None:
             # enough to good enough to filter out the majority of cases
             argv = get_argv(log_dir)
             argv_list = argv.split()
-            if argv_list and argv_list[0] == "rage":
+
+            if len(argv_list) >= 2 and argv_list[1] == "rage":
                 continue
+
+            # This is just for BC with old-style argv format (which
+            # dropped argv[0]; it can be removed eventually.
+            if not argv_list or "ghstack" not in argv_list[0]:
+                argv_list.insert(0, "ghstack")
+
+            if len(argv_list) >= 1:
+                argv_list[0] = os.path.basename(argv_list[0])
+
+            argv = ' '.join(argv_list)
 
             status = get_status(log_dir)
             if status:
@@ -82,7 +93,7 @@ def main(latest: bool = False) -> None:
                 with open(exception_fn, 'r') as f:
                     exception = "Failed with: " + f.read().rstrip()
 
-            print("{:<5}  {}  ghstack [{}]  {}{}"
+            print("{:<5}  {}  [{}]  {}{}"
                   .format("[{}].".format(cur_index), date, argv, exception, at_status))
         print()
         selected_index = FilteredIndex(
@@ -95,7 +106,7 @@ def main(latest: bool = False) -> None:
     with tempfile.NamedTemporaryFile(mode='w', suffix=".log",
                                      prefix="ghstack", delete=False) as g:
         g.write("version: {}\n".format(ghstack.__version__))
-        g.write("command: ghstack {}\n".format(get_argv(log_dir)))
+        g.write("command: {}\n".format(get_argv(log_dir)))
         g.write("status: {}\n".format(get_status(log_dir)))
         g.write("\n")
         log_fn = os.path.join(log_dir, "ghstack.log")

@@ -168,7 +168,7 @@ def record_exception(e: BaseException) -> None:
 @functools.lru_cache()
 def record_argv() -> None:
     with open(os.path.join(run_dir(), "argv"), 'w') as f:
-        f.write(subprocess.list2cmdline(sys.argv[1:]))
+        f.write(subprocess.list2cmdline(sys.argv))
 
 
 def record_status(status: str) -> None:
