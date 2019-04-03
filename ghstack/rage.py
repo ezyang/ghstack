@@ -61,7 +61,7 @@ def main(latest: bool = False) -> None:
 
             # This is just for BC with old-style argv format (which
             # dropped argv[0]; it can be removed eventually.
-            if not argv_list or "ghstack" not in argv_list[0]:
+            if not argv_list:
                 argv_list.insert(0, "ghstack")
 
             if len(argv_list) >= 1:
