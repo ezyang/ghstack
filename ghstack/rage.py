@@ -103,5 +103,5 @@ def main(latest: bool = False) -> None:
             with open(log_fn) as log:
                 g.write(log.read())
 
-    print("=> Report written to {}".format(f.name))
+    print("=> Report written to {}".format(g.name))
     print("Please include this log with your bug report!")
