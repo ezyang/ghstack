@@ -3,6 +3,7 @@
 import json
 import requests
 from typing import Optional, Any, Sequence
+import logging
 
 import ghstack.github
 
@@ -53,12 +54,19 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         else:
             proxies = {}
 
+        payload = {"query": query, "variables": kwargs}
+        logging.debug("POST {}".format(self.graphql_endpoint))
+        logging.debug("Request body:\n" + json.dumps(payload, indent=1))
+
         resp = requests.post(
             self.graphql_endpoint,
-            json={"query": query, "variables": kwargs},
+            json=payload,
             headers=headers,
             proxies=proxies
         )
+
+        logging.debug("Response status: {}".format(resp.status_code))
+        logging.debug("Response body:\n{}".format(resp.text))
 
         # Actually, this code is dead on the GitHub GraphQL API, because
         # they seem to always return 200, even in error case (as of
@@ -91,10 +99,19 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             'Accept': 'application/vnd.github.v3+json',
         }
 
-        r = getattr(requests, method)(self.rest_endpoint + '/' + path,
+        url = self.rest_endpoint + '/' + path
+        logging.debug("{} {}".format(method, url))
+        logging.debug("Request body:\n" + json.dumps(kwargs, indent=1))
+
+        r: requests.Response = \
+            getattr(requests, method)(url,
                                       json=kwargs,
                                       headers=headers,
                                       proxies=proxies)
+
+        logging.debug("Response status: {}".format(r.status_code))
+        logging.debug("Response body:\n{}".format(r.text))
+
         r.raise_for_status()
 
         return r.json()
