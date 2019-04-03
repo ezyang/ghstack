@@ -244,8 +244,10 @@ class Submitter(object):
         tree = commit.tree()
         parents = commit.parents()
         new_orig = commit_id
+        author = commit.author()
 
         logging.info("# Processing {} {}".format(commit_id[:9], title))
+        logging.info("Authored by {}".format(author))
         logging.info("Base is {}".format(self.base_commit))
 
         if len(parents) != 1:

@@ -15,7 +15,7 @@ GitTreeHash = NewType('GitTreeHash', str)
 
 
 RE_RAW_COMMIT_ID = re.compile(r'^(?P<commit>[a-f0-9]+)$', re.MULTILINE)
-RE_RAW_AUTHOR = re.compile(r'^author (?P<name>[^<]+?) <(?P<email>[^>]+)>',
+RE_RAW_AUTHOR = re.compile(r'^author (?P<author>(?P<name>[^<]+?) <(?P<email>[^>]+)>)',
                            re.MULTILINE)
 RE_RAW_PARENT = re.compile(r'^parent (?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_TREE = re.compile(r'^tree (?P<tree>.+)$', re.MULTILINE)
@@ -56,6 +56,12 @@ class CommitHeader(object):
 
     def author(self) -> str:
         return self._search_group(RE_RAW_AUTHOR, "author")
+
+    def author_name(self) -> str:
+        return self._search_group(RE_RAW_AUTHOR, "name")
+
+    def author_email(self) -> str:
+        return self._search_group(RE_RAW_AUTHOR, "email")
 
     def commit_msg(self) -> str:
         return '\n'.join(
