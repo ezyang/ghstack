@@ -152,6 +152,10 @@ Repository state:
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
+
+        # Just to test what happens if we use those branches
+        self.sh.git("checkout", "gh/ezyang/1/orig")
+
         print("###")
         print("### Second commit")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")

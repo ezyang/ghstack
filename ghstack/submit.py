@@ -20,7 +20,7 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('body', str),
     ('base', str),
     ('ghnum', GhNumber),
-    ('push_branches', Tuple[BranchKind, ...]),
+    ('push_branches', Tuple[Tuple[GitCommitHash, BranchKind], ...]),
     ('what', str),
 ])
 
@@ -159,6 +159,10 @@ def all_branches(username: str, ghnum: GhNumber) -> Tuple[str, str, str]:
             branch_orig(username, ghnum))
 
 
+def push_spec(commit: GitCommitHash, branch: str) -> str:
+    return "{}:refs/heads/{}".format(commit, branch)
+
+
 class Submitter(object):
     # Endpoint to access GitHub
     github: ghstack.github.GitHubEndpoint
@@ -288,26 +292,17 @@ class Submitter(object):
             assert ghnum not in self.seen_ghnums
             self.seen_ghnums.add(ghnum)
 
-            # Record the base branch per the previous commit on the
-            # stack
-            self.sh.git(
-                "branch",
-                "-f", branch_base(self.username, ghnum),
-                self.base_commit)
-
             # Create the incremental pull request diff
             new_pull = GitCommitHash(
                 self.sh.git("commit-tree", tree,
                             "-p", self.base_commit,
                             input=commit_msg))
-            self.sh.git(
-                "branch",
-                "-f", branch_head(self.username, ghnum),
-                new_pull)
 
             # Push the branches, so that we can create a PR for them
-            new_branches = (branch_head(self.username, ghnum),
-                            branch_base(self.username, ghnum))
+            new_branches = (
+                push_spec(new_pull, branch_head(self.username, ghnum)),
+                push_spec(self.base_commit, branch_base(self.username, ghnum))
+            )
             self.sh.git(
                 "push",
                 "origin",
@@ -351,19 +346,13 @@ class Submitter(object):
                 "-p", self.base_orig,
                 input=commit_msg))
 
-            # Update the orig pointer
-            self.sh.git(
-                "branch",
-                "-f", branch_orig(self.username, ghnum),
-                new_orig)
-
             self.stack_meta.append(DiffMeta(
                 title=title,
                 number=number,
                 body=pr_body,
                 base=branch_base(self.username, ghnum),
                 ghnum=ghnum,
-                push_branches=('orig', ),
+                push_branches=((new_orig, 'orig'), ),
                 what='Created',
             ))
 
@@ -384,10 +373,6 @@ class Submitter(object):
                     "rebase.  Please take a look at your git log and seek "
                     "help from your local Git expert.".format(number))
             self.seen_ghnums.add(ghnum)
-
-            # synchronize local pull/base state with external state
-            for b in all_branches(self.username, ghnum):
-                self.sh.git("branch", "-f", b, "origin/" + b)
 
             # TODO: There is no reason to do a node query here; we can
             # just look up the repo the old fashioned way
@@ -418,13 +403,13 @@ class Submitter(object):
             # Check if updating is needed
             clean_commit_id = GitCommitHash(self.sh.git(
                 "rev-parse",
-                branch_orig(self.username, ghnum)
+                GitCommitHash("origin/" + branch_orig(self.username, ghnum))
             ))
-            push_branches: Tuple[BranchKind, ...]
+            push_branches: Tuple[Tuple[GitCommitHash, BranchKind], ...]
             if clean_commit_id == commit_id:
                 logging.info("Nothing to do")
                 # NB: NOT commit_id, that's the orig commit!
-                new_pull = branch_head(self.username, ghnum)
+                new_pull = GitCommitHash("origin/" + branch_head(self.username, ghnum))
                 push_branches = ()
             else:
                 logging.info("Pushing to #{}".format(number))
@@ -471,7 +456,7 @@ class Submitter(object):
                 if self.sh.git(
                         "merge-base",
                         "--is-ancestor", self.base_commit,
-                        branch_base(self.username, ghnum), exitcode=True):
+                        "origin/" + branch_base(self.username, ghnum), exitcode=True):
 
                     new_base = self.base_commit
                     base_args = ()
@@ -483,7 +468,7 @@ class Submitter(object):
                     # commit.
                     is_ancestor = self.sh.git(
                         "merge-base",
-                        "--is-ancestor", branch_base(self.username, ghnum),
+                        "--is-ancestor", "origin/" + branch_base(self.username, ghnum),
                         self.base_commit, exitcode=True)
                     if is_ancestor:
 
@@ -495,16 +480,11 @@ class Submitter(object):
                         # commit.
                         new_base = GitCommitHash(self.sh.git(
                             "commit-tree", self.base_tree,
-                            "-p", branch_base(self.username, ghnum),
+                            "-p", "origin/" + branch_base(self.username, ghnum),
                             "-p", self.base_commit,
                             input='Update base for {} on "{}"\n\n{}'
                                   .format(self.msg, title, commit_msg)))
                     base_args = ("-p", new_base)
-
-                self.sh.git(
-                    "branch",
-                    "-f", branch_base(self.username, ghnum),
-                    new_base)
 
                 #   - Directly blast our current tree as the newest entry of
                 #   pull, merging against the previous pull entry, and the
@@ -513,13 +493,9 @@ class Submitter(object):
                 tree = commit.tree()
                 new_pull = GitCommitHash(self.sh.git(
                     "commit-tree", tree,
-                    "-p", branch_head(self.username, ghnum),
+                    "-p", "origin/" + branch_head(self.username, ghnum),
                     *base_args,
                     input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
-                self.sh.git(
-                    "branch",
-                    "-f", branch_head(self.username, ghnum),
-                    new_pull)
 
                 # History reedit!  Commit message changes only
                 if parent != self.base_orig:
@@ -528,12 +504,11 @@ class Submitter(object):
                         "commit-tree", tree,
                         "-p", self.base_orig, input=commit_msg))
 
-                self.sh.git(
-                    "branch",
-                    "-f", branch_orig(self.username, ghnum),
-                    new_orig)
-
-                push_branches = ("base", "head", "orig")
+                push_branches = (
+                    (new_base, "base"),
+                    (new_pull, "head"),
+                    (new_orig, "orig"),
+                )
 
             self.stack_meta.append(DiffMeta(
                 title=title,
@@ -576,7 +551,6 @@ class Submitter(object):
         # push your commits (be sure to do this AFTER you update bases)
         push_branches = []
         force_push_branches = []
-        cleanup_branches: List[str] = []
         for i, s in enumerate(self.stack_meta):
             logging.info(
                 "# Updating https://github.com/{owner}/{repo}/pull/{number}"
@@ -595,13 +569,13 @@ class Submitter(object):
             # otherwise GitHub will spuriously think that the user pushed a
             # number of patches as part of the PR, when actually they were just
             # from the (new) upstream branch
-            for b in s.push_branches:
+            for commit, b in s.push_branches:
                 if b == 'orig':
                     force_push_branches.append(
-                        branch(self.username, s.ghnum, b))
+                        push_spec(commit, branch(self.username, s.ghnum, b)))
                 else:
-                    push_branches.append(branch(self.username, s.ghnum, b))
-            cleanup_branches.extend(all_branches(self.username, s.ghnum))
+                    push_branches.append(
+                        push_spec(commit, branch(self.username, s.ghnum, b)))
         # Careful!  Don't push master.
         #
         # TODO: Does the order I specify these branches matter?  Does
@@ -612,9 +586,6 @@ class Submitter(object):
         if force_push_branches:
             self.sh.git("push", "origin", "--force", *force_push_branches)
             self.github.push_hook(force_push_branches)
-
-        # Cleanup after ourselves
-        self.sh.git("branch", "-D", *cleanup_branches)
 
         # Report what happened
         print()
@@ -636,6 +607,6 @@ class Submitter(object):
         print("run these commands inside a valid Git checkout:")
         print()
         print("     git fetch origin")
-        print("     git checkout origin/{}"
+        print("     git checkout {}"
               .format(branch_orig(self.username, s.ghnum)))
         print("")
