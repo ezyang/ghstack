@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import re
+import logging
 
 from typing import ClassVar, Dict, NewType, List
 
@@ -1034,6 +1035,90 @@ Repository state:
     Original message
 
     gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_update_fields_preserve_differential_revision(self) -> None:
+        # Check that Differential Revision is preserved
+
+        logging.info("### test_update_fields_preserve_differential_revision")
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    Original message
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        logging.info("### Amend the PR")
+        body = """\n
+Directly updated message body
+
+Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+"""
+        self.github.patch("repos/pytorch/pytorch/pulls/500",
+                          body=body,
+                          title="Directly updated title")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+
+
+    Directly updated message body
+
+    Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        logging.info("### Force update fields")
+        self.gh('Update 1', update_fields=True)
+        self.sh.test_tick()
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    Original message
+
+    gh-metadata: pytorch pytorch 500 gh/ezyang/1/head
+
+    Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
      * rMRG1 Commit 1
 

@@ -28,6 +28,9 @@ DiffMeta = NamedTuple('DiffMeta', [
 RE_STACK = re.compile(r'Stack.*:\n(\* [^\n]+\n)+')
 
 
+RE_DIFF_REV = re.compile(r'^Differential Revision:.+?(D[0-9]+)', re.MULTILINE)
+
+
 # repo layout:
 #   - gh/username/23/base -- what we think GitHub's current tip for commit is
 #   - gh/username/23/head -- what we think base commit for commit is
@@ -232,18 +235,30 @@ class Submitter(object):
         self.seen_ghnums = set()
         self.msg = msg
 
-    def _default_title_and_body(self, commit: ghstack.git.CommitHeader
+    def _default_title_and_body(self, commit: ghstack.git.CommitHeader,
+                                old_pr_body: Optional[str]
                                 ) -> Tuple[str, str]:
         title = commit.title()
+        extra = ''
+        if old_pr_body is not None:
+            # Look for tags we should preserve, and keep them
+            m = RE_DIFF_REV.search(old_pr_body)
+            if m:
+                extra = (
+                    "\n\nDifferential Revision: "
+                    "[{phabdiff}]"
+                    "(https://our.internmc.facebook.com/intern/diff/{phabdiff})"
+                ).format(phabdiff=m.group(1))
         pr_body = (
-            "{}:\n* (to be filled)\n\n{}"
+            "{}:\n* (to be filled)\n\n{}{}"
             .format(self.stack_header,
-                    ''.join(commit.commit_msg().splitlines(True)[1:]).lstrip())
+                    ''.join(commit.commit_msg().splitlines(True)[1:]).lstrip(),
+                    extra)
         )
         return title, pr_body
 
     def process_commit(self, commit: ghstack.git.CommitHeader) -> None:
-        title, pr_body = self._default_title_and_body(commit)
+        title, pr_body = self._default_title_and_body(commit, None)
         commit_id = commit.commit_id()
         tree = commit.tree()
         parents = commit.parents()
@@ -398,7 +413,7 @@ class Submitter(object):
             title = r["data"]["node"]["pullRequest"]["title"]
 
             if self.update_fields:
-                title, pr_body = self._default_title_and_body(commit)
+                title, pr_body = self._default_title_and_body(commit, pr_body)
 
             # Check if updating is needed
             clean_commit_id = GitCommitHash(self.sh.git(
