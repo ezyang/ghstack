@@ -21,6 +21,7 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('ghnum', GhNumber),
     ('push_branches', Tuple[Tuple[GitCommitHash, BranchKind], ...]),
     ('what', str),
+    ('closed', bool),
 ])
 
 
@@ -367,6 +368,7 @@ class Submitter(object):
                 ghnum=ghnum,
                 push_branches=((new_orig, 'orig'), ),
                 what='Created',
+                closed=False,
             ))
 
         else:
@@ -397,18 +399,20 @@ class Submitter(object):
                       id
                       body
                       title
+                      closed
                     }
                   }
                 }
               }
-            """, repo_id=self.repo_id, number=number)
-            pr_body = r["data"]["node"]["pullRequest"]["body"]
+            """, repo_id=self.repo_id, number=number)["data"]["node"]["pullRequest"]
+            pr_body = r["body"]
             # NB: Technically, we don't need to pull this information at
             # all, but it's more convenient to unconditionally edit
             # title in the code below
             # NB: This overrides setting of title previously, from the
             # commit message.
-            title = r["data"]["node"]["pullRequest"]["title"]
+            title = r["title"]
+            closed = r["closed"]
 
             if self.update_fields:
                 title, pr_body = self._default_title_and_body(commit, pr_body)
@@ -535,6 +539,7 @@ class Submitter(object):
                 ghnum=ghnum,
                 push_branches=push_branches,
                 what='Updated' if push_branches else 'Skipped',
+                closed=closed,
             ))
 
         # The current pull request head commit, is the new base commit
@@ -565,18 +570,25 @@ class Submitter(object):
         push_branches: List[str] = []
         force_push_branches: List[str] = []
         for i, s in enumerate(self.stack_meta):
-            logging.info(
-                "# Updating https://github.com/{owner}/{repo}/pull/{number}"
-                .format(owner=self.repo_owner,
-                        repo=self.repo_name,
-                        number=s.number))
             # NB: GraphQL API does not support modifying PRs
-            self.github.patch(
-                "repos/{owner}/{repo}/pulls/{number}"
-                .format(owner=self.repo_owner, repo=self.repo_name,
-                        number=s.number),
-                body=RE_STACK.sub(self._format_stack(i), s.body),
-                title=s.title)
+            if not s.closed:
+                logging.info(
+                    "# Updating https://github.com/{owner}/{repo}/pull/{number}"
+                    .format(owner=self.repo_owner,
+                            repo=self.repo_name,
+                            number=s.number))
+                self.github.patch(
+                    "repos/{owner}/{repo}/pulls/{number}"
+                    .format(owner=self.repo_owner, repo=self.repo_name,
+                            number=s.number),
+                    body=RE_STACK.sub(self._format_stack(i), s.body),
+                    title=s.title)
+            else:
+                logging.info(
+                    "# Skipping closed https://github.com/{owner}/{repo}/pull/{number}"
+                    .format(owner=self.repo_owner,
+                            repo=self.repo_name,
+                            number=s.number))
 
             # It is VERY important that we do base updates BEFORE real
             # head updates, otherwise GitHub will spuriously think that

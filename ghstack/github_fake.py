@@ -200,7 +200,7 @@ class PullRequest(Node):
     baseRef: Optional[Ref]
     baseRefName: str
     body: str
-    # closed: bool
+    closed: bool
     headRef: Optional[Ref]
     headRefName: str
     # headRepository: Optional[Repository]
@@ -303,6 +303,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             id=id,
             _repository=repo.id,
             number=number,
+            closed=False,
             url="https://github.com/{}/pull/{}"
                 .format(repo.nameWithOwner, number),
             baseRef=baseRef,
