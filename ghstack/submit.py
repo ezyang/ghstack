@@ -527,6 +527,13 @@ class Submitter(object):
                     (new_orig, "orig"),
                 )
 
+            if closed:
+                what = 'Skipped closed'
+            elif push_branches:
+                what = 'Updated'
+            else:
+                what = 'Skipped'
+
             self.stack_meta.append(DiffMeta(
                 title=title,
                 number=number,
@@ -538,7 +545,7 @@ class Submitter(object):
                 body=pr_body,
                 ghnum=ghnum,
                 push_branches=push_branches,
-                what='Updated' if push_branches else 'Skipped',
+                what=what,
                 closed=closed,
             ))
 
