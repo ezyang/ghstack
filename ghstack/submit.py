@@ -186,6 +186,7 @@ class Submitter(object):
     repo_id: GitHubRepositoryId
 
     # The base commit of the next diff we are submitting
+    # INVARIANT: This is REALLY a hash, and not some random ref!
     base_commit: GitCommitHash
 
     # The base tree of the next diff we are submitting
@@ -276,7 +277,7 @@ class Submitter(object):
                 .format(commit_id, len(parents)))
         parent = parents[0]
 
-        # TODO: check if we authored the commit.  We don't touch shit we didn't
+        # TODO: check if we authored the commit.  We ought not touch PRs we didn't
         # create.
 
         commit_msg = commit.commit_msg()
@@ -284,16 +285,16 @@ class Submitter(object):
         # check if the commit message says what pull request it's associated
         # with
         #   If NONE:
-        #       - If possible, allocate ourselves a pull request number and
+        #       - If possible, allocate ourselves a GhNumber and
         #         then fix the branch afterwards.
         #       - Otherwise, generate a unique branch name, and attach it to
         #         the commit message
 
         m_metadata = commit.match_metadata()
         if m_metadata is None:
-            # Determine the next available UUID.  We do this by
+            # Determine the next available GhNumber.  We do this by
             # iterating through known branches and keeping track
-            # of the max.  The next available UUID is the next number.
+            # of the max.  The next available GhNumber is the next number.
             # This is technically subject to a race, but we assume
             # end user is not running this script concurrently on
             # multiple machines (you bad bad)
@@ -426,7 +427,8 @@ class Submitter(object):
             if clean_commit_id == commit_id:
                 logging.info("Nothing to do")
                 # NB: NOT commit_id, that's the orig commit!
-                new_pull = GitCommitHash("origin/" + branch_head(self.username, ghnum))
+                new_pull = GitCommitHash(self.sh.git(
+                    "rev-parse", "origin/" + branch_head(self.username, ghnum)))
                 push_branches = ()
             else:
                 logging.info("Pushing to #{}".format(number))
@@ -449,63 +451,77 @@ class Submitter(object):
                 #
                 #   4. The parent is totally disconnected, the history
                 #      is bogus but at least the merge-base on master
-                #      is the same or later.  (You cherry-picked a
-                #      commit out of an old stack and want to make it
-                #      independent.)
+                #      is the same or later.  (This can occur if you
+                #      cherry-picked a commit out of an old stack and
+                #      want to make it independent.)
                 #
                 # In cases 1-3, we can maintain a clean merge history
-                # if we do a little extra book-keeping, so we do
-                # precisely this.
+                # if we do a little extra book-keeping, which is what
+                # we do now.
                 #
-                #   - In cases 1 and 2, we'd like to use the newly
-                #     created gh/ezyang/$PARENT/head which is recorded
-                #     in self.base_commit, because it's exactly the
-                #     correct base commit to base our diff off of.
+                # TODO: What we have here actually works pretty hard to
+                # maintain a consistent merge history between all PRs;
+                # so, e.g., you could merge with master and things
+                # wouldn't break.  But we don't necessarily have to do
+                # this; all we need is the delta between base and head
+                # to make sense.  The benefit to doing this is you could
+                # more easily update single revs only, without doing
+                # the rest of the stack.  The downside is that you
+                # get less accurate merge structure for your changes
+                # (because each "diff" is completely disconnected.)
                 #
 
-                # First, check if gh/ezyang/1/head is equal
-                # to gh/ezyang/2/base.
-                # We don't need to update base, nor do we need an extra
-                # merge base.  (--is-ancestor check here is acceptable,
-                # because the base_commit in our stack could not have
-                # gone backwards)
+                # First, check if the parent commit hasn't changed.
+                # We do this by checking if our base_commit is the same
+                # as the gh/ezyang/X/base commit.
+                #
+                # In this case, we don't need to include the base as a
+                # parent at all; just construct our new diff as a plain,
+                # non-merge commit.
                 base_args: Tuple[str, ...]
-                if self.sh.git(
-                        "merge-base",
-                        "--is-ancestor", self.base_commit,
-                        "origin/" + branch_base(self.username, ghnum), exitcode=True):
+                orig_base_hash = self.sh.git(
+                    "rev-parse", "origin/" + branch_base(self.username, ghnum))
+                if orig_base_hash == self.base_commit:
 
                     new_base = self.base_commit
                     base_args = ()
 
                 else:
-                    # Second, check if gh/ezyang/2/base is an ancestor
-                    # of gh/ezyang/1/head.  If it is, we'll do a merge,
-                    # but we don't need to create a synthetic base
-                    # commit.
+                    # Second, check if our local base (self.base_commit)
+                    # added some new commits, but is still rooted on the
+                    # old base.
+                    #
+                    # If so, all we need to do is include the local base
+                    # as a parent when we do the merge.
                     is_ancestor = self.sh.git(
                         "merge-base",
-                        "--is-ancestor", "origin/" + branch_base(self.username, ghnum),
+                        "--is-ancestor",
+                        "origin/" + branch_base(self.username, ghnum),
                         self.base_commit, exitcode=True)
-                    if is_ancestor:
 
+                    if is_ancestor:
                         new_base = self.base_commit
 
                     else:
-                        # Our base changed in a strange way, and we are
-                        # now obligated to create a synthetic base
-                        # commit.
+                        # If we've gotten here, it means that the new
+                        # base and the old base are completely
+                        # unrelated.  We'll make a fake commit that
+                        # "resets" the tree back to something that makes
+                        # sense and merge with that.  This doesn't fix
+                        # the fact that we still incorrectly report
+                        # the old base as an ancestor of our commit, but
+                        # it's better than nothing.
                         new_base = GitCommitHash(self.sh.git(
                             "commit-tree", self.base_tree,
                             "-p", "origin/" + branch_base(self.username, ghnum),
                             "-p", self.base_commit,
                             input='Update base for {} on "{}"\n\n{}'
                                   .format(self.msg, title, commit_msg)))
+
                     base_args = ("-p", new_base)
 
-                #   - Directly blast our current tree as the newest entry of
-                #   pull, merging against the previous pull entry, and the
-                #   newest base.
+                # Blast our current tree as the newest commit, merging
+                # against the previous pull entry, and the newest base.
 
                 tree = commit.tree()
                 new_pull = GitCommitHash(self.sh.git(
@@ -514,7 +530,10 @@ class Submitter(object):
                     *base_args,
                     input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
 
-                # History reedit!  Commit message changes only
+                # We are in the process of doing an interactive rebase
+                # on the orig branch; so if we've edited something in
+                # the history, continue restacking the commits.
+
                 if parent != self.base_orig:
                     logging.info("Restacking commit on {}".format(self.base_orig))
                     new_orig = GitCommitHash(self.sh.git(
