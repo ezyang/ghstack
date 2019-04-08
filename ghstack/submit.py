@@ -18,7 +18,6 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('title', str),
     ('number', GitHubNumber),
     ('body', str),
-    ('base', str),
     ('ghnum', GhNumber),
     ('push_branches', Tuple[Tuple[GitCommitHash, BranchKind], ...]),
     ('what', str),
@@ -365,7 +364,6 @@ class Submitter(object):
                 title=title,
                 number=number,
                 body=pr_body,
-                base=branch_base(self.username, ghnum),
                 ghnum=ghnum,
                 push_branches=((new_orig, 'orig'), ),
                 what='Created',
@@ -534,7 +532,6 @@ class Submitter(object):
                 # PR description on GitHub and you don't want to clobber
                 # it.
                 body=pr_body,
-                base=branch_base(self.username, ghnum),
                 ghnum=ghnum,
                 push_branches=push_branches,
                 what='Updated' if push_branches else 'Skipped',
@@ -564,8 +561,9 @@ class Submitter(object):
         # update pull request information, update bases as necessary
         #   preferably do this in one network call
         # push your commits (be sure to do this AFTER you update bases)
-        push_branches = []
-        force_push_branches = []
+        base_push_branches: List[str] = []
+        push_branches: List[str] = []
+        force_push_branches: List[str] = []
         for i, s in enumerate(self.stack_meta):
             logging.info(
                 "# Updating https://github.com/{owner}/{repo}/pull/{number}"
@@ -578,23 +576,27 @@ class Submitter(object):
                 .format(owner=self.repo_owner, repo=self.repo_name,
                         number=s.number),
                 body=RE_STACK.sub(self._format_stack(i), s.body),
-                title=s.title,
-                base=s.base)
-            # It is VERY important that we do this push AFTER fixing the base,
-            # otherwise GitHub will spuriously think that the user pushed a
-            # number of patches as part of the PR, when actually they were just
-            # from the (new) upstream branch
+                title=s.title)
+
+            # It is VERY important that we do base updates BEFORE real
+            # head updates, otherwise GitHub will spuriously think that
+            # the user pushed a number of patches as part of the PR,
+            # when actually they were just from the (new) upstream
+            # branch
+
             for commit, b in s.push_branches:
                 if b == 'orig':
-                    force_push_branches.append(
-                        push_spec(commit, branch(self.username, s.ghnum, b)))
+                    q = force_push_branches
+                elif b == 'base':
+                    q = base_push_branches
                 else:
-                    push_branches.append(
-                        push_spec(commit, branch(self.username, s.ghnum, b)))
+                    q = push_branches
+                q.append(push_spec(commit, branch(self.username, s.ghnum, b)))
         # Careful!  Don't push master.
-        #
-        # TODO: Does the order I specify these branches matter?  Does
-        # GitHub calculate the changes atomically?
+        # TODO: These pushes need to be atomic (somehow)
+        if base_push_branches:
+            self.sh.git("push", "origin", *base_push_branches)
+            self.github.push_hook(base_push_branches)
         if push_branches:
             self.sh.git("push", "origin", *push_branches)
             self.github.push_hook(push_branches)
