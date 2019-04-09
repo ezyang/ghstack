@@ -1129,6 +1129,113 @@ Repository state:
 
 ''')
 
+    # ------------------------------------------------------------------------- #
+
+    def test_remove_bottom_commit(self) -> None:
+        # This is to test a bug where we decided not to update base,
+        # but this was wrong
+
+        self.sh.git("checkout", "-b", "feature")
+
+        print("###")
+        print("### First commit")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        print("###")
+        print("### Second commit")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
+        self.sh.test_tick()
+        self.gh('Initial 2')
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501 Commit 2
+    * **#500 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 2**
+    * #500 Commit 1
+
+    A commit with a B
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Delete first commit")
+        self.sh.git("checkout", "master")
+
+        print("###")
+        print("### Cherry-pick the second commit")
+        self.sh.git("cherry-pick", "feature")
+
+        self.substituteRev("HEAD", "rCOM2A")
+
+        self.gh('Cherry pick')
+        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501 Commit 2
+    * **#500 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 2**
+
+    A commit with a B
+
+     * rMRG2 Commit 2
+     * rMRG2A Cherry pick on "Commit 2"
+
+Repository state:
+
+    *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
+    |\\
+    | *   rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
+    | |\\
+    * | | rMRG2 Commit 2
+    |/ /
+    * | rMRG1 (gh/ezyang/1/head) Commit 1
+    |/
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
 
 
 #   def load_tests(loader, tests, ignore):
