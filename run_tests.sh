@@ -6,4 +6,5 @@ set -e
 flake8-3 ghstack
 mypy --strict --config=detailed-mypy.ini ghstack test_ghstack.py
 python3 test_expecttest.py
+python3 test_shell.py
 python3 test_ghstack.py

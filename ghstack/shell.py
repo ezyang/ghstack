@@ -3,7 +3,9 @@
 import subprocess
 import os
 import logging
-from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO
+from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO, Tuple
+import asyncio
+import sys
 
 
 # Shell commands generally return str, but with exitcode=True
@@ -23,6 +25,8 @@ def log_command(args: Sequence[str]) -> None:
         *args: the list of command line arguments you want to run
         env: the dictionary of environment variable settings for the command
     """
+    # TODO: Irritatingly, this doesn't insert quotes for shell
+    # metacharacters like exclamation marks or parentheses.
     cmd = subprocess.list2cmdline(args).replace("\n", "\\n")
     logging.info("$ " + cmd)
 
@@ -81,7 +85,7 @@ class Shell(object):
         self.testing = testing
         self.testing_time = 1112911993
 
-    def sh(self, *args: str,
+    def sh(self, *args: str,  # noqa: C901
            env: Optional[Dict[str, str]] = None,
            stderr: _HANDLE = None,
            input: Optional[str] = None,
@@ -117,34 +121,93 @@ class Shell(object):
             log_command(args)
         if env is not None:
             env = merge_dicts(dict(os.environ), env)
-        p = subprocess.Popen(
-            args,
-            stdout=stdout,
-            stdin=stdin,
-            stderr=stderr,
-            cwd=self.cwd,
-            env=env
-        )
-        input_bytes = None
-        if input is not None:
-            input_bytes = input.encode('utf-8')
-        out, err = p.communicate(input_bytes)
-        if err is not None:
-            # NB: Not debug; we always want to show this to user.
-            logging.info(err)
+
+        # The things we do for logging...
+        #
+        # - I didn't make a PTY, so programs are going to give
+        #   output assuming there isn't a terminal at the other
+        #   end.  This is less nice for direct terminal use, but
+        #   it's better for logging (since we get to dispense
+        #   with the control codes).
+        #
+        # - We assume line buffering.  This is kind of silly but
+        #   what are you going to do.
+
+        async def process_stream(proc_stream: asyncio.StreamReader, setting: _HANDLE,
+                                 default_stream: IO[Any]) -> bytes:
+            output = []
+            while True:
+                try:
+                    line = await proc_stream.readuntil()
+                except asyncio.LimitOverrunError as e:
+                    line = await proc_stream.readexactly(e.consumed)
+                except asyncio.IncompleteReadError as e:
+                    line = e.partial
+                if not line:
+                    break
+                output.append(line)
+                if setting == subprocess.PIPE:
+                    pass
+                elif setting == subprocess.STDOUT:
+                    sys.stdout.buffer.write(line)
+                elif isinstance(setting, int):
+                    os.write(setting, line)
+                elif setting is None:
+                    default_stream.write(line)
+                else:
+                    setting.write(line)
+            return b''.join(output)
+
+        async def feed_input(stdin_writer: Optional[asyncio.StreamWriter]) -> None:
+            if stdin_writer is None:
+                return
+            if not input:
+                return
+            stdin_writer.write(input.encode('utf-8'))
+            await stdin_writer.drain()
+            stdin_writer.close()
+
+        async def run() -> Tuple[int, bytes, bytes]:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdin=stdin,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.cwd,
+                env=env,
+            )
+            assert proc.stdout is not None
+            assert proc.stderr is not None
+            _, out, err, _ = await asyncio.gather(
+                feed_input(proc.stdin),
+                process_stream(proc.stdout, stdout, sys.stdout.buffer),
+                process_stream(proc.stderr, stderr, sys.stdout.buffer),
+                proc.wait()
+            )
+            return (proc.returncode, out, err)
+
+        loop = asyncio.get_event_loop()
+        returncode, out, err = loop.run_until_complete(run())
+
+        # NB: Not debug; we always want to show this to user.
+        if err:
+            logging.debug("# stderr:\n" + err.decode(errors="backslashreplace"))
+        if out:
+            logging.debug(
+                ("# stdout:\n" if err else "")
+                + out.decode(errors="backslashreplace").replace('\0', '\\0'))
+
         if exitcode:
-            logging.debug("Exit code: {}".format(p.returncode))
-            return p.returncode == 0
-        if p.returncode != 0:
+            logging.debug("Exit code: {}".format(returncode))
+            return returncode == 0
+        if returncode != 0:
             raise RuntimeError(
                 "{} failed with exit code {}"
-                .format(' '.join(args), p.returncode)
+                .format(' '.join(args), returncode)
             )
-        if out is not None:
-            r = out.decode()
-            assert isinstance(r, str)
-            logging.debug(r.replace('\0', '\\0'))
-            return r
+
+        if stdout == subprocess.PIPE:
+            return out.decode()  # do a strict decode for actual return
         else:
             return None
 

@@ -46,8 +46,6 @@ class TestGh(expecttest.TestCase):
     sh: ghstack.shell.Shell
 
     def setUp(self) -> None:
-        tmp_dir = tempfile.mkdtemp()
-
         # Set up a "parent" repository with an empty initial commit that we'll operate on
         upstream_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:
@@ -903,7 +901,7 @@ Repository state:
         print("### test_no_clobber")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        stack = self.gh('Initial 1')
+        self.gh('Initial 1')
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
@@ -979,7 +977,7 @@ Repository state:
         print("### test_update_fields")
         self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        stack = self.gh('Initial 1')
+        self.gh('Initial 1')
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
@@ -1244,4 +1242,5 @@ Repository state:
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG, format='%(message)s')
     unittest.main()
