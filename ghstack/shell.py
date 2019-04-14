@@ -88,6 +88,7 @@ class Shell(object):
     def sh(self, *args: str,  # noqa: C901
            env: Optional[Dict[str, str]] = None,
            stderr: _HANDLE = None,
+           # TODO: Arguably bytes should be accepted here too
            input: Optional[str] = None,
            stdin: _HANDLE = None,
            stdout: _HANDLE = subprocess.PIPE,
@@ -134,7 +135,7 @@ class Shell(object):
         #   what are you going to do.
 
         async def process_stream(proc_stream: asyncio.StreamReader, setting: _HANDLE,
-                                 default_stream: IO[Any]) -> bytes:
+                                 default_stream: IO[bytes]) -> bytes:
             output = []
             while True:
                 try:
@@ -155,7 +156,10 @@ class Shell(object):
                 elif setting is None:
                     default_stream.write(line)
                 else:
-                    setting.write(line)
+                    # NB: don't use setting.write directly, that will
+                    # not properly handle binary.  This gives us
+                    # "parity" with the normal subprocess implementation
+                    os.write(setting.fileno(), line)
             return b''.join(output)
 
         async def feed_input(stdin_writer: Optional[asyncio.StreamWriter]) -> None:

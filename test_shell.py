@@ -130,6 +130,9 @@ C
             big_dump()
         )
 
+    def test_uses_raw_fd(self) -> None:
+        self.emit(out("A\n"), stdout=sys.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()
