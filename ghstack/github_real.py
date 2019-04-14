@@ -127,6 +127,18 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             pretty_json = json.dumps(r, indent=1)
             logging.debug("Response JSON:\n{}".format(pretty_json))
 
+        if resp.status_code == 404:
+            raise RuntimeError("""\
+GitHub raised a 404 error on the request for
+{}.
+Usually, this doesn't actually mean the page doesn't exist; instead, it
+usually means that you didn't configure your OAuth token with enough
+permissions.  Please create a new OAuth token at
+https://github.com/settings/tokens and DOUBLE CHECK that you checked
+"public_repo" for permissions, and update ~/.ghstackrc with your new
+value.
+""".format(url))
+
         try:
             resp.raise_for_status()
         except requests.HTTPError:
