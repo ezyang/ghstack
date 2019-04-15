@@ -7,12 +7,14 @@ import ghstack.shell
 import ghstack.github
 import ghstack.logging
 from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber
-from typing import List, Union, Optional, NamedTuple, Tuple, Set
+from typing import List, Optional, NamedTuple, Tuple, Set
+#from typing import Union
 from ghstack.git import GitCommitHash, GitTreeHash
-from typing_extensions import Literal
+#from typing_extensions import Literal
 import logging
 
-BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
+#BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
+BranchKind = str
 
 DiffMeta = NamedTuple('DiffMeta', [
     ('title', str),
