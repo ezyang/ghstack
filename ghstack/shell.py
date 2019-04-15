@@ -132,10 +132,11 @@ class Shell(object):
         #   with the control codes).
         #
         # - We assume line buffering.  This is kind of silly but
-        #   what are you going to do.
+        #   we need to assume *some* sort of buffering with the
+        #   stream API.
 
         async def process_stream(proc_stream: asyncio.StreamReader, setting: _HANDLE,
-                                 default_stream: IO[bytes]) -> bytes:
+                                 default_stream: IO[str]) -> bytes:
             output = []
             while True:
                 try:
@@ -154,7 +155,8 @@ class Shell(object):
                 elif isinstance(setting, int):
                     os.write(setting, line)
                 elif setting is None:
-                    default_stream.write(line)
+                    # Sigh.  See https://stackoverflow.com/questions/55681488/python-3-write-binary-to-stdout-respecting-buffering
+                    default_stream.write(line.decode('utf-8'))
                 else:
                     # NB: don't use setting.write directly, that will
                     # not properly handle binary.  This gives us
@@ -184,8 +186,8 @@ class Shell(object):
             assert proc.stderr is not None
             _, out, err, _ = await asyncio.gather(
                 feed_input(proc.stdin),
-                process_stream(proc.stdout, stdout, sys.stdout.buffer),
-                process_stream(proc.stderr, stderr, sys.stdout.buffer),
+                process_stream(proc.stdout, stdout, sys.stdout),
+                process_stream(proc.stderr, stderr, sys.stderr),
                 proc.wait()
             )
             return (proc.returncode, out, err)
