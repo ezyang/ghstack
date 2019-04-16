@@ -31,6 +31,9 @@ def main() -> None:
         subparser.add_argument(
             '--update-fields', '-u', action='store_true',
             help='Update GitHub pull request summary from the local commit')
+        subparser.add_argument(
+            '--short', action='store_true',
+            help='Print only the URL of the latest opened PR to stdout')
 
     unlink = subparsers.add_parser('unlink')
     unlink.add_argument('COMMITS', nargs='*')
@@ -66,7 +69,8 @@ def main() -> None:
                 username=conf.github_username,
                 sh=sh,
                 github=github,
-                update_fields=args.update_fields
+                update_fields=args.update_fields,
+                short=args.short
             )
         elif args.cmd == 'unlink':
             ghstack.unlink.main(

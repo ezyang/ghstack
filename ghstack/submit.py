@@ -71,6 +71,7 @@ def main(msg: Optional[str],
          stack_header: str = STACK_HEADER,
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
+         short: bool = False,
          ) -> List[DiffMeta]:
 
     if sh is None:
@@ -148,7 +149,8 @@ def main(msg: Optional[str],
                           base_tree=base_obj.tree(),
                           stack_header=stack_header,
                           update_fields=update_fields,
-                          msg=msg)
+                          msg=msg,
+                          short=short)
 
     for s in g:
         submitter.process_commit(s)
@@ -210,6 +212,9 @@ class Submitter(object):
     # Clobber existing PR description with local commit message
     update_fields: bool
 
+    # Print only PR URL to stdout
+    short: bool
+
     def __init__(
             self,
             github: ghstack.github.GitHubEndpoint,
@@ -222,7 +227,8 @@ class Submitter(object):
             base_tree: GitTreeHash,
             stack_header: str,
             update_fields: bool,
-            msg: Optional[str]):
+            msg: Optional[str],
+            short: bool):
         self.github = github
         self.sh = sh
         self.username = username
@@ -237,6 +243,7 @@ class Submitter(object):
         self.stack_meta = []
         self.seen_ghnums = set()
         self.msg = msg
+        self.short = short
 
     def _default_title_and_body(self, commit: ghstack.git.CommitHeader,
                                 old_pr_body: Optional[str]
@@ -645,14 +652,21 @@ class Submitter(object):
             self.github.push_hook(force_push_branches)
 
         # Report what happened
+        def format_url(s: DiffMeta) -> str:
+            return ("https://github.com/{owner}/{repo}/pull/{number}"
+                    .format(owner=self.repo_owner,
+                            repo=self.repo_name,
+                            number=s.number))
+
+        if self.short:
+            print(format_url(self.stack_meta[-1]))
+            return
+
         print()
         print('# Summary of changes (ghstack {})'.format(ghstack.__version__))
         print()
         for s in self.stack_meta:
-            url = ("https://github.com/{owner}/{repo}/pull/{number}"
-                   .format(owner=self.repo_owner,
-                           repo=self.repo_name,
-                           number=s.number))
+            url = format_url(s)
             print(" - {} {}".format(s.what, url))
         print()
         print("Facebook employees can import your changes by running ")

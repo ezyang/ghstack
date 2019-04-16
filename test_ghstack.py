@@ -6,8 +6,11 @@ import shutil
 import tempfile
 import re
 import logging
+import sys
+import contextlib
+import io
 
-from typing import ClassVar, Dict, NewType, List
+from typing import ClassVar, Dict, NewType, List, Tuple, Iterator
 
 import ghstack.expecttest as expecttest
 
@@ -17,6 +20,17 @@ import ghstack.github
 import ghstack.github_fake
 
 from ghstack.submit import GitCommitHash
+
+
+@contextlib.contextmanager
+def captured_output() -> Iterator[Tuple[io.StringIO, io.StringIO]]:
+    new_out, new_err = io.StringIO(), io.StringIO()
+    old_out, old_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout, sys.stderr = new_out, new_err
+        yield sys.stdout, sys.stderr
+    finally:
+        sys.stdout, sys.stderr = old_out, old_err
 
 
 # TODO: Figure out how to make all git stuff in memory, so it runs
@@ -78,7 +92,8 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     def gh(self, msg: str = 'Update',
-           update_fields: bool = False) -> List[ghstack.submit.DiffMeta]:
+           update_fields: bool = False,
+           short: bool = False) -> List[ghstack.submit.DiffMeta]:
         return ghstack.submit.main(
             msg=msg,
             username='ezyang',
@@ -87,7 +102,8 @@ class TestGh(expecttest.TestCase):
             update_fields=update_fields,
             stack_header='Stack',
             repo_owner='pytorch',
-            repo_name='pytorch')
+            repo_name='pytorch',
+            short=short)
 
     def dump_github(self) -> str:
         r = self.github.graphql("""
@@ -1234,6 +1250,13 @@ Repository state:
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
+
+    def test_short(self) -> None:
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        with captured_output() as (out, err):
+            self.gh('Initial', short=True)
+        self.assertEqual(out.getvalue(), "https://github.com/pytorch/pytorch/pull/500\n")
 
 
 #   def load_tests(loader, tests, ignore):
