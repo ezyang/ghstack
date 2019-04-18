@@ -69,6 +69,13 @@ with your local code before attempting a land.
             except BaseException:
                 sh.git("cherry-pick", "--abort")
                 raise
+            m = s.match_metadata()
+            assert m is not None
+            sh.git(
+                "commit", "--amend", "--message",
+                "{}\n\nPull Request resolved: https://github.com/{}/{}/pull/{}"
+                .format(s.commit_msg(), m.group("owner"), m.group("repo"), m.group("number"))
+            )
 
         # All good! Push!
         sh.git("push", "origin", "HEAD:refs/heads/master")
