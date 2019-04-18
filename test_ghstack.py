@@ -15,6 +15,7 @@ from typing import ClassVar, Dict, NewType, List, Tuple, Iterator
 import ghstack.expecttest as expecttest
 
 import ghstack.submit
+import ghstack.land
 import ghstack.shell
 import ghstack.github
 import ghstack.github_fake
@@ -104,6 +105,11 @@ class TestGh(expecttest.TestCase):
             repo_owner='pytorch',
             repo_name='pytorch',
             short=short)
+
+    def gh_land(self) -> None:
+        return ghstack.land.main(
+            sh=self.sh
+        )
 
     def dump_github(self) -> str:
         r = self.github.graphql("""
@@ -1258,6 +1264,58 @@ Repository state:
             self.gh('Initial', short=True)
         self.assertEqual(out.getvalue(), "https://github.com/pytorch/pytorch/pull/500\n")
 
+    def test_land_ff(self) -> None:
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.gh('Initial')
+        self.substituteRev("HEAD", "rCOM1")
+        self.gh_land()
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    This is my first commit
+
+     * 3f14b96 Commit 1
+
+Repository state:
+
+    * 3f14b96 (gh/ezyang/1/head) Commit 1
+    * rINI0 (gh/ezyang/1/base) Initial commit
+
+''')
+
+    def test_land_non_ff(self) -> None:
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.gh('Initial')
+        self.substituteRev("HEAD", "rCOM1")
+
+        self.sh.git("reset", "--hard", "origin/master")
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Upstream commit")
+        self.substituteRev("HEAD", "rUP1")
+        self.sh.git("push")
+
+        self.sh.git("checkout", "gh/ezyang/1/orig")
+        self.gh_land()
+
+        self.substituteRev("origin/master", "rUP2")
+
+        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+rUP2 Commit 1
+rUP1 Upstream commit
+rINI0 Initial commit''')
 
 #   def load_tests(loader, tests, ignore):
 #       tests.addTests(doctest.DocTestSuite(gh))

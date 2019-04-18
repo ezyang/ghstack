@@ -5,6 +5,7 @@ import ghstack
 import ghstack.submit
 import ghstack.unlink
 import ghstack.rage
+import ghstack.land
 
 import ghstack.logging
 import ghstack.github_real
@@ -42,6 +43,9 @@ def main() -> None:
     rage.add_argument('--latest', action='store_true',
         help='Select the last command (not including rage commands) to report')
 
+    land = subparsers.add_parser('land')
+    land.add_argument('COMMITS', nargs='*')
+
     args = parser.parse_args()
 
     if args.version:
@@ -75,6 +79,10 @@ def main() -> None:
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
                 commits=args.COMMITS,
+                sh=sh,
+            )
+        elif args.cmd == 'land':
+            ghstack.land.main(
                 sh=sh,
             )
         else:
