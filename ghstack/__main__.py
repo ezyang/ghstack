@@ -6,6 +6,7 @@ import ghstack.submit
 import ghstack.unlink
 import ghstack.rage
 import ghstack.land
+import ghstack.action
 
 import ghstack.logging
 import ghstack.github_real
@@ -46,6 +47,13 @@ def main() -> None:
     land = subparsers.add_parser('land')
     land.add_argument('COMMITS', nargs='*')
 
+    action = subparsers.add_parser('action')
+    # TODO: support number as well
+    action.add_argument('pull_request', metavar='PR',
+        help='GitHub pull request URL to perform action on')
+    action.add_argument('--close', action='store_true',
+        help='Close the specified pull request')
+
     args = parser.parse_args()
 
     if args.version:
@@ -84,6 +92,13 @@ def main() -> None:
         elif args.cmd == 'land':
             ghstack.land.main(
                 sh=sh,
+            )
+        elif args.cmd == 'action':
+            ghstack.action.main(
+                pull_request=args.pull_request,
+                github=github,
+                sh=sh,
+                close=args.close,
             )
         else:
             raise RuntimeError("Unrecognized command {}".format(args.cmd))
