@@ -303,7 +303,7 @@ class Shell(object):
             **kwargs: Any valid kwargs for sh()
         """
 
-        kwargs.setdefault('stdout', None)
+        kwargs.setdefault('stdout', sys.stderr)
 
         return self._maybe_rstrip(self.sh(*(("jf",) + args), **kwargs))
 
