@@ -659,13 +659,14 @@ class Submitter(object):
                             number=s.number))
 
         if self.short:
-            print(format_url(self.stack_meta[-1]))
+            # Guarantee that the FIRST PR URL is the top of the stack
+            print('\n'.join(format_url(s) for s in reversed(self.stack_meta)))
             return
 
         print()
         print('# Summary of changes (ghstack {})'.format(ghstack.__version__))
         print()
-        for s in self.stack_meta:
+        for s in reversed(self.stack_meta):
             url = format_url(s)
             print(" - {} {}".format(s.what, url))
         print()
