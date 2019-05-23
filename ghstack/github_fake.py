@@ -11,14 +11,7 @@ import os.path
 from dataclasses import dataclass
 
 from typing import Dict, NewType, List, Optional, Any, Sequence, cast
-# TODO: do something better about this...
-try:
-    from mypy_extensions import TypedDict
-except ImportError:
-    # Avoid the dependency on the mypy_extensions package.
-    # It is required, however, for type checking.
-    def TypedDict(name, attrs, total=True):  # type: ignore
-        return Dict[Any, Any]
+from ghstack.typed_dict import TypedDict
 
 import ghstack.shell
 import ghstack.github

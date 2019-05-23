@@ -60,7 +60,7 @@ formatter = Formatter(
 
 
 @contextlib.contextmanager
-def manager() -> Iterator[None]:
+def manager(*, debug: bool = False) -> Iterator[None]:
     # TCB code to setup logging.  If a failure starts here we won't
     # be able to save the user ina  reasonable way.
 
@@ -71,7 +71,10 @@ def manager() -> Iterator[None]:
     root_logger.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    if debug:
+        console_handler.setLevel(logging.DEBUG)
+    else:
+        console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 

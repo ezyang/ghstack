@@ -31,10 +31,6 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def __init__(self,
                  oauth_token: str,
                  proxy: Optional[str] = None):
-        """
-        Args:
-            endpoint: URL of the endpoint in question
-        """
         self.oauth_token = oauth_token
         self.proxy = proxy
 

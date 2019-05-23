@@ -7,12 +7,15 @@ import ghstack.unlink
 import ghstack.rage
 import ghstack.land
 import ghstack.action
+import ghstack.status
 
 import ghstack.logging
 import ghstack.github_real
+import ghstack.circleci_real
 import ghstack.config
 
 import argparse
+import asyncio
 
 
 def main() -> None:
@@ -21,6 +24,9 @@ def main() -> None:
     parser.add_argument(
         '--version', action='store_true',
         help='Print version')
+    parser.add_argument(
+        '--debug', action='store_true',
+        help='Log debug information to stderr')
 
     subparsers = parser.add_subparsers(dest='cmd')
 
@@ -54,6 +60,11 @@ def main() -> None:
     action.add_argument('--close', action='store_true',
         help='Close the specified pull request')
 
+    status = subparsers.add_parser('status')
+    # TODO: support number as well
+    status.add_argument('pull_request', metavar='PR',
+        help='GitHub pull request URL to perform action on')
+
     args = parser.parse_args()
 
     if args.version:
@@ -63,7 +74,7 @@ def main() -> None:
     if args.cmd is None:
         args.cmd = 'submit'
 
-    with ghstack.logging.manager():
+    with ghstack.logging.manager(debug=args.debug):
 
         sh = ghstack.shell.Shell()
         conf = ghstack.config.read_config()
@@ -100,6 +111,16 @@ def main() -> None:
                 sh=sh,
                 close=args.close,
             )
+        elif args.cmd == 'status':
+            circleci = ghstack.circleci_real.RealCircleCIEndpoint(circle_token='d327f8c031b5485713b29528c5744de4f1a3cac0')
+            # Blegh
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(ghstack.status.main(
+                pull_request=args.pull_request,
+                github=github,
+                circleci=circleci
+            ))
+            loop.close()
         else:
             raise RuntimeError("Unrecognized command {}".format(args.cmd))
 

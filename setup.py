@@ -41,6 +41,7 @@ setuptools.setup(
     scripts=['bin/ghstack'],
     install_requires=[
         'requests',
+        'aiohttp',
         # 'typing_extensions>=3.7.2',  # need Literal
         'dataclasses',
     ],
