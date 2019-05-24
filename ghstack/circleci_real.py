@@ -80,9 +80,8 @@ class RealCircleCIEndpoint(ghstack.circleci.CircleCIEndpoint):
             except aiohttp.ClientResponseError:
                 raise RuntimeError(pretty_json)
 
-            if is_get_build:
-                # TODO: Figure out if the entry is likely to be stale
-                # and don't save in that case
+            # NB: Don't save to cache if it's still running
+            if is_get_build and r["outcome"] is not None:
                 logging.debug("Saving result to cache")
                 ghstack.cache.put('circleci', path, r_text)
 

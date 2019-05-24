@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import ghstack.github
 import ghstack.circleci
@@ -70,13 +71,29 @@ async def main(pull_request: str,
                 logging.warning("Malformed CircleCI URL {}".format(context['targetUrl']))
                 return "INTERNAL ERROR {}".format(context['context'])
             buildid = m.group(1)
-            r = await circleci.get("project/github/{name}/{owner}/{buildid}".format(buildid=buildid, **params))
-            if "Should Run Job" in r["steps"][-1]["name"]:
-                return "SKIPPED {}".format(context['context'])
+            if context['state'] != 'SUCCESS':
+                state = context['state']
             else:
-                return "RAN {}".format(context['context'])
+                r = await circleci.get("project/github/{name}/{owner}/{buildid}".format(buildid=buildid, **params))
+                if "Should Run Job" in r["steps"][-1]["name"]:
+                    state = "SKIPPED"
+                else:
+                    state = "SUCCESS"
         else:
-            return "RAN {}".format(context['context'])
+            state = context['state']
+
+        if state == "SUCCESS":
+            state = "✅"
+        elif state == "SKIPPED":
+            state = "❔"
+        elif state == "PENDING":
+            state = "🚸"
+        elif state == "FAILURE":
+            state = "❌"
+        name = context['context']
+        url = context["targetUrl"]
+        url = url.replace("?utm_campaign=vcs-integration-link&utm_medium=referral&utm_source=github-build-link", "")
+        return "{} {} {}".format(state, name.ljust(70), url)
 
     results = await asyncio.gather(*[asyncio.ensure_future(process_context(c)) for c in contexts])
     print("\n".join(sorted(results)))
