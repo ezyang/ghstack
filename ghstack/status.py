@@ -71,11 +71,15 @@ async def main(pull_request: str,
                 logging.warning("Malformed CircleCI URL {}".format(context['targetUrl']))
                 return "INTERNAL ERROR {}".format(context['context'])
             buildid = m.group(1)
-            if context['state'] != 'SUCCESS':
+            if context['state'] not in {'SUCCESS', 'PENDING'}:
                 state = context['state']
             else:
                 r = await circleci.get("project/github/{name}/{owner}/{buildid}".format(buildid=buildid, **params))
-                if "Should Run Job" in r["steps"][-1]["name"]:
+                if r["failed"]:
+                    state = "FAILED"
+                elif r["canceled"]:
+                    state = "CANCELED"
+                elif "Should Run Job" in r["steps"][-1]["name"]:
                     state = "SKIPPED"
                 else:
                     state = "SUCCESS"
@@ -86,6 +90,8 @@ async def main(pull_request: str,
             state = "✅"
         elif state == "SKIPPED":
             state = "❔"
+        elif state == "CANCELED":
+            state = "💜"
         elif state == "PENDING":
             state = "🚸"
         elif state == "FAILURE":
