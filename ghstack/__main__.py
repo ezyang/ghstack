@@ -112,7 +112,13 @@ def main() -> None:
                 close=args.close,
             )
         elif args.cmd == 'status':
-            circleci = ghstack.circleci_real.RealCircleCIEndpoint(circle_token='d327f8c031b5485713b29528c5744de4f1a3cac0')
+            # Re-read conf and request circle token if not available
+            # TODO: Restructure this so that we just request
+            # configurations "on-demand" rather than all upfront
+            conf = ghstack.config.read_config(request_circle_token=True)
+            if conf.circle_token:
+                ghstack.logging.formatter.redact(conf.circle_token, '<CIRCLE_TOKEN>')
+            circleci = ghstack.circleci_real.RealCircleCIEndpoint(circle_token=conf.circle_token)
             # Blegh
             loop = asyncio.get_event_loop()
             loop.run_until_complete(ghstack.status.main(

@@ -19,4 +19,4 @@ exclude =
   .hg,
   __pycache__,
 
-max-complexity = 12
+max-complexity = 20

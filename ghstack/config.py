@@ -14,6 +14,8 @@ Config = NamedTuple('Config', [
     ('github_oauth', str),
     # GitHub username; used to namespace branches we create
     ('github_username', str),
+    # Token to authenticate to CircleCI with
+    ('circle_token', Optional[str]),
 
     # These config parameters are not used by ghstack, but other
     # tools that reuse this module
@@ -29,7 +31,7 @@ Config = NamedTuple('Config', [
 ])
 
 
-def read_config() -> Config:
+def read_config(*, request_circle_token: bool = False) -> Config:
     config = configparser.ConfigParser()
     config.read(['.ghstackrc', os.path.expanduser('~/.ghstackrc')])
 
@@ -52,6 +54,19 @@ def read_config() -> Config:
             'ghstack',
             'github_oauth',
             github_oauth)
+        write_back = True
+
+    circle_token = None
+    if circle_token is None and config.has_option('ghstack', 'circle_token'):
+        circle_token = config.get('ghstack', 'circle_token')
+    if circle_token is None and request_circle_token:
+        circle_token = getpass.getpass(
+            'CircleCI Personal API token (make one at '
+            'https://circleci.com/account/api ): ').strip()
+        config.set(
+            'ghstack',
+            'circle_token',
+            circle_token)
         write_back = True
 
     github_username = None
@@ -90,6 +105,7 @@ def read_config() -> Config:
 
     return Config(
         github_oauth=github_oauth,
+        circle_token=circle_token,
         github_username=github_username,
         proxy=proxy,
         fbsource_path=fbsource_path,
