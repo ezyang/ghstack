@@ -9,8 +9,16 @@ from ghstack.typed_dict import TypedDict
 import asyncio
 import re
 import logging
+import aiohttp
 
 RE_CIRCLECI_URL = re.compile(r'^https://circleci.com/gh/pytorch/pytorch/([0-9]+)')
+
+
+def strip_sccache(x: str) -> str:
+    sccache_marker = "=================== sccache compilation log ==================="
+    marker_pos = x.rfind(sccache_marker)
+    newline_before_marker_pos = x.rfind('\n', 0, marker_pos)
+    return x[:newline_before_marker_pos]
 
 
 async def main(pull_request: str,
@@ -65,24 +73,33 @@ async def main(pull_request: str,
     contexts = r['data']['repository']['pullRequest']['commits']['nodes'][0]['commit']['status']['contexts']
 
     async def process_context(context: ContextPayload) -> str:
+        text = ""
         if 'circleci' in context['context']:
             m = RE_CIRCLECI_URL.match(context['targetUrl'])
             if not m:
                 logging.warning("Malformed CircleCI URL {}".format(context['targetUrl']))
                 return "INTERNAL ERROR {}".format(context['context'])
             buildid = m.group(1)
+            r = await circleci.get("project/github/{name}/{owner}/{buildid}".format(buildid=buildid, **params))
             if context['state'] not in {'SUCCESS', 'PENDING'}:
                 state = context['state']
             else:
-                r = await circleci.get("project/github/{name}/{owner}/{buildid}".format(buildid=buildid, **params))
                 if r["failed"]:
-                    state = "FAILED"
+                    state = "FAILURE"
                 elif r["canceled"]:
                     state = "CANCELED"
                 elif "Should Run Job" in r["steps"][-1]["name"]:
                     state = "SKIPPED"
                 else:
                     state = "SUCCESS"
+            if state == "FAILURE":
+                async with aiohttp.request('get', r['steps'][-1]['actions'][-1]['output_url']) as resp:
+                    log_json = await resp.json()
+                    buf = []
+                    for e in log_json:
+                        buf.append(e["message"])
+                    text = "\n" + strip_sccache("\n".join(buf))
+                    text = text[-1500:]
         else:
             state = context['state']
 
@@ -99,7 +116,7 @@ async def main(pull_request: str,
         name = context['context']
         url = context["targetUrl"]
         url = url.replace("?utm_campaign=vcs-integration-link&utm_medium=referral&utm_source=github-build-link", "")
-        return "{} {} {}".format(state, name.ljust(70), url)
+        return "{} {} {}{}".format(state, name.ljust(70), url, text)
 
     results = await asyncio.gather(*[asyncio.ensure_future(process_context(c)) for c in contexts])
     print("\n".join(sorted(results)))
