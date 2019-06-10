@@ -669,16 +669,17 @@ class Submitter(object):
         for s in reversed(self.stack_meta):
             url = format_url(s)
             print(" - {} {}".format(s.what, url))
+        top_of_stack = self.stack_meta[0]
         print()
         print("Facebook employees can import your changes by running ")
         print("(on a Facebook machine):")
         print()
-        print("    ghimport -s {}".format(url))
+        print("    ghimport -s {}".format(format_url(top_of_stack)))
         print()
         print("If you want to work on this diff stack on another machine,")
         print("run these commands inside a valid Git checkout:")
         print()
         print("     git fetch origin")
         print("     git checkout {}"
-              .format(branch_orig(self.username, s.ghnum)))
+              .format(branch_orig(self.username, top_of_stack.ghnum)))
         print("")
