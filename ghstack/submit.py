@@ -669,7 +669,7 @@ class Submitter(object):
         for s in reversed(self.stack_meta):
             url = format_url(s)
             print(" - {} {}".format(s.what, url))
-        top_of_stack = self.stack_meta[0]
+        top_of_stack = self.stack_meta[-1]
         print()
         print("Facebook employees can import your changes by running ")
         print("(on a Facebook machine):")
