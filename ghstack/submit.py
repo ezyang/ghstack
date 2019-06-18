@@ -342,17 +342,11 @@ class Submitter(object):
         ))
 
     def process_commit(self, commit: ghstack.diff.Diff) -> None:
-        title, pr_body = self._default_title_and_body(commit, None)
-        commit_id = commit.oid  # [BIDI] Comparisons here with git things, NOT KOSHER
-        tree = commit.patch.apply(self.sh, self.base_tree)
-
-        logging.info("# Processing {} {}".format(commit_id[:9], title))
+        logging.info("# Processing {} {}".format(commit.oid[:9], commit.title))
         logging.info("Base is {}".format(self.base_commit))
 
         # TODO: check if we authored the commit.  We ought not touch PRs we didn't
         # create.
-
-        commit_msg = commit.summary
 
         # check if the commit message says what pull request it's associated
         # with
@@ -364,6 +358,8 @@ class Submitter(object):
 
         m_metadata = commit.gh_metadata
         if m_metadata is None:
+            title, pr_body = self._default_title_and_body(commit, None)
+
             # Determine the next available GhNumber.  We do this by
             # iterating through known branches and keeping track
             # of the max.  The next available GhNumber is the next number.
@@ -381,10 +377,11 @@ class Submitter(object):
             self.seen_ghnums.add(ghnum)
 
             # Create the incremental pull request diff
+            tree = commit.patch.apply(self.sh, self.base_tree)
             new_pull = GitCommitHash(
                 self.sh.git("commit-tree", tree,
                             "-p", self.base_commit,
-                            input=commit_msg))
+                            input=commit.summary))
 
             # Push the branches, so that we can create a PR for them
             new_branches = (
@@ -418,7 +415,7 @@ class Submitter(object):
             commit_msg = ("{commit_msg}\n\n"
                           "gh-metadata: "
                           "{owner} {repo} {number} {branch_head}"
-                          .format(commit_msg=commit_msg.rstrip(),
+                          .format(commit_msg=commit.summary.rstrip(),
                                   owner=self.repo_owner,
                                   repo=self.repo_name,
                                   number=number,
@@ -549,18 +546,19 @@ class Submitter(object):
                         "-p", "origin/" + branch_base(self.username, ghnum),
                         "-p", self.base_commit,
                         input='Update base for {} on "{}"\n\n{}'
-                              .format(self.msg, title, commit_msg)))
+                              .format(self.msg, title, commit.summary)))
 
                 base_args = ("-p", new_base)
 
             # Blast our current tree as the newest commit, merging
             # against the previous pull entry, and the newest base.
 
+            tree = commit.patch.apply(self.sh, self.base_tree)
             new_pull = GitCommitHash(self.sh.git(
                 "commit-tree", tree,
                 "-p", "origin/" + branch_head(self.username, ghnum),
                 *base_args,
-                input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
+                input='{} on "{}"\n\n{}'.format(self.msg, title, commit.summary)))
 
             # Perform what is effectively an interactive rebase
             # on the orig branch.
@@ -574,7 +572,7 @@ class Submitter(object):
             logging.info("Restacking commit on {}".format(self.base_orig))
             new_orig = GitCommitHash(self.sh.git(
                 "commit-tree", tree,
-                "-p", self.base_orig, input=commit_msg))
+                "-p", self.base_orig, input=commit.summary))
 
             push_branches = (
                 (new_base, "base"),
