@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 
-from typing import NewType, Pattern, Match, List, Optional
+from typing import Pattern, Match, List, Optional
+from ghstack.typing import GitCommitHash, GitTreeHash
+import ghstack.shell
+import ghstack.diff
 import re
-
-
-# Actually, sometimes we smuggle revs in here.  It doesn't seem to
-# matter at the moment, but it might be good to make a better
-# distinction here.
-# commit 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
-GitCommitHash = NewType('GitCommitHash', str)
-
-# tree 3f72e04eeabcc7e77f127d3e7baf2f5ccdb148ee
-GitTreeHash = NewType('GitTreeHash', str)
 
 
 RE_RAW_COMMIT_ID = re.compile(r'^(?P<commit>[a-f0-9]+)$', re.MULTILINE)
@@ -74,3 +67,28 @@ class CommitHeader(object):
 
 def split_header(s: str) -> List[CommitHeader]:
     return list(map(CommitHeader, s.split("\0")[:-1]))
+
+
+class GitPatch(ghstack.diff.Patch):
+    h: CommitHeader
+
+    def __init__(self, h: CommitHeader):
+        self.h = h
+
+    def apply(self, sh: ghstack.shell.Shell, base_tree: GitTreeHash) -> GitTreeHash:
+        expected_tree = sh.git("rev-parse", self.h.commit_id() + "~^{tree}")
+        assert expected_tree == base_tree, \
+            "expected_tree = {}, base_tree = {}".format(expected_tree, base_tree)
+        return self.h.tree()
+
+
+def parse_header(s: str) -> List[ghstack.diff.Diff]:
+    def convert(h: CommitHeader) -> ghstack.diff.Diff:
+        return ghstack.diff.Diff(
+            title=h.title(),
+            summary=h.commit_msg(),
+            oid=h.commit_id(),
+            gh_metadata=ghstack.diff.GhMetadata.search(h.raw_header),
+            patch=GitPatch(h)
+        )
+    return list(map(convert, split_header(s)))

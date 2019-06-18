@@ -6,22 +6,24 @@ import ghstack.git
 import ghstack.shell
 import ghstack.github
 import ghstack.logging
-from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber
+from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber, GitCommitHash, GitTreeHash
 from typing import List, Optional, NamedTuple, Tuple, Set
-#from typing import Union
-from ghstack.git import GitCommitHash, GitTreeHash
-#from typing_extensions import Literal
 import logging
 
-#BranchKind = Union[Literal['base'], Literal['head'], Literal['orig']]
+# Either "base", "head" or "orig"; which of the ghstack generated
+# branches this diff corresponds to
 BranchKind = str
 
+# Metadata describing a diff we submitted to GitHub
 DiffMeta = NamedTuple('DiffMeta', [
     ('title', str),
     ('number', GitHubNumber),
     ('body', str),
     ('ghnum', GhNumber),
+    # What Git commit hash we should push to what branch
     ('push_branches', Tuple[Tuple[GitCommitHash, BranchKind], ...]),
+    # A human-readable string like 'Created' which describes what
+    # happened to this pull request
     ('what', str),
     ('closed', bool),
 ])
@@ -30,6 +32,8 @@ DiffMeta = NamedTuple('DiffMeta', [
 RE_STACK = re.compile(r'Stack.*:\n(\* [^\n]+\n)+')
 
 
+# NB: This regex is fuzzy because the D1234567 identifier is typically
+# linkified.
 RE_DIFF_REV = re.compile(r'^Differential Revision:.+?(D[0-9]+)', re.MULTILINE)
 
 
@@ -126,18 +130,16 @@ def main(msg: Optional[str],
     base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
 
     # compute the stack of commits to process (reverse chronological order),
-    # INCLUDING the base commit
-    stack = ghstack.git.split_header(
-        sh.git("rev-list", "--header", "^" + base + "^@", "HEAD"))
+    stack = ghstack.git.parse_header(
+        sh.git("rev-list", "--header", "^" + base, "HEAD"))
+
+    # compute the base commit
+    base_obj = ghstack.git.split_header(sh.git("rev-list", "--header", "^" + base + "^@", base))[0]
 
     assert len(stack) > 0
 
     ghstack.logging.record_status(
-        "{} \"{}\"".format(stack[0].commit_id()[:9], stack[0].title()))
-
-    # start with the earliest commit
-    g = reversed(stack)
-    base_obj = next(g)
+        "{} \"{}\"".format(stack[0].oid[:9], stack[0].title))
 
     submitter = Submitter(github=github,
                           sh=sh,
@@ -152,7 +154,8 @@ def main(msg: Optional[str],
                           msg=msg,
                           short=short)
 
-    for s in g:
+    # start with the earliest commit
+    for s in reversed(stack):
         submitter.process_commit(s)
     submitter.post_process()
 
@@ -195,6 +198,8 @@ class Submitter(object):
 
     # The base tree of the next diff we are submitting
     base_tree: GitTreeHash
+
+    base_orig: GitCommitHash
 
     # Message describing the update to the stack that was done
     msg: Optional[str]
@@ -245,10 +250,10 @@ class Submitter(object):
         self.msg = msg
         self.short = short
 
-    def _default_title_and_body(self, commit: ghstack.git.CommitHeader,
+    def _default_title_and_body(self, commit: ghstack.diff.Diff,
                                 old_pr_body: Optional[str]
                                 ) -> Tuple[str, str]:
-        title = commit.title()
+        title = commit.title
         extra = ''
         if old_pr_body is not None:
             # Look for tags we should preserve, and keep them
@@ -262,34 +267,36 @@ class Submitter(object):
         pr_body = (
             "{}:\n* (to be filled)\n\n{}{}"
             .format(self.stack_header,
-                    ''.join(commit.commit_msg().splitlines(True)[1:]).lstrip(),
+                    ''.join(commit.summary.splitlines(True)[1:]).lstrip(),
                     extra)
         )
         return title, pr_body
 
-    def process_commit(self, commit: ghstack.git.CommitHeader) -> None:
+    def process_commit(self, commit: ghstack.diff.Diff) -> None:
         title, pr_body = self._default_title_and_body(commit, None)
-        commit_id = commit.commit_id()
-        tree = commit.tree()
-        parents = commit.parents()
-        new_orig = commit_id
-        author = commit.author()
+        commit_id = commit.oid
+        # tree = commit.tree()  # [BIDI-REFACTOR]  Trees need transferrence
+        tree = commit.patch.apply(self.sh, self.base_tree)
+        # parents = commit.parents()  # [BIDI-REFACTOR]  Parents don't match
+        # TODO [BIDI-REFACTOR]: orig zippy thing, this is wrong!
+        new_orig = GitCommitHash(commit_id)
+        # author = commit.author()
 
         logging.info("# Processing {} {}".format(commit_id[:9], title))
-        logging.info("Authored by {}".format(author))
+        #logging.info("Authored by {}".format(author))
         logging.info("Base is {}".format(self.base_commit))
 
-        if len(parents) != 1:
-            raise RuntimeError(
-                "The commit {} has {} parents, which makes my head explode.  "
-                "`git rebase -i` your diffs into a stack, then try again."
-                .format(commit_id, len(parents)))
-        parent = parents[0]
+        # if len(parents) != 1:
+        #    raise RuntimeError(
+        #        "The commit {} has {} parents, which makes my head explode.  "
+        #        "`git rebase -i` your diffs into a stack, then try again."
+        #        .format(commit_id, len(parents)))
+        # parent = parents[0]
 
         # TODO: check if we authored the commit.  We ought not touch PRs we didn't
         # create.
 
-        commit_msg = commit.commit_msg()
+        commit_msg = commit.summary
 
         # check if the commit message says what pull request it's associated
         # with
@@ -299,7 +306,7 @@ class Submitter(object):
         #       - Otherwise, generate a unique branch name, and attach it to
         #         the commit message
 
-        m_metadata = commit.match_metadata()
+        m_metadata = commit.gh_metadata
         if m_metadata is None:
             # Determine the next available GhNumber.  We do this by
             # iterating through known branches and keeping track
@@ -382,13 +389,13 @@ class Submitter(object):
             ))
 
         else:
-            if m_metadata.group("username") != self.username:
+            if m_metadata.username != self.username:
                 # This is someone else's diff
                 raise RuntimeError(
                     "cannot handle stack from diffs of other people yet")
 
-            ghnum = GhNumber(m_metadata.group("ghnum"))
-            number = int(m_metadata.group("number"))
+            ghnum = m_metadata.ghnum
+            number = m_metadata.number
 
             if ghnum in self.seen_ghnums:
                 raise RuntimeError(
@@ -532,7 +539,6 @@ class Submitter(object):
                 # Blast our current tree as the newest commit, merging
                 # against the previous pull entry, and the newest base.
 
-                tree = commit.tree()
                 new_pull = GitCommitHash(self.sh.git(
                     "commit-tree", tree,
                     "-p", "origin/" + branch_head(self.username, ghnum),
@@ -543,7 +549,9 @@ class Submitter(object):
                 # on the orig branch; so if we've edited something in
                 # the history, continue restacking the commits.
 
-                if parent != self.base_orig:
+                # TODO: Do the based on zipping with orig
+                # if parent != self.base_orig:
+                if True:
                     logging.info("Restacking commit on {}".format(self.base_orig))
                     new_orig = GitCommitHash(self.sh.git(
                         "commit-tree", tree,
