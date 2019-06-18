@@ -662,7 +662,12 @@ class Submitter(object):
                 rows.append('* #{} {}'.format(s.number, s.title.strip()))
         return self.stack_header + ':\n' + '\n'.join(rows) + '\n'
 
-    def post_process(self) -> None:
+    def post_process(self, *, import_help: bool = True) -> None:
+        """
+        Do some post-processing that we can only do after we've finished
+        processing all of the diffs
+        """
+
         # fix the HEAD pointer
         self.sh.git("reset", "--soft", self.base_orig)
 
@@ -738,16 +743,18 @@ class Submitter(object):
             url = format_url(s)
             print(" - {} {}".format(s.what, url))
         top_of_stack = self.stack_meta[-1]
-        print()
-        print("Facebook employees can import your changes by running ")
-        print("(on a Facebook machine):")
-        print()
-        print("    ghimport -s {}".format(format_url(top_of_stack)))
-        print()
-        print("If you want to work on this diff stack on another machine,")
-        print("run these commands inside a valid Git checkout:")
-        print()
-        print("     git fetch origin")
-        print("     git checkout {}"
-              .format(branch_orig(self.username, top_of_stack.ghnum)))
-        print("")
+
+        if import_help:
+            print()
+            print("Facebook employees can import your changes by running ")
+            print("(on a Facebook machine):")
+            print()
+            print("    ghimport -s {}".format(format_url(top_of_stack)))
+            print()
+            print("If you want to work on this diff stack on another machine,")
+            print("run these commands inside a valid Git checkout:")
+            print()
+            print("     git fetch origin")
+            print("     git checkout {}"
+                  .format(branch_orig(self.username, top_of_stack.ghnum)))
+            print("")
