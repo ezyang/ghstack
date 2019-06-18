@@ -202,13 +202,18 @@ class Submitter(object):
     # GraphQL ID of the repository
     repo_id: GitHubRepositoryId
 
-    # The base commit of the next diff we are submitting
+    # The base commit of the prev diff we submitted.  This
+    # corresponds to the 'head' branch in GH.
     # INVARIANT: This is REALLY a hash, and not some random ref!
     base_commit: GitCommitHash
 
-    # The base tree of the next diff we are submitting
+    # The base tree of the prev diff we submitted.
+    # INVARIANT: This is base_commit^{tree}!  Cached here so we
+    # don't have to keep asking about it.
     base_tree: GitTreeHash
 
+    # The orig commit of the prev diff we submitted.  This
+    # corresponds to the 'orig' branch in GH.
     base_orig: GitCommitHash
 
     # Message describing the update to the stack that was done
@@ -263,6 +268,16 @@ class Submitter(object):
     def _default_title_and_body(self, commit: ghstack.diff.Diff,
                                 old_pr_body: Optional[str]
                                 ) -> Tuple[str, str]:
+        """
+        Compute what the default title and body of a newly opened pull
+        request would be, given the existing commit message.
+
+        If you pass in the old PR body, we also preserve "Differential
+        Revision" information in the PR body.  We only overwrite PR
+        body if you explicitly ask for it with --update-fields, but
+        it's good not to lose Phabricator diff assignment, so we special
+        case this.
+        """
         title = commit.title
         extra = ''
         if old_pr_body is not None:
@@ -283,6 +298,13 @@ class Submitter(object):
         return title, pr_body
 
     def _query_pr(self, commit: ghstack.diff.Diff) -> Tuple[str, str, bool]:
+        """
+        Query GitHub API for the current title, body and closed? status
+        of the pull request corresponding to a ghstack.diff.Diff.
+
+        Precondition: Diff has valid gh-metadata
+        """
+
         assert commit.gh_metadata is not None
         number = commit.gh_metadata.number
         # TODO: There is no reason to do a node query here; we can
@@ -312,6 +334,13 @@ class Submitter(object):
         return title, pr_body, r['closed']
 
     def skip_commit(self, commit: ghstack.diff.Diff) -> None:
+        """
+        Skip a diff, because we happen to know that there were no local
+        changes.  We have to update the internal metadata of the Submitter,
+        so you're still obligated to call this even if you think there's
+        nothing to do.
+        """
+
         # You can't skip a commit unless we've already uploaded it!
         assert commit.gh_metadata is not None
 
@@ -341,6 +370,268 @@ class Submitter(object):
             "rev-parse", self.base_orig + "^{tree}"
         ))
 
+    def _process_new_commit(self, commit: ghstack.diff.Diff) -> None:
+        """
+        Process a diff that has never been pushed to GitHub before.
+        """
+
+        assert commit.gh_metadata is None
+
+        title, pr_body = self._default_title_and_body(commit, None)
+
+        # Determine the next available GhNumber.  We do this by
+        # iterating through known branches and keeping track
+        # of the max.  The next available GhNumber is the next number.
+        # This is technically subject to a race, but we assume
+        # end user is not running this script concurrently on
+        # multiple machines (you bad bad)
+        refs = self.sh.git(
+            "for-each-ref",
+            "refs/remotes/origin/gh/{}".format(self.username),
+            "--format=%(refname)").split()
+        max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
+            if refs else 0
+        ghnum = GhNumber(str(max_ref_num + 1))
+        assert ghnum not in self.seen_ghnums
+        self.seen_ghnums.add(ghnum)
+
+        # Create the incremental pull request diff
+        tree = commit.patch.apply(self.sh, self.base_tree)
+        new_pull = GitCommitHash(
+            self.sh.git("commit-tree", tree,
+                        "-p", self.base_commit,
+                        input=commit.summary))
+
+        # Push the branches, so that we can create a PR for them
+        new_branches = (
+            push_spec(new_pull, branch_head(self.username, ghnum)),
+            push_spec(self.base_commit, branch_base(self.username, ghnum))
+        )
+        self.sh.git(
+            "push",
+            "origin",
+            *new_branches,
+        )
+        self.github.push_hook(new_branches)
+
+        # Time to open the PR
+        # NB: GraphQL API does not support opening PRs
+        r = self.github.post(
+            "repos/{owner}/{repo}/pulls"
+            .format(owner=self.repo_owner, repo=self.repo_name),
+            title=title,
+            head=branch_head(self.username, ghnum),
+            base=branch_base(self.username, ghnum),
+            body=pr_body,
+            maintainer_can_modify=True,
+        )
+        number = r['number']
+
+        logging.info("Opened PR #{}".format(number))
+
+        # Update the commit message of the local diff with metadata
+        # so we can correlate these later
+        commit_msg = ("{commit_msg}\n\n"
+                      "gh-metadata: "
+                      "{owner} {repo} {number} {branch_head}"
+                      .format(commit_msg=commit.summary.rstrip(),
+                              owner=self.repo_owner,
+                              repo=self.repo_name,
+                              number=number,
+                              branch_head=branch_head(self.username,
+                                                      ghnum)))
+
+        # TODO: Try harder to preserve the old author/commit
+        # information (is it really necessary? Check what
+        # --amend does...)
+        new_orig = GitCommitHash(self.sh.git(
+            "commit-tree",
+            tree,
+            "-p", self.base_orig,
+            input=commit_msg))
+
+        self.stack_meta.append(DiffMeta(
+            title=title,
+            number=number,
+            body=pr_body,
+            ghnum=ghnum,
+            push_branches=((new_orig, 'orig'), ),
+            what='Created',
+            closed=False,
+        ))
+
+        self.base_commit = new_pull
+        self.base_orig = new_orig
+        self.base_tree = tree
+
+    def _process_old_commit(self, commit: ghstack.diff.Diff) -> None:
+        """
+        Process a diff that has an existing upload to GitHub.
+        """
+
+        assert commit.gh_metadata is not None
+        if commit.gh_metadata.username != self.username:
+            # This is someone else's diff
+            raise RuntimeError(
+                "cannot handle stack from diffs of other people yet")
+
+        ghnum = commit.gh_metadata.ghnum
+        number = commit.gh_metadata.number
+
+        if ghnum in self.seen_ghnums:
+            raise RuntimeError(
+                "Something very strange has happened: a commit for "
+                "the pull request #{} occurs twice in your local "
+                "commit stack.  This is usually because of a botched "
+                "rebase.  Please take a look at your git log and seek "
+                "help from your local Git expert.".format(number))
+        self.seen_ghnums.add(ghnum)
+
+        title, pr_body, closed = self._query_pr(commit)
+
+        logging.info("Pushing to #{}".format(number))
+
+        # We've got an update to do!  But what exactly should we
+        # do?
+        #
+        # Here are a number of situations which may have
+        # occurred.
+        #
+        #   1. None of the parent commits changed, and this is
+        #      the first change we need to push an update to.
+        #
+        #   2. A parent commit changed, so we need to restack
+        #      this commit too.  (You can't easily tell distinguish
+        #      between rebase versus rebase+amend)
+        #
+        #   3. The parent is now master (any prior parent
+        #      commits were absorbed into master.)
+        #
+        #   4. The parent is totally disconnected, the history
+        #      is bogus but at least the merge-base on master
+        #      is the same or later.  (This can occur if you
+        #      cherry-picked a commit out of an old stack and
+        #      want to make it independent.)
+        #
+        # In cases 1-3, we can maintain a clean merge history
+        # if we do a little extra book-keeping, which is what
+        # we do now.
+        #
+        # TODO: What we have here actually works pretty hard to
+        # maintain a consistent merge history between all PRs;
+        # so, e.g., you could merge with master and things
+        # wouldn't break.  But we don't necessarily have to do
+        # this; all we need is the delta between base and head
+        # to make sense.  The benefit to doing this is you could
+        # more easily update single revs only, without doing
+        # the rest of the stack.  The downside is that you
+        # get less accurate merge structure for your changes
+        # (because each "diff" is completely disconnected.)
+        #
+
+        # First, check if the parent commit hasn't changed.
+        # We do this by checking if our base_commit is the same
+        # as the gh/ezyang/X/base commit.
+        #
+        # In this case, we don't need to include the base as a
+        # parent at all; just construct our new diff as a plain,
+        # non-merge commit.
+        base_args: Tuple[str, ...]
+        orig_base_hash = self.sh.git(
+            "rev-parse", "origin/" + branch_base(self.username, ghnum))
+        if orig_base_hash == self.base_commit:
+
+            new_base = self.base_commit
+            base_args = ()
+
+        else:
+            # Second, check if our local base (self.base_commit)
+            # added some new commits, but is still rooted on the
+            # old base.
+            #
+            # If so, all we need to do is include the local base
+            # as a parent when we do the merge.
+            is_ancestor = self.sh.git(
+                "merge-base",
+                "--is-ancestor",
+                "origin/" + branch_base(self.username, ghnum),
+                self.base_commit, exitcode=True)
+
+            if is_ancestor:
+                new_base = self.base_commit
+
+            else:
+                # If we've gotten here, it means that the new
+                # base and the old base are completely
+                # unrelated.  We'll make a fake commit that
+                # "resets" the tree back to something that makes
+                # sense and merge with that.  This doesn't fix
+                # the fact that we still incorrectly report
+                # the old base as an ancestor of our commit, but
+                # it's better than nothing.
+                new_base = GitCommitHash(self.sh.git(
+                    "commit-tree", self.base_tree,
+                    "-p", "origin/" + branch_base(self.username, ghnum),
+                    "-p", self.base_commit,
+                    input='Update base for {} on "{}"\n\n{}'
+                          .format(self.msg, title, commit.summary)))
+
+            base_args = ("-p", new_base)
+
+        # Blast our current tree as the newest commit, merging
+        # against the previous pull entry, and the newest base.
+
+        tree = commit.patch.apply(self.sh, self.base_tree)
+        new_pull = GitCommitHash(self.sh.git(
+            "commit-tree", tree,
+            "-p", "origin/" + branch_head(self.username, ghnum),
+            *base_args,
+            input='{} on "{}"\n\n{}'.format(self.msg, title, commit.summary)))
+
+        # Perform what is effectively an interactive rebase
+        # on the orig branch.
+        #
+        # Hypothetically, there could be a case when this isn't
+        # necessary, but it's INCREDIBLY unlikely (because we'd
+        # have to look EXACTLY like the original orig, and since
+        # we're in the branch that says "hey we changed
+        # something" that's probably not what happened.
+
+        logging.info("Restacking commit on {}".format(self.base_orig))
+        new_orig = GitCommitHash(self.sh.git(
+            "commit-tree", tree,
+            "-p", self.base_orig, input=commit.summary))
+
+        push_branches = (
+            (new_base, "base"),
+            (new_pull, "head"),
+            (new_orig, "orig"),
+        )
+
+        if closed:
+            what = 'Skipped closed'
+        else:
+            what = 'Updated'
+
+        self.stack_meta.append(DiffMeta(
+            title=title,
+            number=number,
+            # NB: Ignore the commit message, and just reuse the old commit
+            # message.  This is consistent with 'jf submit' default
+            # behavior.  The idea is that people may have edited the
+            # PR description on GitHub and you don't want to clobber
+            # it.
+            body=pr_body,
+            ghnum=ghnum,
+            push_branches=push_branches,
+            what=what,
+            closed=closed,
+        ))
+
+        self.base_commit = new_pull
+        self.base_orig = new_orig
+        self.base_tree = tree
+
     def process_commit(self, commit: ghstack.diff.Diff) -> None:
         logging.info("# Processing {} {}".format(commit.oid[:9], commit.title))
         logging.info("Base is {}".format(self.base_commit))
@@ -358,255 +649,9 @@ class Submitter(object):
 
         m_metadata = commit.gh_metadata
         if m_metadata is None:
-            title, pr_body = self._default_title_and_body(commit, None)
-
-            # Determine the next available GhNumber.  We do this by
-            # iterating through known branches and keeping track
-            # of the max.  The next available GhNumber is the next number.
-            # This is technically subject to a race, but we assume
-            # end user is not running this script concurrently on
-            # multiple machines (you bad bad)
-            refs = self.sh.git(
-                "for-each-ref",
-                "refs/remotes/origin/gh/{}".format(self.username),
-                "--format=%(refname)").split()
-            max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
-                if refs else 0
-            ghnum = GhNumber(str(max_ref_num + 1))
-            assert ghnum not in self.seen_ghnums
-            self.seen_ghnums.add(ghnum)
-
-            # Create the incremental pull request diff
-            tree = commit.patch.apply(self.sh, self.base_tree)
-            new_pull = GitCommitHash(
-                self.sh.git("commit-tree", tree,
-                            "-p", self.base_commit,
-                            input=commit.summary))
-
-            # Push the branches, so that we can create a PR for them
-            new_branches = (
-                push_spec(new_pull, branch_head(self.username, ghnum)),
-                push_spec(self.base_commit, branch_base(self.username, ghnum))
-            )
-            self.sh.git(
-                "push",
-                "origin",
-                *new_branches,
-            )
-            self.github.push_hook(new_branches)
-
-            # Time to open the PR
-            # NB: GraphQL API does not support opening PRs
-            r = self.github.post(
-                "repos/{owner}/{repo}/pulls"
-                .format(owner=self.repo_owner, repo=self.repo_name),
-                title=title,
-                head=branch_head(self.username, ghnum),
-                base=branch_base(self.username, ghnum),
-                body=pr_body,
-                maintainer_can_modify=True,
-            )
-            number = r['number']
-
-            logging.info("Opened PR #{}".format(number))
-
-            # Update the commit message of the local diff with metadata
-            # so we can correlate these later
-            commit_msg = ("{commit_msg}\n\n"
-                          "gh-metadata: "
-                          "{owner} {repo} {number} {branch_head}"
-                          .format(commit_msg=commit.summary.rstrip(),
-                                  owner=self.repo_owner,
-                                  repo=self.repo_name,
-                                  number=number,
-                                  branch_head=branch_head(self.username,
-                                                          ghnum)))
-
-            # TODO: Try harder to preserve the old author/commit
-            # information (is it really necessary? Check what
-            # --amend does...)
-            new_orig = GitCommitHash(self.sh.git(
-                "commit-tree",
-                tree,
-                "-p", self.base_orig,
-                input=commit_msg))
-
-            self.stack_meta.append(DiffMeta(
-                title=title,
-                number=number,
-                body=pr_body,
-                ghnum=ghnum,
-                push_branches=((new_orig, 'orig'), ),
-                what='Created',
-                closed=False,
-            ))
-
+            self._process_new_commit(commit)
         else:
-            if m_metadata.username != self.username:
-                # This is someone else's diff
-                raise RuntimeError(
-                    "cannot handle stack from diffs of other people yet")
-
-            ghnum = m_metadata.ghnum
-            number = m_metadata.number
-
-            if ghnum in self.seen_ghnums:
-                raise RuntimeError(
-                    "Something very strange has happened: a commit for "
-                    "the pull request #{} occurs twice in your local "
-                    "commit stack.  This is usually because of a botched "
-                    "rebase.  Please take a look at your git log and seek "
-                    "help from your local Git expert.".format(number))
-            self.seen_ghnums.add(ghnum)
-
-            title, pr_body, closed = self._query_pr(commit)
-
-            logging.info("Pushing to #{}".format(number))
-
-            # We've got an update to do!  But what exactly should we
-            # do?
-            #
-            # Here are a number of situations which may have
-            # occurred.
-            #
-            #   1. None of the parent commits changed, and this is
-            #      the first change we need to push an update to.
-            #
-            #   2. A parent commit changed, so we need to restack
-            #      this commit too.  (You can't easily tell distinguish
-            #      between rebase versus rebase+amend)
-            #
-            #   3. The parent is now master (any prior parent
-            #      commits were absorbed into master.)
-            #
-            #   4. The parent is totally disconnected, the history
-            #      is bogus but at least the merge-base on master
-            #      is the same or later.  (This can occur if you
-            #      cherry-picked a commit out of an old stack and
-            #      want to make it independent.)
-            #
-            # In cases 1-3, we can maintain a clean merge history
-            # if we do a little extra book-keeping, which is what
-            # we do now.
-            #
-            # TODO: What we have here actually works pretty hard to
-            # maintain a consistent merge history between all PRs;
-            # so, e.g., you could merge with master and things
-            # wouldn't break.  But we don't necessarily have to do
-            # this; all we need is the delta between base and head
-            # to make sense.  The benefit to doing this is you could
-            # more easily update single revs only, without doing
-            # the rest of the stack.  The downside is that you
-            # get less accurate merge structure for your changes
-            # (because each "diff" is completely disconnected.)
-            #
-
-            # First, check if the parent commit hasn't changed.
-            # We do this by checking if our base_commit is the same
-            # as the gh/ezyang/X/base commit.
-            #
-            # In this case, we don't need to include the base as a
-            # parent at all; just construct our new diff as a plain,
-            # non-merge commit.
-            base_args: Tuple[str, ...]
-            orig_base_hash = self.sh.git(
-                "rev-parse", "origin/" + branch_base(self.username, ghnum))
-            if orig_base_hash == self.base_commit:
-
-                new_base = self.base_commit
-                base_args = ()
-
-            else:
-                # Second, check if our local base (self.base_commit)
-                # added some new commits, but is still rooted on the
-                # old base.
-                #
-                # If so, all we need to do is include the local base
-                # as a parent when we do the merge.
-                is_ancestor = self.sh.git(
-                    "merge-base",
-                    "--is-ancestor",
-                    "origin/" + branch_base(self.username, ghnum),
-                    self.base_commit, exitcode=True)
-
-                if is_ancestor:
-                    new_base = self.base_commit
-
-                else:
-                    # If we've gotten here, it means that the new
-                    # base and the old base are completely
-                    # unrelated.  We'll make a fake commit that
-                    # "resets" the tree back to something that makes
-                    # sense and merge with that.  This doesn't fix
-                    # the fact that we still incorrectly report
-                    # the old base as an ancestor of our commit, but
-                    # it's better than nothing.
-                    new_base = GitCommitHash(self.sh.git(
-                        "commit-tree", self.base_tree,
-                        "-p", "origin/" + branch_base(self.username, ghnum),
-                        "-p", self.base_commit,
-                        input='Update base for {} on "{}"\n\n{}'
-                              .format(self.msg, title, commit.summary)))
-
-                base_args = ("-p", new_base)
-
-            # Blast our current tree as the newest commit, merging
-            # against the previous pull entry, and the newest base.
-
-            tree = commit.patch.apply(self.sh, self.base_tree)
-            new_pull = GitCommitHash(self.sh.git(
-                "commit-tree", tree,
-                "-p", "origin/" + branch_head(self.username, ghnum),
-                *base_args,
-                input='{} on "{}"\n\n{}'.format(self.msg, title, commit.summary)))
-
-            # Perform what is effectively an interactive rebase
-            # on the orig branch.
-            #
-            # Hypothetically, there could be a case when this isn't
-            # necessary, but it's INCREDIBLY unlikely (because we'd
-            # have to look EXACTLY like the original orig, and since
-            # we're in the branch that says "hey we changed
-            # something" that's probably not what happened.
-
-            logging.info("Restacking commit on {}".format(self.base_orig))
-            new_orig = GitCommitHash(self.sh.git(
-                "commit-tree", tree,
-                "-p", self.base_orig, input=commit.summary))
-
-            push_branches = (
-                (new_base, "base"),
-                (new_pull, "head"),
-                (new_orig, "orig"),
-            )
-
-            if closed:
-                what = 'Skipped closed'
-            else:
-                what = 'Updated'
-
-            self.stack_meta.append(DiffMeta(
-                title=title,
-                number=number,
-                # NB: Ignore the commit message, and just reuse the old commit
-                # message.  This is consistent with 'jf submit' default
-                # behavior.  The idea is that people may have edited the
-                # PR description on GitHub and you don't want to clobber
-                # it.
-                body=pr_body,
-                ghnum=ghnum,
-                push_branches=push_branches,
-                what=what,
-                closed=closed,
-            ))
-
-        # The current pull request head commit, is the new base commit
-        self.base_commit = new_pull
-        self.base_orig = new_orig
-        self.base_tree = tree
-        logging.debug("base_commit = {}".format(self.base_commit))
-        logging.debug("base_orig = {}".format(self.base_orig))
-        logging.debug("base_tree = {}".format(self.base_tree))
+            self._process_old_commit(commit)
 
     def _format_stack(self, index: int) -> str:
         rows = []
