@@ -274,9 +274,8 @@ class Submitter(object):
 
     def process_commit(self, commit: ghstack.diff.Diff) -> None:
         title, pr_body = self._default_title_and_body(commit, None)
-        commit_id = commit.oid
+        commit_id = commit.oid  # [BIDI] Comparisons here with git things, NOT KOSHER
         tree = commit.patch.apply(self.sh, self.base_tree)
-        new_orig = GitCommitHash(commit_id)
 
         logging.info("# Processing {} {}".format(commit_id[:9], title))
         logging.info("Base is {}".format(self.base_commit))
@@ -428,12 +427,14 @@ class Submitter(object):
                 GitCommitHash("origin/" + branch_orig(self.username, ghnum))
             ))
             push_branches: Tuple[Tuple[GitCommitHash, BranchKind], ...]
+            # [BIDI] THIS COMPARISON IS NOT KOSHER
             if clean_commit_id == commit_id:
                 logging.info("Nothing to do")
                 # NB: NOT commit_id, that's the orig commit!
                 new_pull = GitCommitHash(self.sh.git(
                     "rev-parse", "origin/" + branch_head(self.username, ghnum)))
                 push_branches = ()
+                new_orig = clean_commit_id
             else:
                 logging.info("Pushing to #{}".format(number))
 
@@ -533,17 +534,19 @@ class Submitter(object):
                     *base_args,
                     input='{} on "{}"\n\n{}'.format(self.msg, title, commit_msg)))
 
-                # We are in the process of doing an interactive rebase
-                # on the orig branch; so if we've edited something in
-                # the history, continue restacking the commits.
+                # Perform what is effectively an interactive rebase
+                # on the orig branch.
+                #
+                # Hypothetically, there could be a case when this isn't
+                # necessary, but it's INCREDIBLY unlikely (because we'd
+                # have to look EXACTLY like the original orig, and since
+                # we're in the branch that says "hey we changed
+                # something" that's probably not what happened.
 
-                # TODO: Do the based on zipping with orig
-                # if parent != self.base_orig:
-                if True:
-                    logging.info("Restacking commit on {}".format(self.base_orig))
-                    new_orig = GitCommitHash(self.sh.git(
-                        "commit-tree", tree,
-                        "-p", self.base_orig, input=commit_msg))
+                logging.info("Restacking commit on {}".format(self.base_orig))
+                new_orig = GitCommitHash(self.sh.git(
+                    "commit-tree", tree,
+                    "-p", self.base_orig, input=commit_msg))
 
                 push_branches = (
                     (new_base, "base"),
