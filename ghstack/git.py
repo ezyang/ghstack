@@ -84,6 +84,12 @@ class GitPatch(ghstack.diff.Patch):
 
 def parse_header(s: str) -> List[ghstack.diff.Diff]:
     def convert(h: CommitHeader) -> ghstack.diff.Diff:
+        parents = h.parents()
+        if len(parents) != 1:
+            raise RuntimeError(
+                "The commit {} has {} parents, which makes my head explode.  "
+                "`git rebase -i` your diffs into a stack, then try again."
+                .format(h.commit_id(), len(parents)))
         return ghstack.diff.Diff(
             title=h.title(),
             summary=h.commit_msg(),

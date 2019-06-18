@@ -275,23 +275,11 @@ class Submitter(object):
     def process_commit(self, commit: ghstack.diff.Diff) -> None:
         title, pr_body = self._default_title_and_body(commit, None)
         commit_id = commit.oid
-        # tree = commit.tree()  # [BIDI-REFACTOR]  Trees need transferrence
         tree = commit.patch.apply(self.sh, self.base_tree)
-        # parents = commit.parents()  # [BIDI-REFACTOR]  Parents don't match
-        # TODO [BIDI-REFACTOR]: orig zippy thing, this is wrong!
         new_orig = GitCommitHash(commit_id)
-        # author = commit.author()
 
         logging.info("# Processing {} {}".format(commit_id[:9], title))
-        #logging.info("Authored by {}".format(author))
         logging.info("Base is {}".format(self.base_commit))
-
-        # if len(parents) != 1:
-        #    raise RuntimeError(
-        #        "The commit {} has {} parents, which makes my head explode.  "
-        #        "`git rebase -i` your diffs into a stack, then try again."
-        #        .format(commit_id, len(parents)))
-        # parent = parents[0]
 
         # TODO: check if we authored the commit.  We ought not touch PRs we didn't
         # create.
