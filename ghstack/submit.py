@@ -664,7 +664,7 @@ class Submitter(object):
                 rows.append('* #{} {}'.format(s.number, s.title.strip()))
         return self.stack_header + ':\n' + '\n'.join(rows) + '\n'
 
-    def post_process(self, *, import_help: bool = True) -> None:
+    def post_process(self, *, import_help: bool = True) -> None:  # noqa: C901
         """
         Do some post-processing that we can only do after we've finished
         processing all of the diffs

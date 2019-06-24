@@ -31,7 +31,7 @@ Config = NamedTuple('Config', [
 ])
 
 
-def read_config(*, request_circle_token: bool = False) -> Config:
+def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
     config = configparser.ConfigParser()
     config.read(['.ghstackrc', os.path.expanduser('~/.ghstackrc')])
 

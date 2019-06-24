@@ -118,7 +118,9 @@ def main() -> None:
             conf = ghstack.config.read_config(request_circle_token=True)
             if conf.circle_token:
                 ghstack.logging.formatter.redact(conf.circle_token, '<CIRCLE_TOKEN>')
-            circleci = ghstack.circleci_real.RealCircleCIEndpoint(circle_token=conf.circle_token)
+            circleci = ghstack.circleci_real.RealCircleCIEndpoint(
+                circle_token=conf.circle_token
+            )
             # Blegh
             loop = asyncio.get_event_loop()
             loop.run_until_complete(ghstack.status.main(

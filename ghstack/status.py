@@ -21,7 +21,7 @@ def strip_sccache(x: str) -> str:
     return x[:newline_before_marker_pos]
 
 
-async def main(pull_request: str,
+async def main(pull_request: str,  # noqa: C901
          github: ghstack.github.GitHubEndpoint,
          circleci: ghstack.circleci.CircleCIEndpoint) -> None:
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # A simple, key-value cache.
 # - Concurrency safe
 # - Handles eviction
@@ -16,8 +18,8 @@ def _db_conn() -> sqlite3.Connection:
     fn = os.path.expanduser('~/.ghstackcache')
     if not _handle:
         _handle = sqlite3.connect(fn)
-        current_version_record = _handle.execute("PRAGMA user_version").fetchone()
-        if current_version_record is None or current_version_record[0] != CURRENT_VERSION:
+        user_version = _handle.execute("PRAGMA user_version").fetchone()
+        if user_version is None or user_version[0] != CURRENT_VERSION:
             _handle.close()
             os.remove(fn)
             _handle = sqlite3.connect(fn)
@@ -39,7 +41,9 @@ def _db_conn() -> sqlite3.Connection:
 
 def get(domain: str, key: str) -> Optional[str]:
     conn = _db_conn()
-    c = conn.execute("SELECT value FROM ghstack_cache WHERE domain = ? AND key = ?", (domain, key))
+    c = conn.execute(
+        "SELECT value FROM ghstack_cache WHERE domain = ? AND key = ?",
+        (domain, key))
     r = c.fetchone()
     if r is None:
         return None
@@ -50,8 +54,16 @@ def get(domain: str, key: str) -> Optional[str]:
 
 def put(domain: str, key: str, value: str) -> None:
     conn = _db_conn()
-    conn.execute("UPDATE ghstack_cache SET value = ? WHERE domain = ? AND key = ?", (value, domain, key))
-    c = conn.execute("INSERT INTO ghstack_cache (domain, key, value) SELECT ?, ?, ? WHERE (SELECT Changes() = 0)", (domain, key, value))
+    conn.execute(
+        "UPDATE ghstack_cache SET value = ? WHERE domain = ? AND key = ?",
+        (value, domain, key))
+    c = conn.execute(
+        """
+        INSERT INTO ghstack_cache (domain, key, value)
+        SELECT ?, ?, ? WHERE (SELECT Changes() = 0)
+        """,
+        (domain, key, value))
     if c.lastrowid is not None:
-        conn.execute("DELETE FROM ghstack_cache WHERE id < ?", (c.lastrowid - CACHE_SIZE, ))
+        conn.execute(
+            "DELETE FROM ghstack_cache WHERE id < ?", (c.lastrowid - CACHE_SIZE, ))
     conn.commit()
