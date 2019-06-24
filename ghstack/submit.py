@@ -317,11 +317,14 @@ class Submitter(object):
                   body
                   title
                   closed
+                  headRefName
                 }
               }
             }
           }
         """, repo_id=self.repo_id, number=number)["data"]["node"]["pullRequest"]
+
+        assert r['headRefName'] == branch_head(self.username, commit.gh_metadata.ghnum)
 
         # NB: Technically, we don't need to pull this information at
         # all, but it's more convenient to unconditionally edit
@@ -647,8 +650,7 @@ class Submitter(object):
         #       - Otherwise, generate a unique branch name, and attach it to
         #         the commit message
 
-        m_metadata = commit.gh_metadata
-        if m_metadata is None:
+        if commit.gh_metadata is None:
             self._process_new_commit(commit)
         else:
             self._process_old_commit(commit)
