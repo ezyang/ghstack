@@ -948,11 +948,18 @@ Repository state:
         print("###")
         print("### Amend the PR")
         self.github.patch("repos/pytorch/pytorch/pulls/500",
-                          body="Directly updated message body",
+                          body="""\
+Stack:
+* **#500 Commit 1**
+
+Directly updated message body""",
                           title="Directly updated title")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
 
     Directly updated message body
 
@@ -976,6 +983,9 @@ Repository state:
 
         self.assertExpected(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Directly updated title**
 
     Directly updated message body
 
