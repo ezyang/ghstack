@@ -52,6 +52,10 @@ class Formatter(logging.Formatter):
     # retroactively redact stuff you've already leaked, so make sure
     # you redact things as soon as possible
     def redact(self, needle: str, replace: str = '<REDACTED>') -> None:
+        # Don't redact empty strings; this will lead to something
+        # that looks like s<REDACTED>t<REDACTED>r<REDACTED>...
+        if needle == '':
+            return
         self.redactions[needle] = replace
 
 
