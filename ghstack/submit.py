@@ -9,12 +9,14 @@ import ghstack.logging
 from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber, GitCommitHash, GitTreeHash
 from typing import List, Optional, NamedTuple, Tuple, Set
 import logging
+from dataclasses import dataclass
 
 # Either "base", "head" or "orig"; which of the ghstack generated
 # branches this diff corresponds to
 BranchKind = str
 
 # Metadata describing a diff we submitted to GitHub
+# TODO: Make this directly contain a DiffWithGitHubMetadata?
 DiffMeta = NamedTuple('DiffMeta', [
     ('title', str),
     ('number', GitHubNumber),
@@ -65,6 +67,16 @@ def branch_orig(username: str, ghnum: GhNumber) -> GitCommitHash:
 
 
 STACK_HEADER = "Stack from [ghstack](https://github.com/ezyang/ghstack)"
+
+
+@dataclass
+class DiffWithGitHubMetadata:
+    diff: ghstack.diff.Diff
+    number: GitHubNumber
+    title: str
+    body: str
+    closed: bool
+    ghnum: GhNumber
 
 
 def main(msg: Optional[str],
@@ -157,16 +169,20 @@ def main(msg: Optional[str],
     # start with the earliest commit
     skip = True
     for s in reversed(stack):
-        current_oid = None
-        if s.gh_metadata is not None:
+        if s.pull_request_resolved is not None:
+            d = submitter.elaborate_diff(s)
             current_oid = GitCommitHash(sh.git(
-                "rev-parse", "origin/" + branch_orig(username, s.gh_metadata.ghnum)
+                "rev-parse", "origin/" + branch_orig(username, d.ghnum)
             ))
-        if skip and s.oid == current_oid:
-            submitter.skip_commit(s)
+            if skip and current_oid == s.oid:
+                submitter.skip_commit(d)
+            else:
+                skip = False
+                submitter.process_old_commit(d)
         else:
             skip = False
-            submitter.process_commit(s)
+            submitter.process_new_commit(s)
+
     submitter.post_process()
 
     # NB: earliest first
@@ -297,16 +313,17 @@ class Submitter(object):
         )
         return title, pr_body
 
-    def _query_pr(self, commit: ghstack.diff.Diff) -> Tuple[str, str, bool]:
+    def elaborate_diff(self, commit: ghstack.diff.Diff) -> DiffWithGitHubMetadata:
         """
         Query GitHub API for the current title, body and closed? status
         of the pull request corresponding to a ghstack.diff.Diff.
-
-        Precondition: Diff has valid gh-metadata
         """
 
-        assert commit.gh_metadata is not None
-        number = commit.gh_metadata.number
+        assert commit.pull_request_resolved is not None
+        assert commit.pull_request_resolved.owner == self.repo_owner
+        assert commit.pull_request_resolved.repo == self.repo_name
+
+        number = commit.pull_request_resolved.number
         # TODO: There is no reason to do a node query here; we can
         # just look up the repo the old fashioned way
         r = self.github.graphql("""
@@ -324,7 +341,18 @@ class Submitter(object):
           }
         """, repo_id=self.repo_id, number=number)["data"]["node"]["pullRequest"]
 
-        assert r['headRefName'] == branch_head(self.username, commit.gh_metadata.ghnum)
+        m = re.match(r'gh/[^/]+/([0-9]+)/head$', r['headRefName'])
+        if m is None:
+            raise RuntimeError('''\
+This commit appears to already be associated with a pull request,
+but the pull request doesn't look like it was submitted by ghstack.
+If you think this is in error, run:
+
+    ghstack unlink {}
+
+to disassociate the commit with the pull request, and then try again.
+'''.format(commit.oid))
+        gh_number = GhNumber(m.group(1))
 
         # NB: Technically, we don't need to pull this information at
         # all, but it's more convenient to unconditionally edit
@@ -334,9 +362,16 @@ class Submitter(object):
         if self.update_fields:
             title, pr_body = self._default_title_and_body(commit, pr_body)
 
-        return title, pr_body, r['closed']
+        return DiffWithGitHubMetadata(
+            diff=commit,
+            title=title,
+            body=pr_body,
+            closed=r['closed'],
+            number=number,
+            ghnum=gh_number,
+        )
 
-    def skip_commit(self, commit: ghstack.diff.Diff) -> None:
+    def skip_commit(self, commit: DiffWithGitHubMetadata) -> None:
         """
         Skip a diff, because we happen to know that there were no local
         changes.  We have to update the internal metadata of the Submitter,
@@ -344,24 +379,16 @@ class Submitter(object):
         nothing to do.
         """
 
-        # You can't skip a commit unless we've already uploaded it!
-        assert commit.gh_metadata is not None
-
-        number = commit.gh_metadata.number
-        ghnum = commit.gh_metadata.ghnum
-
-        # Read out information about the PR from GitHub anyway;
-        # we'll need it to write out the stack in the descriptions
-        title, pr_body, closed = self._query_pr(commit)
+        ghnum = commit.ghnum
 
         self.stack_meta.append(DiffMeta(
-            title=title,
-            number=number,
-            body=pr_body,
+            title=commit.title,
+            number=commit.number,
+            body=commit.body,
             ghnum=ghnum,
             push_branches=(),
             what='Skipped',
-            closed=closed,
+            closed=commit.closed,
         ))
 
         self.base_commit = GitCommitHash(self.sh.git(
@@ -373,12 +400,10 @@ class Submitter(object):
             "rev-parse", self.base_orig + "^{tree}"
         ))
 
-    def _process_new_commit(self, commit: ghstack.diff.Diff) -> None:
+    def process_new_commit(self, commit: ghstack.diff.Diff) -> None:
         """
         Process a diff that has never been pushed to GitHub before.
         """
-
-        assert commit.gh_metadata is None
 
         title, pr_body = self._default_title_and_body(commit, None)
 
@@ -435,14 +460,12 @@ class Submitter(object):
         # Update the commit message of the local diff with metadata
         # so we can correlate these later
         commit_msg = ("{commit_msg}\n\n"
-                      "gh-metadata: "
-                      "{owner} {repo} {number} {branch_head}"
+                      "Pull Request resolved: "
+                      "https://github.com/{owner}/{repo}/pull/{number}"
                       .format(commit_msg=commit.summary.rstrip(),
                               owner=self.repo_owner,
                               repo=self.repo_name,
-                              number=number,
-                              branch_head=branch_head(self.username,
-                                                      ghnum)))
+                              number=number))
 
         # TODO: Try harder to preserve the old author/commit
         # information (is it really necessary? Check what
@@ -467,19 +490,14 @@ class Submitter(object):
         self.base_orig = new_orig
         self.base_tree = tree
 
-    def _process_old_commit(self, commit: ghstack.diff.Diff) -> None:
+    def process_old_commit(self, elab_commit: DiffWithGitHubMetadata) -> None:
         """
         Process a diff that has an existing upload to GitHub.
         """
 
-        assert commit.gh_metadata is not None
-        if commit.gh_metadata.username != self.username:
-            # This is someone else's diff
-            raise RuntimeError(
-                "cannot handle stack from diffs of other people yet")
-
-        ghnum = commit.gh_metadata.ghnum
-        number = commit.gh_metadata.number
+        commit = elab_commit.diff
+        ghnum = elab_commit.ghnum
+        number = elab_commit.number
 
         if ghnum in self.seen_ghnums:
             raise RuntimeError(
@@ -489,8 +507,6 @@ class Submitter(object):
                 "rebase.  Please take a look at your git log and seek "
                 "help from your local Git expert.".format(number))
         self.seen_ghnums.add(ghnum)
-
-        title, pr_body, closed = self._query_pr(commit)
 
         logging.info("Pushing to #{}".format(number))
 
@@ -542,6 +558,7 @@ class Submitter(object):
         base_args: Tuple[str, ...]
         orig_base_hash = self.sh.git(
             "rev-parse", "origin/" + branch_base(self.username, ghnum))
+
         if orig_base_hash == self.base_commit:
 
             new_base = self.base_commit
@@ -577,7 +594,7 @@ class Submitter(object):
                     "-p", "origin/" + branch_base(self.username, ghnum),
                     "-p", self.base_commit,
                     input='Update base for {} on "{}"\n\n{}'
-                          .format(self.msg, title, commit.summary)))
+                          .format(self.msg, elab_commit.title, elab_commit.body)))
 
             base_args = ("-p", new_base)
 
@@ -589,7 +606,7 @@ class Submitter(object):
             "commit-tree", tree,
             "-p", "origin/" + branch_head(self.username, ghnum),
             *base_args,
-            input='{} on "{}"\n\n{}'.format(self.msg, title, commit.summary)))
+            input='{} on "{}"\n\n{}'.format(self.msg, elab_commit.title, elab_commit.body)))
 
         # Perform what is effectively an interactive rebase
         # on the orig branch.
@@ -611,49 +628,29 @@ class Submitter(object):
             (new_orig, "orig"),
         )
 
-        if closed:
+        if elab_commit.closed:
             what = 'Skipped closed'
         else:
             what = 'Updated'
 
         self.stack_meta.append(DiffMeta(
-            title=title,
+            title=elab_commit.title,
             number=number,
             # NB: Ignore the commit message, and just reuse the old commit
             # message.  This is consistent with 'jf submit' default
             # behavior.  The idea is that people may have edited the
             # PR description on GitHub and you don't want to clobber
             # it.
-            body=pr_body,
+            body=elab_commit.body,
             ghnum=ghnum,
             push_branches=push_branches,
             what=what,
-            closed=closed,
+            closed=elab_commit.closed,
         ))
 
         self.base_commit = new_pull
         self.base_orig = new_orig
         self.base_tree = tree
-
-    def process_commit(self, commit: ghstack.diff.Diff) -> None:
-        logging.info("# Processing {} {}".format(commit.oid[:9], commit.title))
-        logging.info("Base is {}".format(self.base_commit))
-
-        # TODO: check if we authored the commit.  We ought not touch PRs we didn't
-        # create.
-
-        # check if the commit message says what pull request it's associated
-        # with
-        #   If NONE:
-        #       - If possible, allocate ourselves a GhNumber and
-        #         then fix the branch afterwards.
-        #       - Otherwise, generate a unique branch name, and attach it to
-        #         the commit message
-
-        if commit.gh_metadata is None:
-            self._process_new_commit(commit)
-        else:
-            self._process_old_commit(commit)
 
     def _format_stack(self, index: int) -> str:
         rows = []

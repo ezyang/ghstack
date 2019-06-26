@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import ghstack.shell
-from ghstack.git import GitCommitHash
+#from ghstack.git import GitCommitHash
 
 from typing import Optional
 
@@ -14,6 +14,9 @@ def main(sh: Optional[ghstack.shell.Shell] = None) -> None:
     #
     # Hard-coded push to master.
 
+    raise NotImplementedError
+
+    """
     if sh is None:
         # Use CWD
         sh = ghstack.shell.Shell()
@@ -82,3 +85,4 @@ with your local code before attempting a land.
 
     finally:
         sh.git("checkout", prev_ref)
+    """

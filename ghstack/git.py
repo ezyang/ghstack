@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Pattern, Match, List, Optional
+from typing import Pattern, List
 from ghstack.typing import GitCommitHash, GitTreeHash
 import ghstack.shell
 import ghstack.diff
@@ -13,9 +13,6 @@ RE_RAW_AUTHOR = re.compile(r'^author (?P<author>(?P<name>[^<]+?) <(?P<email>[^>]
 RE_RAW_PARENT = re.compile(r'^parent (?P<commit>[a-f0-9]+)$', re.MULTILINE)
 RE_RAW_TREE = re.compile(r'^tree (?P<tree>.+)$', re.MULTILINE)
 RE_RAW_COMMIT_MSG_LINE = re.compile(r'^    (?P<line>.*)$', re.MULTILINE)
-RE_RAW_METADATA = re.compile(
-    r'^    gh-metadata: (?P<owner>[^/]+) (?P<repo>[^/]+) (?P<number>[0-9]+) '
-    r'gh/(?P<username>[a-zA-Z0-9-]+)/(?P<ghnum>[0-9]+)/head$', re.MULTILINE)
 
 
 class CommitHeader(object):
@@ -61,9 +58,6 @@ class CommitHeader(object):
             m.group("line")
             for m in RE_RAW_COMMIT_MSG_LINE.finditer(self.raw_header))
 
-    def match_metadata(self) -> Optional[Match[str]]:
-        return RE_RAW_METADATA.search(self.raw_header)
-
 
 def split_header(s: str) -> List[CommitHeader]:
     return list(map(CommitHeader, s.split("\0")[:-1]))
@@ -94,7 +88,7 @@ def parse_header(s: str) -> List[ghstack.diff.Diff]:
             title=h.title(),
             summary=h.commit_msg(),
             oid=h.commit_id(),
-            gh_metadata=ghstack.diff.GhMetadata.search(h.raw_header),
+            pull_request_resolved=ghstack.diff.PullRequestResolved.search(h.raw_header),
             patch=GitPatch(h)
         )
     return list(map(convert, split_header(s)))

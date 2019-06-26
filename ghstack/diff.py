@@ -1,47 +1,47 @@
 #!/usr/bin/env python3
 
 from dataclasses import dataclass
-from ghstack.typing import GhNumber, GitHubNumber, GitTreeHash
+from ghstack.typing import GitHubNumber, GitTreeHash
 import ghstack.shell
 from typing import Optional
 import re
 from abc import ABCMeta, abstractmethod
 
 
-RE_RAW_METADATA = re.compile(
+RE_GH_METADATA = re.compile(
     r'gh-metadata: (?P<owner>[^/]+) (?P<repo>[^/]+) (?P<number>[0-9]+) '
     r'gh/(?P<username>[a-zA-Z0-9-]+)/(?P<ghnum>[0-9]+)/head', re.MULTILINE)
 
 
+RE_PULL_REQUEST_RESOLVED = re.compile(
+    r'Pull Request resolved: '
+    r'https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+)'
+)
+
+
 @dataclass
-class GhMetadata:
-    # Owner of the repository this diff was submitted to
+class PullRequestResolved:
     owner: str
-
-    # Name of the repository this was submitted to
     repo: str
-
-    # The GitHub PR number of this diff
     number: GitHubNumber
 
-    # GitHub username of person who originally submitted this diff
-    username: str
-
-    # The ghstack number identifying this diff
-    ghnum: GhNumber
-
     @staticmethod
-    def search(s: str) -> Optional['GhMetadata']:
-        m = RE_RAW_METADATA.search(s)
-        if m is None:
-            return None
-        return GhMetadata(
-            owner=m.group("owner"),
-            repo=m.group("repo"),
-            number=GitHubNumber(int(m.group("number"))),
-            username=m.group("username"),
-            ghnum=GhNumber(m.group("ghnum")),
-        )
+    def search(s: str) -> Optional['PullRequestResolved']:
+        m = RE_PULL_REQUEST_RESOLVED.search(s)
+        if m is not None:
+            return PullRequestResolved(
+                owner=m.group("owner"),
+                repo=m.group("repo"),
+                number=GitHubNumber(int(m.group("number"))),
+            )
+        m = RE_GH_METADATA.search(s)
+        if m is not None:
+            return PullRequestResolved(
+                owner=m.group("owner"),
+                repo=m.group("repo"),
+                number=GitHubNumber(int(m.group("number"))),
+            )
+        return None
 
 
 class Patch(metaclass=ABCMeta):
@@ -71,10 +71,10 @@ class Diff:
     # used as a unique identifier.)
     oid: str
 
-    # The contents of gh-metadata.  They are None if we haven't ever
-    # submitted this diff to ghstack (i.e., there is no gh-metadata
-    # line).
-    gh_metadata: Optional[GhMetadata]
+    # The contents of 'Pull Request resolved'.  This is None for
+    # diffs that haven't been submitted by ghstack.  For BC reasons,
+    # this also accepts gh-metadata.
+    pull_request_resolved: Optional[PullRequestResolved]
 
     # Function which applies this diff to the input tree, producing a
     # new tree.  There will only be two implementations of this:
