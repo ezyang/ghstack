@@ -817,7 +817,7 @@ to disassociate the commit with the pull request, and then try again.
             print("")
 
     # stack is in reverse chronological order
-    def process(self, stack: List[ghstack.diff.Diff], *, import_help: bool = False) -> None:
+    def process(self, stack: List[ghstack.diff.Diff], *, import_help: bool = True) -> None:
         # start with the earliest commit
         skip = True
         for s in reversed(stack):
