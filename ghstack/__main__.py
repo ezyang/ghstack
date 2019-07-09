@@ -8,6 +8,7 @@ import ghstack.rage
 import ghstack.land
 import ghstack.action
 import ghstack.status
+import ghstack.checkout
 
 import ghstack.logging
 import ghstack.github_real
@@ -52,6 +53,10 @@ def main() -> None:
 
     land = subparsers.add_parser('land')
     land.add_argument('COMMITS', nargs='*')
+
+    checkout = subparsers.add_parser('checkout')
+    checkout.add_argument('pull_request', metavar='PR',
+        help='GitHub pull request URL to checkout')
 
     action = subparsers.add_parser('action')
     # TODO: support number as well
@@ -129,6 +134,8 @@ def main() -> None:
                 circleci=circleci
             ))
             loop.close()
+        elif args.cmd == 'checkout':
+            ghstack.checkout.main(pull_request=args.pull_request, github=github, sh=sh)
         else:
             raise RuntimeError("Unrecognized command {}".format(args.cmd))
 
