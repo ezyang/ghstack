@@ -1009,7 +1009,10 @@ Repository state:
 
         print("###")
         print("### Submit an update")
-        self.sh.git("commit", "--amend", "--allow-empty")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "--amend")
         self.sh.test_tick()
         self.gh('Update 1')
         self.sh.test_tick()

@@ -87,6 +87,8 @@ STACK_HEADER = "Stack from [ghstack](https://github.com/ezyang/ghstack)"
 class DiffWithGitHubMetadata:
     diff: ghstack.diff.Diff
     number: GitHubNumber
+    # Really ought not to be optional, but for BC reasons it might be
+    remote_source_id: Optional[str]
     title: str
     body: str
     closed: bool
@@ -187,11 +189,7 @@ def main(msg: Optional[str],
     for s in reversed(stack):
         if s.pull_request_resolved is not None:
             d = submitter.elaborate_diff(s)
-            # TODO: I think we can kill this
-            current_oid = GitCommitHash(sh.git(
-                "rev-parse", "origin/" + branch_orig(username, d.ghnum)
-            ))
-            if skip and current_oid == s.oid:
+            if skip and d.remote_source_id == s.source_id:
                 submitter.skip_commit(d)
             else:
                 skip = False
@@ -389,6 +387,16 @@ to disassociate the commit with the pull request, and then try again.
         if self.update_fields:
             title, pr_body = self._default_title_and_body(commit, pr_body)
 
+        # TODO: remote summary should be done earlier so we can use
+        # it to test if updates are necessary
+        remote_summary = ghstack.git.split_header(
+            self.sh.git(
+                "rev-list", "--max-count=1", "--header", "origin/" + branch_orig(self.username, gh_number)
+            )
+        )[0]
+        m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
+        remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
+
         return DiffWithGitHubMetadata(
             diff=commit,
             title=title,
@@ -396,6 +404,7 @@ to disassociate the commit with the pull request, and then try again.
             closed=r['closed'],
             number=number,
             ghnum=gh_number,
+            remote_source_id=remote_source_id,
         )
 
     def skip_commit(self, commit: DiffWithGitHubMetadata) -> None:
@@ -553,15 +562,7 @@ to disassociate the commit with the pull request, and then try again.
             summary = "{}\nghstack-source-id: {}".format(summary, commit.source_id)
         else:
             local_source_id = m_local_source_id.group(1)
-            # TODO: remote summary should be done earlier so we can use
-            # it to test if updates are necessary
-            remote_summary = ghstack.git.split_header(
-                self.sh.git(
-                    "rev-list", "--max-count=1", "--header", "origin/" + branch_orig(self.username, ghnum)
-                )
-            )[0]
-            m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
-            if m_remote_source_id is None:
+            if elab_commit.remote_source_id is None:
                 # This should also be an error condition, but I suppose
                 # it can happen in the wild if a user had an aborted
                 # ghstack run, where they updated their head pointer to
@@ -571,8 +572,7 @@ to disassociate the commit with the pull request, and then try again.
                     "Remote commit has no ghstack-source-id; assuming that we are "
                     "up-to-date with remote.")
             else:
-                remote_source_id = m_remote_source_id.group(1)
-                if local_source_id != remote_source_id and not self.force:
+                if local_source_id != elab_commit.remote_source_id and not self.force:
                     raise RuntimeError(
                         "Cowardly refusing to push an update to GitHub, since it "
                         "looks another source has updated GitHub since you last "
@@ -581,7 +581,7 @@ to disassociate the commit with the pull request, and then try again.
                         "{} and reapply them on top of an up-to-date commit from "
                         "GitHub.".format(local_source_id))
                 summary = RE_GHSTACK_SOURCE_ID.sub(
-                    'ghstack-source-id: {}'.format(commit.source_id),
+                    'ghstack-source-id: {}\n'.format(commit.source_id),
                     summary)
 
         # We've got an update to do!  But what exactly should we
