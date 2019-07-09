@@ -487,7 +487,7 @@ to disassociate the commit with the pull request, and then try again.
                               owner=self.repo_owner,
                               repo=self.repo_name,
                               number=number,
-                              sourceid=tree))
+                              sourceid=commit.source_id))
 
         # TODO: Try harder to preserve the old author/commit
         # information (is it really necessary? Check what
