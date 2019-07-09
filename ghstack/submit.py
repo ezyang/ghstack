@@ -183,23 +183,7 @@ def main(msg: Optional[str],
                           msg=msg,
                           short=short,
                           force=force)
-
-    # start with the earliest commit
-    skip = True
-    for s in reversed(stack):
-        if s.pull_request_resolved is not None:
-            d = submitter.elaborate_diff(s)
-            if skip and d.remote_source_id == s.source_id:
-                submitter.skip_commit(d)
-            else:
-                skip = False
-                submitter.process_old_commit(d)
-        else:
-            skip = False
-            submitter.process_new_commit(s)
-
-    submitter.post_process()
-
+    submitter.process(stack)
     # NB: earliest first
     return submitter.stack_meta
 
@@ -831,3 +815,21 @@ to disassociate the commit with the pull request, and then try again.
             print("     git checkout {}"
                   .format(branch_orig(self.username, top_of_stack.ghnum)))
             print("")
+
+    # stack is in reverse chronological order
+    def process(self, stack: List[ghstack.diff.Diff], *, import_help: bool = False) -> None:
+        # start with the earliest commit
+        skip = True
+        for s in reversed(stack):
+            if s.pull_request_resolved is not None:
+                d = self.elaborate_diff(s)
+                if skip and d.remote_source_id == s.source_id:
+                    self.skip_commit(d)
+                else:
+                    skip = False
+                    self.process_old_commit(d)
+            else:
+                skip = False
+                self.process_new_commit(s)
+
+        self.post_process(import_help=import_help)
