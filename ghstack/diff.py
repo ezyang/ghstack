@@ -71,6 +71,13 @@ class Diff:
     # used as a unique identifier.)
     oid: str
 
+    # Unique identifier representing the commit in question, but it
+    # is *invariant* to changes in commit message / summary.  In Git,
+    # a valid identifier would be the tree hash of the commit (rather
+    # than the commit hash itself); in Phabricator it could be the
+    # version of the diff.
+    source_id: str
+
     # The contents of 'Pull Request resolved'.  This is None for
     # diffs that haven't been submitted by ghstack.  For BC reasons,
     # this also accepts gh-metadata.

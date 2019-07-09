@@ -39,6 +39,20 @@ RE_STACK = re.compile(r'Stack.*:\n(\* [^\n]+\n)+')
 RE_DIFF_REV = re.compile(r'^Differential Revision:.+?(D[0-9]+)', re.MULTILINE)
 
 
+# Suppose that you have submitted a commit to GitHub, and that commit's
+# tree was AAA.  The ghstack-source-id of your local commit after this
+# submit is AAA.  When you submit a new change on top of this, we check
+# that the source id associated with your orig commit agrees with what's
+# recorded in GitHub: this lets us know that you are "up-to-date" with
+# what was stored on GitHub.  Then, we update the commit message on your
+# local commit to record a new ghstack-source-id and push it to orig.
+#
+# We must store this in the orig commit as we have no other mechanism of
+# attaching information to a commit in question.  We don't store this in
+# the pull request body as there isn't really any need to do so.
+RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
+
+
 # repo layout:
 #   - gh/username/23/base -- what we think GitHub's current tip for commit is
 #   - gh/username/23/head -- what we think base commit for commit is
@@ -88,6 +102,7 @@ def main(msg: Optional[str],
          repo_owner: Optional[str] = None,
          repo_name: Optional[str] = None,
          short: bool = False,
+         force: bool = False,
          ) -> List[DiffMeta]:
 
     if sh is None:
@@ -164,13 +179,15 @@ def main(msg: Optional[str],
                           stack_header=stack_header,
                           update_fields=update_fields,
                           msg=msg,
-                          short=short)
+                          short=short,
+                          force=force)
 
     # start with the earliest commit
     skip = True
     for s in reversed(stack):
         if s.pull_request_resolved is not None:
             d = submitter.elaborate_diff(s)
+            # TODO: I think we can kill this
             current_oid = GitCommitHash(sh.git(
                 "rev-parse", "origin/" + branch_orig(username, d.ghnum)
             ))
@@ -251,6 +268,10 @@ class Submitter(object):
     # Print only PR URL to stdout
     short: bool
 
+    # Force an update to GitHub, even if we think that your local copy
+    # is stale.
+    force: bool
+
     def __init__(
             self,
             github: ghstack.github.GitHubEndpoint,
@@ -264,7 +285,8 @@ class Submitter(object):
             stack_header: str,
             update_fields: bool,
             msg: Optional[str],
-            short: bool):
+            short: bool,
+            force: bool):
         self.github = github
         self.sh = sh
         self.username = username
@@ -280,6 +302,7 @@ class Submitter(object):
         self.seen_ghnums = set()
         self.msg = msg
         self.short = short
+        self.force = force
 
     def _default_title_and_body(self, commit: ghstack.diff.Diff,
                                 old_pr_body: Optional[str]
@@ -305,10 +328,14 @@ class Submitter(object):
                     "[{phabdiff}]"
                     "(https://our.internmc.facebook.com/intern/diff/{phabdiff})"
                 ).format(phabdiff=m.group(1))
+        commit_body = ''.join(commit.summary.splitlines(True)[1:]).lstrip()
+        # Don't store ghstack-source-id in the PR body; it will become
+        # stale quickly
+        commit_body = RE_GHSTACK_SOURCE_ID.sub('', commit_body)
         pr_body = (
             "{}:\n* (to be filled)\n\n{}{}"
             .format(self.stack_header,
-                    ''.join(commit.summary.splitlines(True)[1:]).lstrip(),
+                    commit_body,
                     extra)
         )
         return title, pr_body
@@ -460,12 +487,14 @@ to disassociate the commit with the pull request, and then try again.
         # Update the commit message of the local diff with metadata
         # so we can correlate these later
         commit_msg = ("{commit_msg}\n\n"
+                      "ghstack-source-id: {sourceid}\n"
                       "Pull Request resolved: "
                       "https://github.com/{owner}/{repo}/pull/{number}"
                       .format(commit_msg=commit.summary.rstrip(),
                               owner=self.repo_owner,
                               repo=self.repo_name,
-                              number=number))
+                              number=number,
+                              sourceid=tree))
 
         # TODO: Try harder to preserve the old author/commit
         # information (is it really necessary? Check what
@@ -509,6 +538,51 @@ to disassociate the commit with the pull request, and then try again.
         self.seen_ghnums.add(ghnum)
 
         logging.info("Pushing to #{}".format(number))
+
+        # Compute the local and remote source IDs
+        summary = commit.summary
+        m_local_source_id = RE_GHSTACK_SOURCE_ID.search(summary)
+        if m_local_source_id is None:
+            # For BC, just slap on a source ID.  After BC is no longer
+            # needed, we can just error in this case; however, this
+            # situation is extremely likely to happen for preexisting
+            # stacks.
+            logging.warning(
+                "Local commit has no ghstack-source-id; assuming that it is "
+                "up-to-date with remote.")
+            summary = "{}\nghstack-source-id: {}".format(summary, commit.source_id)
+        else:
+            local_source_id = m_local_source_id.group(1)
+            # TODO: remote summary should be done earlier so we can use
+            # it to test if updates are necessary
+            remote_summary = ghstack.git.split_header(
+                self.sh.git(
+                    "rev-list", "--max-count=1", "--header", "origin/" + branch_orig(self.username, ghnum)
+                )
+            )[0]
+            m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
+            if m_remote_source_id is None:
+                # This should also be an error condition, but I suppose
+                # it can happen in the wild if a user had an aborted
+                # ghstack run, where they updated their head pointer to
+                # a copy with source IDs, but then we failed to push to
+                # orig.  We should just go ahead and push in that case.
+                logging.warning(
+                    "Remote commit has no ghstack-source-id; assuming that we are "
+                    "up-to-date with remote.")
+            else:
+                remote_source_id = m_remote_source_id.group(1)
+                if local_source_id != remote_source_id and not self.force:
+                    raise RuntimeError(
+                        "Cowardly refusing to push an update to GitHub, since it "
+                        "looks another source has updated GitHub since you last "
+                        "pushed.  If you want to push anyway, rerun this command "
+                        "with --force.  Otherwise, diff your changes against "
+                        "{} and reapply them on top of an up-to-date commit from "
+                        "GitHub.".format(local_source_id))
+                summary = RE_GHSTACK_SOURCE_ID.sub(
+                    'ghstack-source-id: {}'.format(commit.source_id),
+                    summary)
 
         # We've got an update to do!  But what exactly should we
         # do?
@@ -620,7 +694,7 @@ to disassociate the commit with the pull request, and then try again.
         logging.info("Restacking commit on {}".format(self.base_orig))
         new_orig = GitCommitHash(self.sh.git(
             "commit-tree", tree,
-            "-p", self.base_orig, input=commit.summary))
+            "-p", self.base_orig, input=summary))
 
         push_branches = (
             (new_base, "base"),

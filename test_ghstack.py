@@ -277,6 +277,41 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_amend_out_of_date(self) -> None:
+        print("####################")
+        print("### test_amend_out_of_date")
+        print("###")
+        print("### First commit")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        old_head = self.sh.git("rev-parse", "HEAD")
+
+        print("###")
+        print("### Amend the commit")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("ABBA")
+        self.sh.git("add", "file1.txt")
+        # Can't use -m here, it will clobber the metadata
+        self.sh.git("commit", "--amend")
+        self.sh.test_tick()
+        self.gh('Update A')
+
+        # Reset to the old version
+        self.sh.git("reset", "--hard", old_head)
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("BAAB")
+        self.sh.git("add", "file1.txt")
+        # Can't use -m here, it will clobber the metadata
+        self.sh.git("commit", "--amend")
+        self.sh.test_tick()
+        self.assertRaises(RuntimeError, lambda: self.gh('Update B'))
+
+    # ------------------------------------------------------------------------- #
+
     def test_multi(self) -> None:
         print("####################")
         print("### test_multi")

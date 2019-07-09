@@ -88,6 +88,7 @@ def parse_header(s: str) -> List[ghstack.diff.Diff]:
             title=h.title(),
             summary=h.commit_msg(),
             oid=h.commit_id(),
+            source_id=h.tree(),
             pull_request_resolved=ghstack.diff.PullRequestResolved.search(h.raw_header),
             patch=GitPatch(h)
         )
