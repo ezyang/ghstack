@@ -617,6 +617,14 @@ to disassociate the commit with the pull request, and then try again.
         orig_base_hash = self.sh.git(
             "rev-parse", "origin/" + branch_base(self.username, ghnum))
 
+        # I vacillated between whether or not we should use the PR
+        # body or the literal commit message here.  Right now we use
+        # the PR body, because after initial commit the original
+        # commit message is not supposed to "matter" anymore.  orig
+        # still uses the original commit message, however, because
+        # it's supposed to be the "original".
+        non_orig_commit_msg = RE_STACK.sub('', elab_commit.body)
+
         if orig_base_hash == self.base_commit:
 
             new_base = self.base_commit
@@ -652,7 +660,8 @@ to disassociate the commit with the pull request, and then try again.
                     "-p", "origin/" + branch_base(self.username, ghnum),
                     "-p", self.base_commit,
                     input='Update base for {} on "{}"\n\n{}'
-                          .format(self.msg, elab_commit.title, elab_commit.body)))
+                          .format(self.msg, elab_commit.title,
+                                  non_orig_commit_msg)))
 
             base_args = ("-p", new_base)
 
@@ -664,7 +673,7 @@ to disassociate the commit with the pull request, and then try again.
             "commit-tree", tree,
             "-p", "origin/" + branch_head(self.username, ghnum),
             *base_args,
-            input='{} on "{}"\n\n{}'.format(self.msg, elab_commit.title, elab_commit.body)))
+            input='{} on "{}"\n\n{}'.format(self.msg, elab_commit.title, non_orig_commit_msg)))
 
         # Perform what is effectively an interactive rebase
         # on the orig branch.
