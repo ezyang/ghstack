@@ -800,9 +800,9 @@ to disassociate the commit with the pull request, and then try again.
             url = format_url(s)
             print(" - {} {}".format(s.what, url))
         top_of_stack = self.stack_meta[-1]
+        print()
 
         if import_help:
-            print()
             print("Facebook employees can import your changes by running ")
             print("(on a Facebook machine):")
             print()
