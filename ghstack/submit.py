@@ -817,12 +817,9 @@ to disassociate the commit with the pull request, and then try again.
             print()
             print("    ghimport -s {}".format(format_url(top_of_stack)))
             print()
-            print("If you want to work on this diff stack on another machine,")
-            print("run these commands inside a valid Git checkout:")
+            print("If you want to work on this diff stack on another machine:")
             print()
-            print("     git fetch origin")
-            print("     git checkout {}"
-                  .format(branch_orig(self.username, top_of_stack.ghnum)))
+            print("    ghstack checkout {}".format(format_url(top_of_stack)))
             print("")
 
     # stack is in reverse chronological order
