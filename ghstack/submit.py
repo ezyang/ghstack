@@ -352,7 +352,7 @@ class Submitter(object):
         """, repo_id=self.repo_id, number=number)["data"]["node"]["pullRequest"]
 
         # Sorry, this is a big hack to support the ghexport case
-        m = re.match(r'export-D([0-9]+)$', r['headRefName'])
+        m = re.match(r'(refs/heads/)?export-D([0-9]+)$', r['headRefName'])
         if m is not None and is_ghexport:
             raise RuntimeError('''\
 This commit appears to already be associated with a pull request,
@@ -369,6 +369,7 @@ PR and start anew, edit the Summary in the Phabricator diff to delete
 the line 'Pull Request resolved' and then run ghexport again.
 ''')
 
+        # TODO: Hmm, I'm not sure why this matches
         m = re.match(r'gh/[^/]+/([0-9]+)/head$', r['headRefName'])
         if m is None:
             if is_ghexport:
