@@ -182,8 +182,11 @@ def main(msg: Optional[str],
                           update_fields=update_fields,
                           msg=msg,
                           short=short,
-                          force=force)
-    submitter.process(stack)
+                          force=force,
+                          stack=list(reversed(stack)))
+    submitter.prepare_updates()
+    submitter.push_updates()
+
     # NB: earliest first
     return submitter.stack_meta
 
@@ -199,6 +202,23 @@ def push_spec(commit: GitCommitHash, branch: str) -> str:
 
 
 class Submitter(object):
+    """
+    A class responsible for managing all of the environment and mutable
+    state associated with submitting PRs to GitHub.
+
+    Standard usage is::
+
+        submitter.prepare_updates()  # populates stack_meta, creates new PRs
+        submitter.push_updates()
+
+    This is split up in a weird way because some users of this class
+    need to interpose between the initial preparation of updates,
+    and when we actually push the updates.
+
+    NB: prepare_updates() will push updates to GitHub in order to get
+    GitHub PR numbers for other usage.
+    """
+
     # Endpoint to access GitHub
     github: ghstack.github.GitHubEndpoint
 
@@ -238,6 +258,9 @@ class Submitter(object):
     # by Submitter.
     stack_meta: List[DiffMeta]
 
+    # List of diffs to process, in chronological order
+    stack: List[ghstack.diff.Diff]
+
     # Set of seen ghnums
     seen_ghnums: Set[GhNumber]
 
@@ -267,6 +290,7 @@ class Submitter(object):
             stack_header: str,
             update_fields: bool,
             msg: Optional[str],
+            stack: List[ghstack.diff.Diff],
             short: bool,
             force: bool):
         self.github = github
@@ -281,6 +305,7 @@ class Submitter(object):
         self.update_fields = update_fields
         self.stack_header = stack_header
         self.stack_meta = []
+        self.stack = stack
         self.seen_ghnums = set()
         self.msg = msg
         self.short = short
@@ -761,10 +786,35 @@ to disassociate the commit with the pull request, and then try again.
                 rows.append('* #{} {}'.format(s.number, s.title.strip()))
         return self.stack_header + ':\n' + '\n'.join(rows) + '\n'
 
-    def post_process(self, *, import_help: bool = True) -> None:  # noqa: C901
+    def prepare_updates(self, *, is_ghexport: bool = False) -> None:
         """
-        Do some post-processing that we can only do after we've finished
-        processing all of the diffs
+        Go through each commit in the stack and construct the commits
+        which we will push to GitHub shortly.  If a commit does not have
+        an associated PR, push it immediately and create a PR so that we
+        ensure that every diff in stack_meta has an associated pull
+        request.
+        """
+
+        # start with the earliest commit
+        skip = True
+        for s in self.stack:
+            if s.pull_request_resolved is not None:
+                d = self.elaborate_diff(s, is_ghexport=is_ghexport)
+                if skip and d.remote_source_id == s.source_id:
+                    self.skip_commit(d)
+                else:
+                    skip = False
+                    self.process_old_commit(d)
+            else:
+                skip = False
+                self.process_new_commit(s)
+
+    def push_updates(self, *, import_help: bool = True) -> None:  # noqa: C901
+        """
+        To be called after prepare_updates: actually push the updates to
+        GitHub, and also update other metadata in GitHub as necessary.
+        Also update the local Git checkout to point to the rewritten commit
+        stack.
         """
 
         # fix the HEAD pointer
@@ -854,21 +904,3 @@ to disassociate the commit with the pull request, and then try again.
             print()
             print("    ghstack checkout {}".format(format_url(top_of_stack)))
             print("")
-
-    # stack is in reverse chronological order
-    def process(self, stack: List[ghstack.diff.Diff], *, import_help: bool = True) -> None:
-        # start with the earliest commit
-        skip = True
-        for s in reversed(stack):
-            if s.pull_request_resolved is not None:
-                d = self.elaborate_diff(s)
-                if skip and d.remote_source_id == s.source_id:
-                    self.skip_commit(d)
-                else:
-                    skip = False
-                    self.process_old_commit(d)
-            else:
-                skip = False
-                self.process_new_commit(s)
-
-        self.post_process(import_help=import_help)
