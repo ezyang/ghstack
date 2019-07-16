@@ -322,7 +322,8 @@ class Submitter(object):
         )
         return title, pr_body
 
-    def elaborate_diff(self, commit: ghstack.diff.Diff) -> DiffWithGitHubMetadata:
+    def elaborate_diff(self, commit: ghstack.diff.Diff, *,
+                       is_ghexport: bool = False) -> DiffWithGitHubMetadata:
         """
         Query GitHub API for the current title, body and closed? status
         of the pull request corresponding to a ghstack.diff.Diff.
@@ -350,9 +351,39 @@ class Submitter(object):
           }
         """, repo_id=self.repo_id, number=number)["data"]["node"]["pullRequest"]
 
+        # Sorry, this is a big hack to support the ghexport case
+        m = re.match(r'export-D([0-9]+)$', r['headRefName'])
+        if m is not None and is_ghexport:
+            raise RuntimeError('''\
+This commit appears to already be associated with a pull request,
+but the pull request was previously submitted with an old version of
+ghexport.  You can continue exporting using the old style using:
+
+    ghexport --legacy
+
+For future diffs, we recommend using the non-legacy version of ghexport
+as it supports bidirectional syncing.  However, there is no way to
+convert a pre-existing PR in the old style to the new format which
+supports bidirectional syncing.  If you would like to blow away the old
+PR and start anew, edit the Summary in the Phabricator diff to delete
+the line 'Pull Request resolved' and then run ghexport again.
+''')
+
         m = re.match(r'gh/[^/]+/([0-9]+)/head$', r['headRefName'])
         if m is None:
-            raise RuntimeError('''\
+            if is_ghexport:
+                raise RuntimeError('''\
+This commit appears to already be associated with a pull request,
+but the pull request doesn't look like it was submitted by ghexport
+Maybe you exported it using the "Export to Open Source" button on
+the Phabricator diff page?  If so, please continue to use that button
+to export your diff.
+
+If you think this is in error, edit the Summary in the Phabricator diff
+to delete the line 'Pull Request resolved' and then run ghexport again.
+''')
+            else:
+                raise RuntimeError('''\
 This commit appears to already be associated with a pull request,
 but the pull request doesn't look like it was submitted by ghstack.
 If you think this is in error, run:
@@ -360,6 +391,7 @@ If you think this is in error, run:
     ghstack unlink {}
 
 to disassociate the commit with the pull request, and then try again.
+(This will create a new pull request!)
 '''.format(commit.oid))
         gh_number = GhNumber(m.group(1))
 
