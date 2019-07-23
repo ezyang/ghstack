@@ -24,6 +24,10 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('ghnum', GhNumber),
     # What Git commit hash we should push to what branch
     ('push_branches', Tuple[Tuple[GitCommitHash, BranchKind], ...]),
+    # What Git commit hash corresponds to head for this
+    # (previously, we got this out of push_branches, but this is not
+    # guaranteed to be set.)  None if we didn't change it.
+    ('head_branch', Optional[GitCommitHash]),
     # A human-readable string like 'Created' which describes what
     # happened to this pull request
     ('what', str),
@@ -465,6 +469,7 @@ to disassociate the commit with the pull request, and then try again.
             body=commit.body,
             ghnum=ghnum,
             push_branches=(),
+            head_branch=None,
             what='Skipped',
             closed=commit.closed,
         ))
@@ -562,6 +567,7 @@ to disassociate the commit with the pull request, and then try again.
             body=pr_body,
             ghnum=ghnum,
             push_branches=((new_orig, 'orig'), ),
+            head_branch=new_pull,
             what='Created',
             closed=False,
         ))
@@ -769,6 +775,7 @@ to disassociate the commit with the pull request, and then try again.
             body=elab_commit.body,
             ghnum=ghnum,
             push_branches=push_branches,
+            head_branch=new_pull,
             what=what,
             closed=elab_commit.closed,
         ))
