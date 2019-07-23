@@ -82,6 +82,11 @@ class TestGh(expecttest.TestCase):
         self.rev_map = {}
         self.substituteRev(GitCommitHash("HEAD"), SubstituteRev("rINI0"))
 
+    def writeFileAndAdd(self, filename: str, contents: str) -> None:
+        with self.sh.open(filename, "w") as f:
+            f.write(contents)
+        self.sh.git("add", filename)
+
     def lookupRev(self, substitute: str) -> GitCommitHash:
         return self.rev_map[SubstituteRev(substitute)]
 
@@ -152,7 +157,8 @@ class TestGh(expecttest.TestCase):
         print("###")
 
         print("### First commit")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        self.writeFileAndAdd("a", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
@@ -179,7 +185,8 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 2\n\nThis is my second commit")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
@@ -956,7 +963,8 @@ Repository state:
 
         print("####################")
         print("### test_no_clobber")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
         self.gh('Initial 1')
         self.sh.test_tick()
@@ -1045,7 +1053,8 @@ Repository state:
 
         print("####################")
         print("### test_update_fields")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
         self.gh('Initial 1')
         self.sh.test_tick()
@@ -1119,7 +1128,8 @@ Repository state:
         # Check that Differential Revision is preserved
 
         logging.info("### test_update_fields_preserve_differential_revision")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nOriginal message")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
         self.gh('Initial 1')
         self.sh.test_tick()
@@ -1306,7 +1316,8 @@ Repository state:
 ''')
 
     def test_short(self) -> None:
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         with captured_output() as (out, err):
             self.gh('Initial', short=True)
