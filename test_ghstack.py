@@ -222,6 +222,91 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_empty_commit(self) -> None:
+        print("####################")
+        print("### test_empty_commit")
+        print("###")
+
+        print("### Empty commit")
+        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        self.writeFileAndAdd("bar", "baz")
+        self.sh.git("commit", "-m", "Commit 2")
+
+        self.sh.test_tick()
+        self.gh('Initial')
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 2 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 2**
+
+
+
+     * rMRG1 Commit 2
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 2
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_commit_amended_to_empty(self) -> None:
+        print("####################")
+        print("### test_empty_commit")
+        print("###")
+
+        self.writeFileAndAdd("bar", "baz")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+
+        self.sh.test_tick()
+        self.gh('Initial')
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        self.sh.git('rm', 'bar')
+        self.sh.git("commit", "--amend", "--allow-empty")
+        self.sh.test_tick()
+        self.gh('Update')
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
     def test_amend(self) -> None:
         print("####################")
         print("### test_amend")

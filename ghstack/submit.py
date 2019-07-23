@@ -263,6 +263,12 @@ class Submitter(object):
     # by Submitter.
     stack_meta: List[DiffMeta]
 
+    # List of input diffs which we ignored (i.e., treated as if they
+    # did not exist on the stack at all), because they were associated
+    # with a patch that contains no changes.  GhNumber may be false
+    # if the diff was never associated with a PR.
+    ignored_diffs: List[Tuple[ghstack.diff.Diff, Optional[GitHubNumber]]]
+
     # List of diffs to process, in chronological order
     stack: List[ghstack.diff.Diff]
 
@@ -310,6 +316,7 @@ class Submitter(object):
         self.update_fields = update_fields
         self.stack_header = stack_header
         self.stack_meta = []
+        self.ignored_diffs = []
         self.stack = stack
         self.seen_ghnums = set()
         self.msg = msg
@@ -504,11 +511,20 @@ to disassociate the commit with the pull request, and then try again.
         max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
             if refs else 0
         ghnum = GhNumber(str(max_ref_num + 1))
-        assert ghnum not in self.seen_ghnums
-        self.seen_ghnums.add(ghnum)
 
         # Create the incremental pull request diff
         tree = commit.patch.apply(self.sh, self.base_tree)
+
+        # Actually, if there's no change in the tree, stop processing
+        if tree == self.base_tree:
+            self.ignored_diffs.append((commit, None))
+            logging.warn("Skipping {} {}, as the commit has no changes"
+                         .format(commit.oid, title))
+            return
+
+        assert ghnum not in self.seen_ghnums
+        self.seen_ghnums.add(ghnum)
+
         new_pull = GitCommitHash(
             self.sh.git("commit-tree", tree,
                         "-p", self.base_commit,
@@ -734,6 +750,14 @@ to disassociate the commit with the pull request, and then try again.
         # against the previous pull entry, and the newest base.
 
         tree = commit.patch.apply(self.sh, self.base_tree)
+
+        # Nothing to do, just ignore the diff
+        if tree == self.base_tree:
+            self.ignored_diffs.append((commit, number))
+            logging.warn("Skipping PR #{} {}, as the commit now has no changes"
+                         .format(number, elab_commit.title))
+            return
+
         new_pull = GitCommitHash(self.sh.git(
             "commit-tree", tree,
             "-p", "origin/" + branch_head(self.username, ghnum),
@@ -896,19 +920,37 @@ to disassociate the commit with the pull request, and then try again.
         print()
         print('# Summary of changes (ghstack {})'.format(ghstack.__version__))
         print()
-        for s in reversed(self.stack_meta):
-            url = format_url(s)
-            print(" - {} {}".format(s.what, url))
-        top_of_stack = self.stack_meta[-1]
-        print()
+        if self.stack_meta:
+            for s in reversed(self.stack_meta):
+                url = format_url(s)
+                print(" - {} {}".format(s.what, url))
+            top_of_stack = self.stack_meta[-1]
+            print()
 
-        if import_help:
-            print("Facebook employees can import your changes by running ")
-            print("(on a Facebook machine):")
+            if import_help:
+                print("Facebook employees can import your changes by running ")
+                print("(on a Facebook machine):")
+                print()
+                print("    ghimport -s {}".format(format_url(top_of_stack)))
+                print()
+                print("If you want to work on this diff stack on another machine:")
+                print()
+                print("    ghstack checkout {}".format(format_url(top_of_stack)))
+                print("")
+        else:
+            print("No pull requests updated; all commits in your diff stack were empty!")
+
+        if self.ignored_diffs:
             print()
-            print("    ghimport -s {}".format(format_url(top_of_stack)))
+            print("FYI: I ignored the following commits, because they had no changes:")
             print()
-            print("If you want to work on this diff stack on another machine:")
-            print()
-            print("    ghstack checkout {}".format(format_url(top_of_stack)))
-            print("")
+            noop_pr = False
+            for d, pr in reversed(self.ignored_diffs):
+                if pr is None:
+                    print(" - {} {}".format(d.oid[:8], d.title))
+                else:
+                    noop_pr = True
+                    print(" - {} {} (was previously submitted as PR #{})".format(d.oid[:8], d.title, pr))
+            if noop_pr:
+                print()
+                print("I did NOT close or update PRs previously associated with these commits.")
