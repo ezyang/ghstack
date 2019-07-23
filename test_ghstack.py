@@ -135,7 +135,7 @@ class TestGh(expecttest.TestCase):
         prs = []
         refs = ""
         for pr in r['data']['repository']['pullRequests']['nodes']:
-            pr['body'] = indent(pr['body'], '    ')
+            pr['body'] = indent(pr['body'].replace('\r', ''), '    ')
             pr['commits'] = self.upstream_sh.git("log", "--reverse", "--pretty=format:%h %s", pr["baseRefName"] + ".." + pr["headRefName"])
             pr['commits'] = indent(pr['commits'], '     * ')
             prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n\n"
