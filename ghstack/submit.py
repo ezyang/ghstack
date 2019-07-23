@@ -35,7 +35,8 @@ DiffMeta = NamedTuple('DiffMeta', [
 ])
 
 
-RE_STACK = re.compile(r'Stack.*:\n(\* [^\n]+\n)+')
+# Ya, sometimes we get carriage returns.  Crazy right?
+RE_STACK = re.compile(r'Stack.*:\r?\n(\* [^\r\n]+\r?\n)+')
 
 
 # NB: This regex is fuzzy because the D1234567 identifier is typically

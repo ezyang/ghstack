@@ -1048,6 +1048,90 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_no_clobber_carriage_returns(self) -> None:
+        # In some situations, GitHub will replace your newlines with
+        # \r\n.  Check we handle this correctly.
+
+        print("####################")
+        print("### test_no_clobber_carriage_returns")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    Original message
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Amend the PR")
+        self.github.patch("repos/pytorch/pytorch/pulls/500",
+                          body="""\
+Stack:
+* **#500 Commit 1**
+
+Directly updated message body""".replace('\n', '\r\n'),
+                          title="Directly updated title")
+
+        print("###")
+        print("### Submit a new commit")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 2")
+        self.sh.test_tick()
+        self.gh('Initial 2')
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501 Commit 2
+    * **#500 Directly updated title**
+
+    Directly updated message body
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 2**
+    * #500 Directly updated title
+
+
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
     def test_update_fields(self) -> None:
         # Check that we do clobber fields when explicitly asked
 
