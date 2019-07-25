@@ -43,6 +43,9 @@ def main() -> None:
         subparser.add_argument(
             '--short', action='store_true',
             help='Print only the URL of the latest opened PR to stdout')
+        subparser.add_argument(
+            '--force', action='store_true',
+            help='force push the branch even if your local branch is stale')
 
     unlink = subparsers.add_parser('unlink')
     unlink.add_argument('COMMITS', nargs='*')
@@ -98,7 +101,8 @@ def main() -> None:
                 sh=sh,
                 github=github,
                 update_fields=args.update_fields,
-                short=args.short
+                short=args.short,
+                force=args.force
             )
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
