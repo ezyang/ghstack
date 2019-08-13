@@ -3,13 +3,15 @@
 import ghstack.git
 import ghstack.shell
 from ghstack.git import GitCommitHash
-import re
+import ghstack.diff
 import textwrap
 import logging
+import re
 
 from typing import Set, List, Optional
 
-GH_METADATA_RE = re.compile(r'\n*gh-metadata: .+')
+
+RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 
 
 def main(commits: Optional[List[str]] = None,
@@ -67,7 +69,10 @@ def main(commits: Optional[List[str]] = None,
         commit_msg = s.commit_msg()
         logging.debug("-- commit_msg:\n{}".format(textwrap.indent(commit_msg, '   ')))
         if should_unlink:
-            commit_msg = GH_METADATA_RE.sub('', commit_msg)
+            commit_msg = RE_GHSTACK_SOURCE_ID.sub(
+                '',
+                ghstack.diff.RE_PULL_REQUEST_RESOLVED_W_SP.sub('', commit_msg)
+            )
             logging.debug("-- edited commit_msg:\n{}".format(
                 textwrap.indent(commit_msg, '   ')))
         head = GitCommitHash(sh.git(

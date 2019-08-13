@@ -13,10 +13,12 @@ RE_GH_METADATA = re.compile(
     r'gh/(?P<username>[a-zA-Z0-9-]+)/(?P<ghnum>[0-9]+)/head', re.MULTILINE)
 
 
-RE_PULL_REQUEST_RESOLVED = re.compile(
+RAW_PULL_REQUEST_RESOLVED = (
     r'Pull Request resolved: '
     r'https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+)'
 )
+RE_PULL_REQUEST_RESOLVED = re.compile(RAW_PULL_REQUEST_RESOLVED)
+RE_PULL_REQUEST_RESOLVED_W_SP = re.compile(r'\n*' + RAW_PULL_REQUEST_RESOLVED)
 
 
 @dataclass
