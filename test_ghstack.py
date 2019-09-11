@@ -100,7 +100,8 @@ class TestGh(expecttest.TestCase):
 
     def gh(self, msg: str = 'Update',
            update_fields: bool = False,
-           short: bool = False) -> List[ghstack.submit.DiffMeta]:
+           short: bool = False,
+           no_skip: bool = False) -> List[ghstack.submit.DiffMeta]:
         return ghstack.submit.main(
             msg=msg,
             username='ezyang',
@@ -110,7 +111,8 @@ class TestGh(expecttest.TestCase):
             stack_header='Stack',
             repo_owner='pytorch',
             repo_name='pytorch',
-            short=short)
+            short=short,
+            no_skip=no_skip)
 
     def gh_land(self) -> None:
         return ghstack.land.main(
@@ -354,6 +356,65 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
         self.gh('Update A')
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+     * rMRG2 Update A on "Commit 1"
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/1/head) Update A on "Commit 1"
+    * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_amend_message_only(self) -> None:
+        print("####################")
+        print("### test_amend")
+        print("###")
+        print("### First commit")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+        print("###")
+        print("### Amend the commit")
+        # Can't use -m here, it will clobber the metadata
+        self.sh.git("filter-branch", "-f", "--msg-filter", "cat && echo 'blargle'", "HEAD~..HEAD")
+        self.substituteRev("HEAD", "rCOM2")
+        self.sh.test_tick()
+        self.gh('Update A', no_skip=True)
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)

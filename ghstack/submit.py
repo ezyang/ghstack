@@ -110,6 +110,7 @@ def main(msg: Optional[str],
          repo_name: Optional[str] = None,
          short: bool = False,
          force: bool = False,
+         no_skip: bool = False,
          ) -> List[DiffMeta]:
 
     if sh is None:
@@ -188,6 +189,7 @@ def main(msg: Optional[str],
                           msg=msg,
                           short=short,
                           force=force,
+                          no_skip=no_skip,
                           stack=list(reversed(stack)))
     submitter.prepare_updates()
     submitter.push_updates()
@@ -288,6 +290,9 @@ class Submitter(object):
     # is stale.
     force: bool
 
+    # Do not skip unchanged diffs
+    no_skip: bool
+
     def __init__(
             self,
             github: ghstack.github.GitHubEndpoint,
@@ -303,7 +308,8 @@ class Submitter(object):
             msg: Optional[str],
             stack: List[ghstack.diff.Diff],
             short: bool,
-            force: bool):
+            force: bool,
+            no_skip: bool):
         self.github = github
         self.sh = sh
         self.username = username
@@ -322,6 +328,7 @@ class Submitter(object):
         self.msg = msg
         self.short = short
         self.force = force
+        self.no_skip = no_skip
 
     def _default_title_and_body(self, commit: ghstack.diff.Diff,
                                 old_pr_body: Optional[str]
@@ -835,7 +842,7 @@ to disassociate the commit with the pull request, and then try again.
         for s in self.stack:
             if s.pull_request_resolved is not None:
                 d = self.elaborate_diff(s, is_ghexport=is_ghexport)
-                if skip and d.remote_source_id == s.source_id:
+                if skip and d.remote_source_id == s.source_id and not self.no_skip:
                     self.skip_commit(d)
                 else:
                     skip = False
