@@ -506,6 +506,20 @@ to disassociate the commit with the pull request, and then try again.
         Process a diff that has never been pushed to GitHub before.
         """
 
+        if '[ghstack-poisoned]' in commit.summary:
+            raise RuntimeError('''\
+This commit is poisoned: it is from a head or base branch--ghstack
+cannot validly submit it.  The most common situation for this to
+happen is if you checked out the head branch of a pull request that was
+previously submitted with ghstack (e.g., by using hub checkout).
+Making modifications on the head branch is not supported; instead,
+you should fetch the original commits in question by running:
+
+    ghstack checkout $PR_URL
+
+Since we cannot proceed, ghstack will abort now.
+''')
+
         title, pr_body = self._default_title_and_body(commit, None)
 
         # Determine the next available GhNumber.  We do this by
@@ -538,7 +552,7 @@ to disassociate the commit with the pull request, and then try again.
         new_pull = GitCommitHash(
             self.sh.git("commit-tree", tree,
                         "-p", self.base_commit,
-                        input=commit.summary))
+                        input=commit.summary + "\n\n[ghstack-poisoned]"))
 
         # Push the branches, so that we can create a PR for them
         new_branches = (
@@ -750,7 +764,7 @@ to disassociate the commit with the pull request, and then try again.
                     "commit-tree", self.base_tree,
                     "-p", "origin/" + branch_base(self.username, ghnum),
                     "-p", self.base_commit,
-                    input='Update base for {} on "{}"\n\n{}'
+                    input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
                           .format(self.msg, elab_commit.title,
                                   non_orig_commit_msg)))
 
@@ -772,7 +786,7 @@ to disassociate the commit with the pull request, and then try again.
             "commit-tree", tree,
             "-p", "origin/" + branch_head(self.username, ghnum),
             *base_args,
-            input='{} on "{}"\n\n{}'.format(self.msg, elab_commit.title, non_orig_commit_msg)))
+            input='{} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(self.msg, elab_commit.title, non_orig_commit_msg)))
 
         # Perform what is effectively an interactive rebase
         # on the orig branch.

@@ -1285,6 +1285,25 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_reject_head_stack(self) -> None:
+        self.writeFileAndAdd("a", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        self.sh.git("checkout", "gh/ezyang/1/head")
+
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+
+        self.assertRaises(RuntimeError, lambda: self.gh('Initial 2'))
+
+    # ------------------------------------------------------------------------- #
+
     def test_update_fields(self) -> None:
         # Check that we do clobber fields when explicitly asked
 
