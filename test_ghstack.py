@@ -18,6 +18,7 @@ import ghstack.submit
 import ghstack.land
 import ghstack.shell
 import ghstack.github
+import ghstack.unlink
 import ghstack.github_fake
 
 from ghstack.submit import GitCommitHash
@@ -113,6 +114,12 @@ class TestGh(expecttest.TestCase):
 
     def gh_land(self) -> None:
         return ghstack.land.main(
+            sh=self.sh
+        )
+
+    # TODO: pass arguments
+    def gh_unlink(self) -> None:
+        ghstack.unlink.main(
             sh=self.sh
         )
 
@@ -1484,6 +1491,8 @@ Repository state:
 
 ''')
 
+    # ------------------------------------------------------------------------- #
+
     def test_short(self) -> None:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
@@ -1491,6 +1500,8 @@ Repository state:
         with captured_output() as (out, err):
             self.gh('Initial', short=True)
         self.assertEqual(out.getvalue(), "https://github.com/pytorch/pytorch/pull/500\n")
+
+    # ------------------------------------------------------------------------- #
 
     """
     def test_land_ff(self) -> None:
@@ -1519,6 +1530,8 @@ Repository state:
 
 ''')
 
+    # ------------------------------------------------------------------------- #
+
     def test_land_non_ff(self) -> None:
         with self.sh.open("file1.txt", "w") as f:
             f.write("A")
@@ -1546,6 +1559,76 @@ rUP2 Commit 1
 rUP1 Upstream commit
 rINI0 Initial commit''')
         """
+
+    # ------------------------------------------------------------------------- #
+
+    def test_unlink(self) -> None:
+        print("###")
+        print("### First commit")
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
+        self.sh.test_tick()
+        self.writeFileAndAdd("file2.txt", "B")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an B")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        # Unlink
+        self.gh_unlink()
+
+        self.gh('Initial 2')
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501 Commit 1
+    * **#500 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+
+#501 Commit 1 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 1**
+    * #500 Commit 1
+
+    A commit with an B
+
+     * db38c32 Commit 1
+
+#502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+    Stack:
+    * #503 Commit 1
+    * **#502 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+
+#503 Commit 1 (gh/ezyang/4/head -> gh/ezyang/4/base)
+
+    Stack:
+    * **#503 Commit 1**
+    * #502 Commit 1
+
+    A commit with an B
+
+     * db38c32 Commit 1
+
+Repository state:
+
+    * db38c32 (gh/ezyang/4/head, gh/ezyang/2/head) Commit 1
+    * rMRG1 (gh/ezyang/4/base, gh/ezyang/3/head, gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/3/base, gh/ezyang/1/base) Initial commit
+
+''')
+
 
 #   def load_tests(loader, tests, ignore):
 #       tests.addTests(doctest.DocTestSuite(gh))
