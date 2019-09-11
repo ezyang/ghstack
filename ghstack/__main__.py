@@ -46,6 +46,11 @@ def main() -> None:
         subparser.add_argument(
             '--force', action='store_true',
             help='force push the branch even if your local branch is stale')
+        subparser.add_argument(
+            '--no-skip', action='store_true',
+            help=
+            'Never skip pushing commits, even if the contents didn\'t change '
+            '(use this if you\'ve only updated the commit message).')
 
     unlink = subparsers.add_parser('unlink')
     unlink.add_argument('COMMITS', nargs='*')
@@ -102,7 +107,8 @@ def main() -> None:
                 github=github,
                 update_fields=args.update_fields,
                 short=args.short,
-                force=args.force
+                force=args.force,
+                no_skip=args.no_skip,
             )
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
