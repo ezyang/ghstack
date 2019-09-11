@@ -1287,8 +1287,6 @@ Repository state:
 
     Original message
 
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500
-
      * rMRG1 Commit 1
 
 Repository state:
@@ -1369,8 +1367,6 @@ Repository state:
     * **#500 Commit 1**
 
     Original message
-
-    Pull Request resolved: https://github.com/pytorch/pytorch/pull/500
 
     Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 

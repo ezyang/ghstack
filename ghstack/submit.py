@@ -351,6 +351,9 @@ class Submitter(object):
         # Don't store ghstack-source-id in the PR body; it will become
         # stale quickly
         commit_body = RE_GHSTACK_SOURCE_ID.sub('', commit_body)
+        # Don't store Pull request resolved in the PR body; it's
+        # unnecessary
+        commit_body = ghstack.diff.RE_PULL_REQUEST_RESOLVED_W_SP.sub('', commit_body)
         pr_body = (
             "{}:\n* (to be filled)\n\n{}{}"
             .format(self.stack_header,
