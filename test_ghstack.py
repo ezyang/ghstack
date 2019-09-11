@@ -1636,6 +1636,8 @@ rINI0 Initial commit''')
         self.gh_unlink()
 
         self.gh('Initial 2')
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -1656,7 +1658,7 @@ rINI0 Initial commit''')
 
     A commit with an B
 
-     * db38c32 Commit 1
+     * rMRG2 Commit 1
 
 #502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -1676,11 +1678,11 @@ rINI0 Initial commit''')
 
     A commit with an B
 
-     * db38c32 Commit 1
+     * rMRG2 Commit 1
 
 Repository state:
 
-    * db38c32 (gh/ezyang/4/head, gh/ezyang/2/head) Commit 1
+    * rMRG2 (gh/ezyang/4/head, gh/ezyang/2/head) Commit 1
     * rMRG1 (gh/ezyang/4/base, gh/ezyang/3/head, gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/3/base, gh/ezyang/1/base) Initial commit
 
