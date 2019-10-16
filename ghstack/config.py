@@ -4,6 +4,7 @@ import os
 import getpass
 import configparser
 import logging
+import re
 from typing import NamedTuple, Optional
 
 
@@ -79,6 +80,8 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         github_username = config.get('ghstack', 'github_username')
     if github_username is None:
         github_username = input('GitHub username: ')
+        if not re.match(r'^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$', github_username):
+            raise RuntimeError("{} is not a valid GitHub username".format(github_username))
         config.set(
             'ghstack',
             'github_username',
