@@ -1368,10 +1368,12 @@ Repository state:
     Original message
 
      * rMRG1 Commit 1
+     * 49615a9 Update 1 on "Commit 1"
 
 Repository state:
 
-    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * 49615a9 (gh/ezyang/1/head) Update 1 on "Commit 1"
+    * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
@@ -1512,10 +1514,12 @@ Repository state:
     Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
      * rMRG1 Commit 1
+     * 0800457 Update 1 on "Commit 1"
 
 Repository state:
 
-    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * 0800457 (gh/ezyang/1/head) Update 1 on "Commit 1"
+    * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
