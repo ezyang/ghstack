@@ -1378,6 +1378,67 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_update_fields_preserves_commit_message(self) -> None:
+        # Check that we do clobber fields when explicitly asked
+
+        print("####################")
+        print("### test_update_fields")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    Original message
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        print("###")
+        print("### Amend the commit")
+        self.sh.git('filter-branch', '--msg-filter', 'echo Amended && cat', 'HEAD~..HEAD')
+        self.gh('Update 1', update_fields=True)
+        self.sh.test_tick()
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Amended (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Amended**
+
+    Commit 1
+
+    Original message
+
+     * rMRG1 Commit 1
+     * 93de014 Update 1 on "Amended"
+
+Repository state:
+
+    * 93de014 (gh/ezyang/1/head) Update 1 on "Amended"
+    * rMRG1 Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        self.assertRegex(self.sh.git('log', '--format=%B', '-n', '1', 'HEAD'), 'Amended')
+
+    # ------------------------------------------------------------------------- #
+
     def test_update_fields_preserve_differential_revision(self) -> None:
         # Check that Differential Revision is preserved
 

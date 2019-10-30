@@ -856,7 +856,13 @@ Since we cannot proceed, ghstack will abort now.
         for s in self.stack:
             if s.pull_request_resolved is not None:
                 d = self.elaborate_diff(s, is_ghexport=is_ghexport)
-                if skip and d.remote_source_id == s.source_id and not self.no_skip:
+                # In principle, we can still skip commits if both their
+                # trees and orig commits match; and even if the messages
+                # don't match we only really need to push an updated
+                # orig commit.  However, the code to make this happen is
+                # a bit bothersome, so I don't do it for now, to fix a
+                # very real bug.
+                if skip and d.remote_source_id == s.source_id and not self.no_skip and not self.update_fields:
                     self.skip_commit(d)
                 else:
                     skip = False
