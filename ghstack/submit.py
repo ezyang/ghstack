@@ -32,6 +32,7 @@ DiffMeta = NamedTuple('DiffMeta', [
     # happened to this pull request
     ('what', str),
     ('closed', bool),
+    ('pr_url', str),
 ])
 
 
@@ -98,6 +99,7 @@ class DiffWithGitHubMetadata:
     body: str
     closed: bool
     ghnum: GhNumber
+    pull_request_resolved: ghstack.diff.PullRequestResolved
 
 
 def main(msg: Optional[str],
@@ -469,6 +471,7 @@ to disassociate the commit with the pull request, and then try again.
             number=number,
             ghnum=gh_number,
             remote_source_id=remote_source_id,
+            pull_request_resolved=commit.pull_request_resolved,
         )
 
     def skip_commit(self, commit: DiffWithGitHubMetadata) -> None:
@@ -490,6 +493,7 @@ to disassociate the commit with the pull request, and then try again.
             head_branch=None,
             what='Skipped',
             closed=commit.closed,
+            pr_url=commit.pull_request_resolved.url(),
         ))
 
         self.base_commit = GitCommitHash(self.sh.git(
@@ -583,6 +587,8 @@ Since we cannot proceed, ghstack will abort now.
 
         # Update the commit message of the local diff with metadata
         # so we can correlate these later
+        pull_request_resolved = ghstack.diff.PullRequestResolved(
+            owner=self.repo_owner, repo=self.repo_name, number=number)
         commit_msg = ("{commit_msg}\n\n"
                       "ghstack-source-id: {sourceid}\n"
                       "Pull Request resolved: "
@@ -611,6 +617,7 @@ Since we cannot proceed, ghstack will abort now.
             head_branch=new_pull,
             what='Created',
             closed=False,
+            pr_url=pull_request_resolved.url(),
         ))
 
         self.base_commit = new_pull
@@ -827,6 +834,7 @@ Since we cannot proceed, ghstack will abort now.
             head_branch=new_pull,
             what=what,
             closed=elab_commit.closed,
+            pr_url=elab_commit.pull_request_resolved.url(),
         ))
 
         self.base_commit = new_pull

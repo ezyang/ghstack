@@ -27,6 +27,9 @@ class PullRequestResolved:
     repo: str
     number: GitHubNumber
 
+    def url(self) -> str:
+        return "https://github.com/{}/{}/pull/{}".format(self.owner, self.repo, self.number)
+
     @staticmethod
     def search(s: str) -> Optional['PullRequestResolved']:
         m = RE_PULL_REQUEST_RESOLVED.search(s)

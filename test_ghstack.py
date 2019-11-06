@@ -98,6 +98,7 @@ class TestGh(expecttest.TestCase):
         print("substituteRev: {} = {}".format(substitute, h))
         self.substituteExpected(h, substitute)
 
+    # NB: returns earliest first
     def gh(self, msg: str = 'Update',
            update_fields: bool = False,
            short: bool = False,
@@ -114,8 +115,10 @@ class TestGh(expecttest.TestCase):
             short=short,
             no_skip=no_skip)
 
-    def gh_land(self) -> None:
+    def gh_land(self, pull_request: str) -> None:
         return ghstack.land.main(
+            pull_request=pull_request,
+            github=self.github,
             sh=self.sh
         )
 
@@ -1644,32 +1647,103 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
-    """
     def test_land_ff(self) -> None:
         with self.sh.open("file1.txt", "w") as f:
             f.write("A")
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        self.gh('Initial')
+        diff, = self.gh('Initial')
+        pr_url = diff.pr_url
+        # Because this is fast forward, commit will be landed exactly as is
         self.substituteRev("HEAD", "rCOM1")
-        self.gh_land()
-        self.assertExpected(self.dump_github(), '''\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
-    Stack:
-    * **#500 Commit 1**
+        self.gh_land(pr_url)
+        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+rCOM1 Commit 1
+rINI0 Initial commit''')
 
-    This is my first commit
+    # ------------------------------------------------------------------------- #
+    #
+    def test_land_ff_stack(self) -> None:
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        diff1, diff2, = self.gh('Initial')
+        pr_url = diff2.pr_url
+        # Because this is fast forward, commit will be landed exactly as is
+        self.substituteRev("HEAD~", "rCOM1")
+        self.substituteRev("HEAD", "rCOM2")
 
-     * 3f14b96 Commit 1
+        self.gh_land(pr_url)
+        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+rCOM2 Commit 2
+rCOM1 Commit 1
+rINI0 Initial commit''')
 
-Repository state:
+    # ------------------------------------------------------------------------- #
+    #
+    def test_land_ff_stack_two_phase(self) -> None:
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        diff1, diff2, = self.gh('Initial')
+        pr_url1 = diff1.pr_url
+        pr_url2 = diff2.pr_url
 
-    * 3f14b96 (gh/ezyang/1/head) Commit 1
-    * rINI0 (gh/ezyang/1/base) Initial commit
+        self.substituteRev("HEAD~", "rCOM1")
+        self.substituteRev("HEAD", "rCOM2")
 
-''')
+        self.gh_land(pr_url1)
+        self.gh_land(pr_url2)
+        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+rCOM2 Commit 2
+rCOM1 Commit 1
+rINI0 Initial commit''')
+
+    # ------------------------------------------------------------------------- #
+    #
+    def test_land_with_early_mod(self) -> None:
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("A")
+        self.sh.git("add", "file1.txt")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        with self.sh.open("file2.txt", "w") as f:
+            f.write("B")
+        self.sh.git("add", "file2.txt")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        diff1, diff2, = self.gh('Initial')
+        pr_url = diff2.pr_url
+
+        # edit earlier commit
+        self.sh.git("checkout", "HEAD~")
+        with self.sh.open("file1.txt", "w") as f:
+            f.write("ABBA")
+        self.sh.git("add", "file1.txt")
+        # Can't use -m here, it will clobber the metadata
+        self.sh.git("commit", "--amend")
+        self.substituteRev("HEAD", "rCOM1A")
+        self.gh('Update')
+
+        self.gh_land(pr_url)
+        self.assertExpected(self.upstream_sh.git("show", "master:file1.txt"), '''ABBA''')
+        self.assertExpected(self.upstream_sh.git("show", "master:file2.txt"), '''B''')
 
     # ------------------------------------------------------------------------- #
 
@@ -1679,7 +1753,8 @@ Repository state:
         self.sh.git("add", "file1.txt")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        self.gh('Initial')
+        diff, = self.gh('Initial')
+        pr_url = diff.pr_url
         self.substituteRev("HEAD", "rCOM1")
 
         self.sh.git("reset", "--hard", "origin/master")
@@ -1691,7 +1766,7 @@ Repository state:
         self.sh.git("push")
 
         self.sh.git("checkout", "gh/ezyang/1/orig")
-        self.gh_land()
+        self.gh_land(pr_url)
 
         self.substituteRev("origin/master", "rUP2")
 
@@ -1699,7 +1774,6 @@ Repository state:
 rUP2 Commit 1
 rUP1 Upstream commit
 rINI0 Initial commit''')
-        """
 
     # ------------------------------------------------------------------------- #
 

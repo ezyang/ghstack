@@ -48,9 +48,8 @@ def main() -> None:
             help='force push the branch even if your local branch is stale')
         subparser.add_argument(
             '--no-skip', action='store_true',
-            help=
-            'Never skip pushing commits, even if the contents didn\'t change '
-            '(use this if you\'ve only updated the commit message).')
+            help='Never skip pushing commits, even if the contents didn\'t change '
+                 '(use this if you\'ve only updated the commit message).')
 
     unlink = subparsers.add_parser('unlink')
     unlink.add_argument('COMMITS', nargs='*')
@@ -60,7 +59,8 @@ def main() -> None:
         help='Select the last command (not including rage commands) to report')
 
     land = subparsers.add_parser('land')
-    land.add_argument('COMMITS', nargs='*')
+    land.add_argument('pull_request', metavar='PR',
+        help='GitHub pull request URL of stack to land')
 
     checkout = subparsers.add_parser('checkout')
     checkout.add_argument('pull_request', metavar='PR',
@@ -117,6 +117,8 @@ def main() -> None:
             )
         elif args.cmd == 'land':
             ghstack.land.main(
+                pull_request=args.pull_request,
+                github=github,
                 sh=sh,
             )
         elif args.cmd == 'action':
