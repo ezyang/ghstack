@@ -82,7 +82,7 @@ design decisions on this tool.
 
 ## Ripley Cupboard
 
-Channeling Conor McBridge, this section documents mistakes worth
+Channeling Conor McBride, this section documents mistakes worth
 mentioning.
 
 **Non-stack mode.**  ghstack processes your entire stack when it
