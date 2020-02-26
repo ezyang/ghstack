@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-# Only for now; see
-# https://github.com/graphql-python/graphql-core-next/issues/26
-import graphql  # type: ignore
+import graphql
 
 import re
 import os.path

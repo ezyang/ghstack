@@ -120,7 +120,7 @@ class TestGh(expecttest.TestCase):
             pull_request=pull_request,
             github=self.github,
             sh=self.sh,
-            github_url="github.com,"
+            github_url="github.com",
         )
 
     # TODO: pass arguments

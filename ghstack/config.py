@@ -31,7 +31,7 @@ Config = NamedTuple('Config', [
     # autodetection fails
     ('default_project_dir', str),
     # GitHub url. Defaults to github.com which is true for all non-enterprise github repos
-    ('github_url', Optional[str])
+    ('github_url', str)
 ])
 
 

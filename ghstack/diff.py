@@ -19,11 +19,11 @@ RAW_PULL_REQUEST_RESOLVED = (
 )
 
 
-def re_pull_request_resolved(github_url: str) -> Pattern:
+def re_pull_request_resolved(github_url: str) -> Pattern[str]:
     return re.compile(RAW_PULL_REQUEST_RESOLVED.format(github_url=github_url))
 
 
-def re_pull_request_resolved_w_sp(github_url: str) -> Pattern:
+def re_pull_request_resolved_w_sp(github_url: str) -> Pattern[str]:
     return re.compile(r'\n*' + RAW_PULL_REQUEST_RESOLVED.format(github_url=github_url))
 
 
@@ -33,11 +33,11 @@ class PullRequestResolved:
     repo: str
     number: GitHubNumber
 
-    def url(self, github_url) -> str:
+    def url(self, github_url: str) -> str:
         return "https://{}/{}/{}/pull/{}".format(github_url, self.owner, self.repo, self.number)
 
     @staticmethod
-    def search(s: str, github_url) -> Optional['PullRequestResolved']:
+    def search(s: str, github_url: str) -> Optional['PullRequestResolved']:
         m = re_pull_request_resolved(github_url).search(s)
         if m is not None:
             return PullRequestResolved(
