@@ -76,7 +76,7 @@ class GitPatch(ghstack.diff.Patch):
         return self.h.tree()
 
 
-def parse_header(s: str) -> List[ghstack.diff.Diff]:
+def parse_header(s: str, github_url: str) -> List[ghstack.diff.Diff]:
     def convert(h: CommitHeader) -> ghstack.diff.Diff:
         parents = h.parents()
         if len(parents) != 1:
@@ -89,7 +89,7 @@ def parse_header(s: str) -> List[ghstack.diff.Diff]:
             summary=h.commit_msg(),
             oid=h.commit_id(),
             source_id=h.tree(),
-            pull_request_resolved=ghstack.diff.PullRequestResolved.search(h.raw_header),
+            pull_request_resolved=ghstack.diff.PullRequestResolved.search(h.raw_header, github_url),
             patch=GitPatch(h)
         )
     return list(map(convert, split_header(s)))

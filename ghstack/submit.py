@@ -86,7 +86,7 @@ def branch_orig(username: str, ghnum: GhNumber) -> GitCommitHash:
     return branch(username, ghnum, "orig")
 
 
-STACK_HEADER = "Stack from [ghstack](https://github.com/ezyang/ghstack)"
+STACK_HEADER = "Stack from [ghstack](https://{github_url}/ezyang/ghstack)"
 
 
 @dataclass
@@ -113,6 +113,7 @@ def main(msg: Optional[str],
          short: bool = False,
          force: bool = False,
          no_skip: bool = False,
+         github_url: str = "github.com",
          ) -> List[DiffMeta]:
 
     if sh is None:
@@ -123,12 +124,18 @@ def main(msg: Optional[str],
         # Grovel in remotes to figure it out
         origin_url = sh.git("remote", "get-url", "origin")
         while True:
-            m = re.match(r'^git@github.com:([^/]+)/([^.]+)(?:\.git)?$', origin_url)
+            match = r'^git@{github_url}:([^/]+)/([^.]+)(?:\.git)?$'.format(
+                github_url=github_url
+            )
+            m = re.match(match, origin_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
                 break
-            m = re.search(r'github.com/([^/]+)/([^.]+)', origin_url)
+            search = r'{github_url}/([^/]+)/([^.]+)'.format(
+                github_url=github_url
+            )
+            m = re.search(search, origin_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
@@ -168,7 +175,9 @@ def main(msg: Optional[str],
 
     # compute the stack of commits to process (reverse chronological order),
     stack = ghstack.git.parse_header(
-        sh.git("rev-list", "--header", "^" + base, "HEAD"))
+        sh.git("rev-list", "--header", "^" + base, "HEAD"),
+        github_url,
+    )
 
     # compute the base commit
     base_obj = ghstack.git.split_header(sh.git("rev-list", "--header", "^" + base + "^@", base))[0]
@@ -192,7 +201,8 @@ def main(msg: Optional[str],
                           short=short,
                           force=force,
                           no_skip=no_skip,
-                          stack=list(reversed(stack)))
+                          stack=list(reversed(stack)),
+                          github_url=github_url)
     submitter.prepare_updates()
     submitter.push_updates()
 
@@ -295,6 +305,9 @@ class Submitter(object):
     # Do not skip unchanged diffs
     no_skip: bool
 
+    # Github url (normally github.com)
+    github_url: str
+
     def __init__(
             self,
             github: ghstack.github.GitHubEndpoint,
@@ -311,7 +324,8 @@ class Submitter(object):
             stack: List[ghstack.diff.Diff],
             short: bool,
             force: bool,
-            no_skip: bool):
+            no_skip: bool,
+            github_url: str,):
         self.github = github
         self.sh = sh
         self.username = username
@@ -322,7 +336,7 @@ class Submitter(object):
         self.base_orig = base_commit
         self.base_tree = base_tree
         self.update_fields = update_fields
-        self.stack_header = stack_header
+        self.stack_header = None if stack_header is None else stack_header.format(github_url=github_url)
         self.stack_meta = []
         self.ignored_diffs = []
         self.stack = stack
@@ -331,6 +345,7 @@ class Submitter(object):
         self.short = short
         self.force = force
         self.no_skip = no_skip
+        self.github_url = github_url
 
     def _default_title_and_body(self, commit: ghstack.diff.Diff,
                                 old_pr_body: Optional[str]
@@ -362,7 +377,7 @@ class Submitter(object):
         commit_body = RE_GHSTACK_SOURCE_ID.sub('', commit_body)
         # Don't store Pull request resolved in the PR body; it's
         # unnecessary
-        commit_body = ghstack.diff.RE_PULL_REQUEST_RESOLVED_W_SP.sub('', commit_body)
+        commit_body = ghstack.diff.re_pull_request_resolved_w_sp(self.github_url).sub('', commit_body)
         pr_body = (
             "{}:\n* (to be filled)\n\n{}{}"
             .format(self.stack_header,
@@ -493,7 +508,7 @@ to disassociate the commit with the pull request, and then try again.
             head_branch=None,
             what='Skipped',
             closed=commit.closed,
-            pr_url=commit.pull_request_resolved.url(),
+            pr_url=commit.pull_request_resolved.url(self.github_url),
         ))
 
         self.base_commit = GitCommitHash(self.sh.git(
@@ -592,12 +607,13 @@ Since we cannot proceed, ghstack will abort now.
         commit_msg = ("{commit_msg}\n\n"
                       "ghstack-source-id: {sourceid}\n"
                       "Pull Request resolved: "
-                      "https://github.com/{owner}/{repo}/pull/{number}"
+                      "https://{github_url}/{owner}/{repo}/pull/{number}"
                       .format(commit_msg=commit.summary.rstrip(),
                               owner=self.repo_owner,
                               repo=self.repo_name,
                               number=number,
-                              sourceid=commit.source_id))
+                              sourceid=commit.source_id,
+                              github_url=self.github_url))
 
         # TODO: Try harder to preserve the old author/commit
         # information (is it really necessary? Check what
@@ -617,7 +633,7 @@ Since we cannot proceed, ghstack will abort now.
             head_branch=new_pull,
             what='Created',
             closed=False,
-            pr_url=pull_request_resolved.url(),
+            pr_url=pull_request_resolved.url(self.github_url),
         ))
 
         self.base_commit = new_pull
@@ -834,7 +850,7 @@ Since we cannot proceed, ghstack will abort now.
             head_branch=new_pull,
             what=what,
             closed=elab_commit.closed,
-            pr_url=elab_commit.pull_request_resolved.url(),
+            pr_url=elab_commit.pull_request_resolved.url(self.github_url),
         ))
 
         self.base_commit = new_pull
@@ -900,8 +916,9 @@ Since we cannot proceed, ghstack will abort now.
             # NB: GraphQL API does not support modifying PRs
             if not s.closed:
                 logging.info(
-                    "# Updating https://github.com/{owner}/{repo}/pull/{number}"
-                    .format(owner=self.repo_owner,
+                    "# Updating https://{github_url}/{owner}/{repo}/pull/{number}"
+                    .format(github_url=self.github_url,
+                            owner=self.repo_owner,
                             repo=self.repo_name,
                             number=s.number))
                 self.github.patch(
@@ -912,8 +929,9 @@ Since we cannot proceed, ghstack will abort now.
                     title=s.title)
             else:
                 logging.info(
-                    "# Skipping closed https://github.com/{owner}/{repo}/pull/{number}"
-                    .format(owner=self.repo_owner,
+                    "# Skipping closed https://{github_url}/{owner}/{repo}/pull/{number}"
+                    .format(github_url=self.github_url,
+                            owner=self.repo_owner,
                             repo=self.repo_name,
                             number=s.number))
 
@@ -945,8 +963,9 @@ Since we cannot proceed, ghstack will abort now.
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
-            return ("https://github.com/{owner}/{repo}/pull/{number}"
-                    .format(owner=self.repo_owner,
+            return ("https://{github_url}/{owner}/{repo}/pull/{number}"
+                    .format(github_url=self.github_url,
+                            owner=self.repo_owner,
                             repo=self.repo_name,
                             number=s.number))
 

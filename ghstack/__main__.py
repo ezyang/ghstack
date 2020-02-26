@@ -94,7 +94,8 @@ def main() -> None:
         ghstack.logging.formatter.redact(conf.github_oauth, '<GITHUB_OAUTH>')
         github = ghstack.github_real.RealGitHubEndpoint(
             oauth_token=conf.github_oauth,
-            proxy=conf.proxy
+            proxy=conf.proxy,
+            github_url=conf.github_url,
         )
 
         if args.cmd == 'rage':
@@ -109,17 +110,20 @@ def main() -> None:
                 short=args.short,
                 force=args.force,
                 no_skip=args.no_skip,
+                github_url=conf.github_url,
             )
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
                 commits=args.COMMITS,
                 sh=sh,
+                github_url=conf.github_url,
             )
         elif args.cmd == 'land':
             ghstack.land.main(
                 pull_request=args.pull_request,
                 github=github,
                 sh=sh,
+                github_url=conf.github_url,
             )
         elif args.cmd == 'action':
             ghstack.action.main(
