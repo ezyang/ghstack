@@ -48,7 +48,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
 
     if config_path is None:
         raise RuntimeError(
-            "Couldn't locate config in parent dirrectories of {local_path}"
+            "Couldn't locate config in parent directories of {local_path}"
             .format(local_path=os.getcwd()),
         )
 
