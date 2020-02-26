@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from ghstack.typing import GitHubNumber, GitTreeHash
 import ghstack.shell
-from typing import Optional
+from typing import Optional, Pattern
 import re
 from abc import ABCMeta, abstractmethod
 
@@ -15,10 +15,16 @@ RE_GH_METADATA = re.compile(
 
 RAW_PULL_REQUEST_RESOLVED = (
     r'Pull Request resolved: '
-    r'https://github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+)'
+    r'https://{github_url}/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+)'
 )
-RE_PULL_REQUEST_RESOLVED = re.compile(RAW_PULL_REQUEST_RESOLVED)
-RE_PULL_REQUEST_RESOLVED_W_SP = re.compile(r'\n*' + RAW_PULL_REQUEST_RESOLVED)
+
+
+def re_pull_request_resolved(github_url: str) -> Pattern:
+    return re.compile(RAW_PULL_REQUEST_RESOLVED.format(github_url=github_url))
+
+
+def re_pull_request_resolved_w_sp(github_url: str) -> Pattern:
+    return re.compile(r'\n*' + RAW_PULL_REQUEST_RESOLVED.format(github_url=github_url))
 
 
 @dataclass
@@ -27,12 +33,12 @@ class PullRequestResolved:
     repo: str
     number: GitHubNumber
 
-    def url(self) -> str:
-        return "https://github.com/{}/{}/pull/{}".format(self.owner, self.repo, self.number)
+    def url(self, github_url) -> str:
+        return "https://{}/{}/{}/pull/{}".format(github_url, self.owner, self.repo, self.number)
 
     @staticmethod
-    def search(s: str) -> Optional['PullRequestResolved']:
-        m = RE_PULL_REQUEST_RESOLVED.search(s)
+    def search(s: str, github_url) -> Optional['PullRequestResolved']:
+        m = re_pull_request_resolved(github_url).search(s)
         if m is not None:
             return PullRequestResolved(
                 owner=m.group("owner"),

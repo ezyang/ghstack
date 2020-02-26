@@ -15,7 +15,8 @@ RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 
 
 def main(commits: Optional[List[str]] = None,
-         sh: Optional[ghstack.shell.Shell] = None) -> GitCommitHash:
+         sh: Optional[ghstack.shell.Shell] = None,
+         github_url: str = "github.com") -> GitCommitHash:
     # If commits is empty, we unlink the entire stack
     #
     # For now, we only process commits on our current
@@ -71,7 +72,7 @@ def main(commits: Optional[List[str]] = None,
         if should_unlink:
             commit_msg = RE_GHSTACK_SOURCE_ID.sub(
                 '',
-                ghstack.diff.RE_PULL_REQUEST_RESOLVED_W_SP.sub('', commit_msg)
+                ghstack.diff.re_pull_request_resolved_w_sp(github_url).sub('', commit_msg)
             )
             logging.debug("-- edited commit_msg:\n{}".format(
                 textwrap.indent(commit_msg, '   ')))

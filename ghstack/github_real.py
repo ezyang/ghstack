@@ -15,11 +15,11 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
 
     # The URL of the GraphQL endpoint to connect to
-    graphql_endpoint: str = 'https://api.github.com/graphql'
+    graphql_endpoint: str = 'https://api.{github_url}/graphql'
 
     # The base URL of the REST endpoint to connect to (all REST requests
     # will be subpaths of this URL)
-    rest_endpoint: str = 'https://api.github.com'
+    rest_endpoint: str = 'https://api.{github_url}'
 
     # The string OAuth token to authenticate to the GraphQL server with
     oauth_token: str
@@ -30,9 +30,11 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
     def __init__(self,
                  oauth_token: str,
+                 github_url: str,
                  proxy: Optional[str] = None):
         self.oauth_token = oauth_token
         self.proxy = proxy
+        self.github_url = github_url
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
@@ -50,13 +52,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         else:
             proxies = {}
 
-        logging.debug("# POST {}".format(self.graphql_endpoint))
+        logging.debug("# POST {}".format(self.graphql_endpoint.format(github_url=self.github_url)))
         logging.debug("Request GraphQL query:\n{}".format(query))
         logging.debug("Request GraphQL variables:\n{}"
                       .format(json.dumps(kwargs, indent=1)))
 
         resp = requests.post(
-            self.graphql_endpoint,
+            self.graphql_endpoint.format(github_url=self.github_url),
             json={"query": query, "variables": kwargs},
             headers=headers,
             proxies=proxies
@@ -102,7 +104,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             'Accept': 'application/vnd.github.v3+json',
         }
 
-        url = self.rest_endpoint + '/' + path
+        url = self.rest_endpoint.format(github_url=self.github_url) + '/' + path
         logging.debug("# {} {}".format(method, url))
         logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
@@ -126,14 +128,14 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if resp.status_code == 404:
             raise RuntimeError("""\
 GitHub raised a 404 error on the request for
-{}.
+{url}.
 Usually, this doesn't actually mean the page doesn't exist; instead, it
 usually means that you didn't configure your OAuth token with enough
 permissions.  Please create a new OAuth token at
-https://github.com/settings/tokens and DOUBLE CHECK that you checked
+https://{github_url}/settings/tokens and DOUBLE CHECK that you checked
 "public_repo" for permissions, and update ~/.ghstackrc with your new
 value.
-""".format(url))
+""".format(url=url, github_url=self.github_url))
 
         try:
             resp.raise_for_status()

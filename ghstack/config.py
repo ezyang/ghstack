@@ -6,6 +6,7 @@ import configparser
 import logging
 import re
 from typing import NamedTuple, Optional
+from pathlib import Path
 
 
 Config = NamedTuple('Config', [
@@ -29,17 +30,39 @@ Config = NamedTuple('Config', [
     # Path to project directory inside fbsource, to default when
     # autodetection fails
     ('default_project_dir', str),
+    # GitHub url. Defaults to github.com which is true for all non-enterprise github repos
+    ('github_url', Optional[str])
 ])
 
 
 def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
     config = configparser.ConfigParser()
-    config.read(['.ghstackrc', os.path.expanduser('~/.ghstackrc')])
+
+    config_path = None
+    current_dir = Path(os.getcwd())
+    while current_dir != Path('/'):
+        config_path = "/".join([str(current_dir), ".ghstackrc"])
+        if os.path.exists(config_path):
+            break
+        current_dir = current_dir.parent
+
+    if config_path is None:
+        raise RuntimeError(
+            "Couldn't locate config in parent directories of {local_path}"
+            .format(local_path=os.getcwd()),
+        )
+
+    config.read(['.ghstackrc', os.path.expanduser(config_path)])
 
     write_back = False
 
     if not config.has_section('ghstack'):
         config.add_section('ghstack')
+
+    if config.has_option('ghstack', 'github_url'):
+        github_url = config.get('ghstack', 'github_url')
+    else:
+        github_url = "github.com"
 
     # Environment variable overrides config file
     # This envvar is legacy from ghexport days
@@ -54,8 +77,8 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
     if github_oauth is None:
         github_oauth = getpass.getpass(
             'GitHub OAuth token (make one at '
-            'https://github.com/settings/tokens -- '
-            'we need public_repo permissions): ').strip()
+            'https://{github_url}/settings/tokens -- '
+            'we need public_repo permissions): '.format(github_url=github_url)).strip()
         config.set(
             'ghstack',
             'github_oauth',
@@ -118,4 +141,6 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         proxy=proxy,
         fbsource_path=fbsource_path,
         github_path=github_path,
-        default_project_dir=default_project_dir)
+        default_project_dir=default_project_dir,
+        github_url=github_url,
+    )

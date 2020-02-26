@@ -30,7 +30,8 @@ def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, owner: str, nam
 
 def main(pull_request: str,
          github: ghstack.github.GitHubEndpoint,
-         sh: ghstack.shell.Shell) -> None:
+         sh: ghstack.shell.Shell,
+         github_url: str) -> None:
 
     # We land the entire stack pointed to by a URL.
     # Local state is ignored; PR is source of truth
@@ -52,7 +53,9 @@ def main(pull_request: str,
     # compute the stack of commits in chronological order (does not
     # include base)
     stack = ghstack.git.parse_header(
-        sh.git("rev-list", "--reverse", "--header", "^" + base, remote_orig_ref))
+        sh.git("rev-list", "--reverse", "--header", "^" + base, remote_orig_ref),
+        github_url=github_url,
+    )
 
     # Switch working copy
     try:
