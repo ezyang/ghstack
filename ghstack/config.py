@@ -40,29 +40,37 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
 
     config_path = None
     current_dir = Path(os.getcwd())
+
     while current_dir != Path('/'):
-        config_path = "/".join([str(current_dir), ".ghstackrc"])
-        if os.path.exists(config_path):
+        tentative_config_path = "/".join([str(current_dir), ".ghstackrc"])
+        if os.path.exists(tentative_config_path):
+            config_path = tentative_config_path
             break
         current_dir = current_dir.parent
 
-    if config_path is None:
-        raise RuntimeError(
-            "Couldn't locate config in parent directories of {local_path}"
-            .format(local_path=os.getcwd()),
-        )
-
-    config.read(['.ghstackrc', os.path.expanduser(config_path)])
-
     write_back = False
+    if config_path is None:
+        config_path = os.path.expanduser("~/.ghstackrc")
+        write_back = True
+
+    config.read(['.ghstackrc', config_path])
 
     if not config.has_section('ghstack'):
         config.add_section('ghstack')
+        write_back = True
 
     if config.has_option('ghstack', 'github_url'):
         github_url = config.get('ghstack', 'github_url')
     else:
-        github_url = "github.com"
+        github_url = input('GitHub url [github.com]: ')
+        if not github_url:
+            github_url = "github.com"
+        config.set(
+            'ghstack',
+            'github_url',
+            github_url
+        )
+        write_back = True
 
     # Environment variable overrides config file
     # This envvar is legacy from ghexport days
@@ -131,8 +139,8 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         default_project_dir = 'fbcode/caffe2'
 
     if write_back:
-        config.write(open(os.path.expanduser('~/.ghstackrc'), 'w'))
-        logging.info("NB: configuration saved to ~/.ghstackrc")
+        config.write(open(config_path, 'w'))
+        logging.info("NB: configuration saved to {}".format(config_path))
 
     return Config(
         github_oauth=github_oauth,
