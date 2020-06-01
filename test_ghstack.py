@@ -1,6 +1,5 @@
 from __future__ import print_function
 import unittest
-import subprocess
 import os
 import shutil
 import tempfile
@@ -21,7 +20,7 @@ import ghstack.github
 import ghstack.unlink
 import ghstack.github_fake
 
-from ghstack.submit import GitCommitHash
+from ghstack.typing import GitCommitHash
 
 
 @contextlib.contextmanager
@@ -55,7 +54,6 @@ def indent(text: str, prefix: str) -> str:
 
 
 class TestGh(expecttest.TestCase):
-    proc: ClassVar[subprocess.Popen]
     github: ghstack.github.GitHubEndpoint
     rev_map: Dict[SubstituteRev, GitCommitHash]
     upstream_sh: ghstack.shell.Shell

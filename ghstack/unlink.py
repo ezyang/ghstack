@@ -2,7 +2,7 @@
 
 import ghstack.git
 import ghstack.shell
-from ghstack.git import GitCommitHash
+from ghstack.typing import GitCommitHash
 import ghstack.diff
 import textwrap
 import logging
