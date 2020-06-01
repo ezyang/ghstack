@@ -2,7 +2,7 @@
 
 import json
 import requests
-from typing import Optional, Any, Sequence
+from typing import Optional, Any, Sequence, Union, Tuple
 import logging
 
 import ghstack.github
@@ -28,13 +28,25 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     # Facebook users, this is typically 'http://fwdproxy:8080')
     proxy: Optional[str]
 
+    # The certificate bundle to be used to verify the connection.
+    # Passed to requests as 'verify'.
+    verify: Optional[str]
+
+    # Client side certificate to use when connecitng.
+    # Passed to requests as 'cert'.
+    cert: Optional[Union[str, Tuple[str, str]]]
+
     def __init__(self,
                  oauth_token: str,
                  github_url: str,
-                 proxy: Optional[str] = None):
+                 proxy: Optional[str] = None,
+                 verify: Optional[str] = None,
+                 cert: Optional[Union[str, Tuple[str, str]]] = None):
         self.oauth_token = oauth_token
         self.proxy = proxy
         self.github_url = github_url
+        self.verify = verify
+        self.cert = cert
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
@@ -61,7 +73,9 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             self.graphql_endpoint.format(github_url=self.github_url),
             json={"query": query, "variables": kwargs},
             headers=headers,
-            proxies=proxies
+            proxies=proxies,
+            verify=self.verify,
+            cert=self.cert,
         )
 
         logging.debug("Response status: {}".format(resp.status_code))
@@ -108,11 +122,14 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         logging.debug("# {} {}".format(method, url))
         logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
-        resp: requests.Response = \
-            getattr(requests, method)(url,
-                                      json=kwargs,
-                                      headers=headers,
-                                      proxies=proxies)
+        resp: requests.Response = getattr(requests, method)(
+            url,
+            json=kwargs,
+            headers=headers,
+            proxies=proxies,
+            verify=self.verify,
+            cert=self.cert,
+        )
 
         logging.debug("Response status: {}".format(resp.status_code))
 
