@@ -114,7 +114,7 @@ def main(msg: Optional[str],
          force: bool = False,
          no_skip: bool = False,
          github_url: str = "github.com",
-         ) -> List[DiffMeta]:
+         ) -> List[Optional[DiffMeta]]:
 
     if sh is None:
         # Use CWD
@@ -275,7 +275,7 @@ class Submitter(object):
 
     # Description of all the diffs we submitted; to be populated
     # by Submitter.
-    stack_meta: List[DiffMeta]
+    stack_meta: List[Optional[DiffMeta]]
 
     # List of input diffs which we ignored (i.e., treated as if they
     # did not exist on the stack at all), because they were associated
@@ -860,6 +860,8 @@ Since we cannot proceed, ghstack will abort now.
     def _format_stack(self, index: int) -> str:
         rows = []
         for i, s in reversed(list(enumerate(self.stack_meta))):
+            if s is None:
+                continue
             if index == i:
                 rows.append('* **#{} {}**'.format(s.number, s.title.strip()))
             else:
@@ -914,6 +916,8 @@ Since we cannot proceed, ghstack will abort now.
         force_push_branches: List[str] = []
         for i, s in enumerate(self.stack_meta):
             # NB: GraphQL API does not support modifying PRs
+            if s is None:
+                continue
             if not s.closed:
                 logging.info(
                     "# Updating https://{github_url}/{owner}/{repo}/pull/{number}"
@@ -971,7 +975,7 @@ Since we cannot proceed, ghstack will abort now.
 
         if self.short:
             # Guarantee that the FIRST PR URL is the top of the stack
-            print('\n'.join(format_url(s) for s in reversed(self.stack_meta)))
+            print('\n'.join(format_url(s) for s in reversed(self.stack_meta) if s is not None))
             return
 
         print()
@@ -979,12 +983,19 @@ Since we cannot proceed, ghstack will abort now.
         print()
         if self.stack_meta:
             for s in reversed(self.stack_meta):
+                if s is None:
+                    continue
                 url = format_url(s)
                 print(" - {} {}".format(s.what, url))
-            top_of_stack = self.stack_meta[-1]
-            print()
 
+            print()
             if import_help:
+                top_of_stack = None
+                for x in self.stack_meta:
+                    if x is not None:
+                        top_of_stack = x
+                assert top_of_stack is not None
+
                 print("Facebook employees can import your changes by running ")
                 print("(on a Facebook machine):")
                 print()

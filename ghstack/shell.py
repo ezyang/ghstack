@@ -190,6 +190,7 @@ class Shell(object):
                 process_stream(proc.stderr, stderr, sys.stderr),
                 proc.wait()
             )
+            assert proc.returncode is not None
             return (proc.returncode, out, err)
 
         loop = asyncio.get_event_loop()

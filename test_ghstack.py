@@ -9,7 +9,7 @@ import sys
 import contextlib
 import io
 
-from typing import ClassVar, Dict, NewType, List, Tuple, Iterator
+from typing import ClassVar, Dict, NewType, List, Tuple, Iterator, Optional
 
 import ghstack.expecttest as expecttest
 
@@ -100,7 +100,7 @@ class TestGh(expecttest.TestCase):
     def gh(self, msg: str = 'Update',
            update_fields: bool = False,
            short: bool = False,
-           no_skip: bool = False) -> List[ghstack.submit.DiffMeta]:
+           no_skip: bool = False) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
             username='ezyang',
@@ -1653,6 +1653,7 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         diff, = self.gh('Initial')
+        assert diff is not None
         pr_url = diff.pr_url
         # Because this is fast forward, commit will be landed exactly as is
         self.substituteRev("HEAD", "rCOM1")
@@ -1676,6 +1677,8 @@ rINI0 Initial commit''')
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         diff1, diff2, = self.gh('Initial')
+        assert diff1 is not None
+        assert diff2 is not None
         pr_url = diff2.pr_url
         # Because this is fast forward, commit will be landed exactly as is
         self.substituteRev("HEAD~", "rCOM1")
@@ -1701,6 +1704,8 @@ rINI0 Initial commit''')
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         diff1, diff2, = self.gh('Initial')
+        assert diff1 is not None
+        assert diff2 is not None
         pr_url1 = diff1.pr_url
         pr_url2 = diff2.pr_url
 
@@ -1728,6 +1733,8 @@ rINI0 Initial commit''')
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         diff1, diff2, = self.gh('Initial')
+        assert diff1 is not None
+        assert diff2 is not None
         pr_url = diff2.pr_url
 
         # edit earlier commit
@@ -1753,6 +1760,7 @@ rINI0 Initial commit''')
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         diff, = self.gh('Initial')
+        assert diff is not None
         pr_url = diff.pr_url
         self.substituteRev("HEAD", "rCOM1")
 
