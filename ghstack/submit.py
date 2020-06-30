@@ -563,6 +563,7 @@ Since we cannot proceed, ghstack will abort now.
             self.ignored_diffs.append((commit, None))
             logging.warn("Skipping {} {}, as the commit has no changes"
                          .format(commit.oid, title))
+            self.stack_meta.append(None)
             return
 
         assert ghnum not in self.seen_ghnums
