@@ -50,6 +50,9 @@ def main() -> None:
             '--no-skip', action='store_true',
             help='Never skip pushing commits, even if the contents didn\'t change '
                  '(use this if you\'ve only updated the commit message).')
+        subparser.add_argument(
+            '--draft', action='store_true',
+            help='Create the pull request in draft mode (only if it has not already been created)')
 
     unlink = subparsers.add_parser('unlink')
     unlink.add_argument('COMMITS', nargs='*')
@@ -110,6 +113,7 @@ def main() -> None:
                 short=args.short,
                 force=args.force,
                 no_skip=args.no_skip,
+                draft=args.draft,
                 github_url=conf.github_url,
             )
         elif args.cmd == 'unlink':
