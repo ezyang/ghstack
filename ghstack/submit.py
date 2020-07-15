@@ -113,6 +113,7 @@ def main(msg: Optional[str],
          short: bool = False,
          force: bool = False,
          no_skip: bool = False,
+         draft: bool = False,
          github_url: str = "github.com",
          ) -> List[Optional[DiffMeta]]:
 
@@ -201,6 +202,7 @@ def main(msg: Optional[str],
                           short=short,
                           force=force,
                           no_skip=no_skip,
+                          draft=draft,
                           stack=list(reversed(stack)),
                           github_url=github_url)
     submitter.prepare_updates()
@@ -305,6 +307,9 @@ class Submitter(object):
     # Do not skip unchanged diffs
     no_skip: bool
 
+    # Create the PR in draft mode if it is going to be created (and not updated).
+    draft: bool
+
     # Github url (normally github.com)
     github_url: str
 
@@ -325,6 +330,7 @@ class Submitter(object):
             short: bool,
             force: bool,
             no_skip: bool,
+            draft: bool,
             github_url: str,):
         self.github = github
         self.sh = sh
@@ -345,6 +351,7 @@ class Submitter(object):
         self.short = short
         self.force = force
         self.no_skip = no_skip
+        self.draft = draft
         self.github_url = github_url
 
     def _default_title_and_body(self, commit: ghstack.diff.Diff,
@@ -596,6 +603,7 @@ Since we cannot proceed, ghstack will abort now.
             base=branch_base(self.username, ghnum),
             body=pr_body,
             maintainer_can_modify=True,
+            draft=self.draft,
         )
         number = r['number']
 
