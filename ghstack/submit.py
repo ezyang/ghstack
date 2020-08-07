@@ -172,7 +172,8 @@ def main(msg: Optional[str],
     repo_id = repo["id"]
 
     sh.git("fetch", "origin")
-    base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
+    master_branch = github.master_branch or "master"
+    base = GitCommitHash(sh.git("merge-base", f"origin/{master_branch}", "HEAD"))
 
     # compute the stack of commits to process (reverse chronological order),
     stack = ghstack.git.parse_header(

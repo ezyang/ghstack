@@ -99,6 +99,7 @@ def main() -> None:
             oauth_token=conf.github_oauth,
             proxy=conf.proxy,
             github_url=conf.github_url,
+            master_branch=conf.master_branch,
         )
 
         if args.cmd == 'rage':
@@ -121,6 +122,7 @@ def main() -> None:
                 commits=args.COMMITS,
                 sh=sh,
                 github_url=conf.github_url,
+                master_branch=conf.master_branch,
             )
         elif args.cmd == 'land':
             ghstack.land.main(

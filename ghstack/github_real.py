@@ -39,12 +39,14 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def __init__(self,
                  oauth_token: str,
                  github_url: str,
+                 master_branch: str,
                  proxy: Optional[str] = None,
                  verify: Optional[str] = None,
                  cert: Optional[Union[str, Tuple[str, str]]] = None):
         self.oauth_token = oauth_token
         self.proxy = proxy
         self.github_url = github_url
+        self.master_branch = master_branch
         self.verify = verify
         self.cert = cert
 
