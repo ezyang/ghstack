@@ -31,7 +31,9 @@ Config = NamedTuple('Config', [
     # autodetection fails
     ('default_project_dir', str),
     # GitHub url. Defaults to github.com which is true for all non-enterprise github repos
-    ('github_url', str)
+    ('github_url', str),
+    # Name of the upstream remote
+    ('remote_name', str)
 ])
 
 
@@ -138,6 +140,11 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
     else:
         default_project_dir = 'fbcode/caffe2'
 
+    if config.has_option('ghstack', 'remote_name'):
+        remote_name = config.get('ghstack', 'remote_name')
+    else:
+        remote_name = 'origin'
+
     if write_back:
         config.write(open(config_path, 'w'))
         logging.info("NB: configuration saved to {}".format(config_path))
@@ -151,4 +158,5 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         github_path=github_path,
         default_project_dir=default_project_dir,
         github_url=github_url,
+        remote_name=remote_name,
     )

@@ -115,6 +115,7 @@ def main(msg: Optional[str],
          no_skip: bool = False,
          draft: bool = False,
          github_url: str = "github.com",
+         remote_name: str = "origin"
          ) -> List[Optional[DiffMeta]]:
 
     if sh is None:
@@ -123,12 +124,12 @@ def main(msg: Optional[str],
 
     if repo_owner is None or repo_name is None:
         # Grovel in remotes to figure it out
-        origin_url = sh.git("remote", "get-url", "origin")
+        remote_url = sh.git("remote", "get-url", remote_name)
         while True:
             match = r'^git@{github_url}:([^/]+)/([^.]+)(?:\.git)?$'.format(
                 github_url=github_url
             )
-            m = re.match(match, origin_url)
+            m = re.match(match, remote_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
@@ -136,14 +137,14 @@ def main(msg: Optional[str],
             search = r'{github_url}/([^/]+)/([^.]+)'.format(
                 github_url=github_url
             )
-            m = re.search(search, origin_url)
+            m = re.search(search, remote_url)
             if m:
                 repo_owner_nonopt = m.group(1)
                 repo_name_nonopt = m.group(2)
                 break
             raise RuntimeError(
                 "Couldn't determine repo owner and name from url: {}"
-                .format(origin_url))
+                .format(remote_url))
     else:
         repo_owner_nonopt = repo_owner
         repo_name_nonopt = repo_name
@@ -163,16 +164,17 @@ def main(msg: Optional[str],
     if repo["isFork"]:
         raise RuntimeError(
             "Cowardly refusing to upload diffs to a repository that is a "
-            "fork.  ghstack expects 'origin' of your Git checkout to point "
+            "fork.  ghstack expects '{}' of your Git checkout to point "
             "to the upstream repository in question.  If your checkout does "
-            "not comply, please adjust your remotes (by editing .git/config) "
-            "to make it so.  If this message is in error, please register "
-            "your complaint on GitHub issues (or edit this line to delete "
-            "the check above.")
+            "not comply, please either adjust your remotes (by editing "
+            ".git/config) or change the 'remote_name' field in your .ghstackrc "
+            "file to point to the correct remote.  If this message is in "
+            "error, please register your complaint on GitHub issues (or edit "
+            "this line to delete the check above).".format(remote_name))
     repo_id = repo["id"]
 
-    sh.git("fetch", "origin")
-    base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
+    sh.git("fetch", remote_name)
+    base = GitCommitHash(sh.git("merge-base", remote_name + "/master", "HEAD"))
 
     # compute the stack of commits to process (reverse chronological order),
     stack = ghstack.git.parse_header(
@@ -204,7 +206,8 @@ def main(msg: Optional[str],
                           no_skip=no_skip,
                           draft=draft,
                           stack=list(reversed(stack)),
-                          github_url=github_url)
+                          github_url=github_url,
+                          remote_name=remote_name)
     submitter.prepare_updates()
     submitter.push_updates()
 
@@ -313,6 +316,9 @@ class Submitter(object):
     # Github url (normally github.com)
     github_url: str
 
+    # Name of the upstream remote (normally origin)
+    remote_name: str
+
     def __init__(
             self,
             github: ghstack.github.GitHubEndpoint,
@@ -331,7 +337,8 @@ class Submitter(object):
             force: bool,
             no_skip: bool,
             draft: bool,
-            github_url: str,):
+            github_url: str,
+            remote_name: str):
         self.github = github
         self.sh = sh
         self.username = username
@@ -353,6 +360,7 @@ class Submitter(object):
         self.no_skip = no_skip
         self.draft = draft
         self.github_url = github_url
+        self.remote_name = remote_name
 
     def _default_title_and_body(self, commit: ghstack.diff.Diff,
                                 old_pr_body: Optional[str]
@@ -479,7 +487,8 @@ to disassociate the commit with the pull request, and then try again.
         # it to test if updates are necessary
         remote_summary = ghstack.git.split_header(
             self.sh.git(
-                "rev-list", "--max-count=1", "--header", "origin/" + branch_orig(self.username, gh_number)
+                "rev-list", "--max-count=1", "--header",
+                self.remote_name + "/" + branch_orig(self.username, gh_number)
             )
         )[0]
         m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
@@ -519,9 +528,11 @@ to disassociate the commit with the pull request, and then try again.
         ))
 
         self.base_commit = GitCommitHash(self.sh.git(
-            "rev-parse", "origin/" + branch_head(self.username, ghnum)))
+            "rev-parse",
+            self.remote_name + "/" + branch_head(self.username, ghnum)))
         self.base_orig = GitCommitHash(self.sh.git(
-            "rev-parse", "origin/" + branch_orig(self.username, ghnum)
+            "rev-parse",
+            self.remote_name + "/" + branch_orig(self.username, ghnum)
         ))
         self.base_tree = GitTreeHash(self.sh.git(
             "rev-parse", self.base_orig + "^{tree}"
@@ -556,7 +567,7 @@ Since we cannot proceed, ghstack will abort now.
         # multiple machines (you bad bad)
         refs = self.sh.git(
             "for-each-ref",
-            "refs/remotes/origin/gh/{}".format(self.username),
+            "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
             "--format=%(refname)").split()
         max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
             if refs else 0
@@ -588,7 +599,7 @@ Since we cannot proceed, ghstack will abort now.
         )
         self.sh.git(
             "push",
-            "origin",
+            self.remote_name,
             *new_branches,
         )
         self.github.push_hook(new_branches)
@@ -752,7 +763,8 @@ Since we cannot proceed, ghstack will abort now.
         # non-merge commit.
         base_args: Tuple[str, ...]
         orig_base_hash = self.sh.git(
-            "rev-parse", "origin/" + branch_base(self.username, ghnum))
+            "rev-parse",
+            self.remote_name + "/" + branch_base(self.username, ghnum))
 
         # I vacillated between whether or not we should use the PR
         # body or the literal commit message here.  Right now we use
@@ -777,7 +789,7 @@ Since we cannot proceed, ghstack will abort now.
             is_ancestor = self.sh.git(
                 "merge-base",
                 "--is-ancestor",
-                "origin/" + branch_base(self.username, ghnum),
+                self.remote_name + "/" + branch_base(self.username, ghnum),
                 self.base_commit, exitcode=True)
 
             if is_ancestor:
@@ -794,7 +806,8 @@ Since we cannot proceed, ghstack will abort now.
                 # it's better than nothing.
                 new_base = GitCommitHash(self.sh.git(
                     "commit-tree", self.base_tree,
-                    "-p", "origin/" + branch_base(self.username, ghnum),
+                    "-p",
+                    self.remote_name + "/" + branch_base(self.username, ghnum),
                     "-p", self.base_commit,
                     input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
                           .format(self.msg, elab_commit.title,
@@ -816,7 +829,7 @@ Since we cannot proceed, ghstack will abort now.
 
         new_pull = GitCommitHash(self.sh.git(
             "commit-tree", tree,
-            "-p", "origin/" + branch_head(self.username, ghnum),
+            "-p", self.remote_name + "/" + branch_head(self.username, ghnum),
             *base_args,
             input='{} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(self.msg, elab_commit.title, non_orig_commit_msg)))
 
@@ -965,13 +978,13 @@ Since we cannot proceed, ghstack will abort now.
         # Careful!  Don't push master.
         # TODO: These pushes need to be atomic (somehow)
         if base_push_branches:
-            self.sh.git("push", "origin", *base_push_branches)
+            self.sh.git("push", self.remote_name, *base_push_branches)
             self.github.push_hook(base_push_branches)
         if push_branches:
-            self.sh.git("push", "origin", *push_branches)
+            self.sh.git("push", self.remote_name, *push_branches)
             self.github.push_hook(push_branches)
         if force_push_branches:
-            self.sh.git("push", "origin", "--force", *force_push_branches)
+            self.sh.git("push", self.remote_name, "--force", *force_push_branches)
             self.github.push_hook(force_push_branches)
 
         # Report what happened

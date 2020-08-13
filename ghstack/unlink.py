@@ -16,7 +16,8 @@ RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 
 def main(commits: Optional[List[str]] = None,
          sh: Optional[ghstack.shell.Shell] = None,
-         github_url: str = "github.com") -> GitCommitHash:
+         github_url: str = "github.com",
+         remote_name: str = "origin") -> GitCommitHash:
     # If commits is empty, we unlink the entire stack
     #
     # For now, we only process commits on our current
@@ -34,7 +35,7 @@ def main(commits: Optional[List[str]] = None,
         for c in commits:
             parsed_commits.add(GitCommitHash(sh.git("rev-parse", c)))
 
-    base = GitCommitHash(sh.git("merge-base", "origin/master", "HEAD"))
+    base = GitCommitHash(sh.git("merge-base", remote_name + "/master", "HEAD"))
 
     # compute the stack of commits in chronological order (does not
     # include base)

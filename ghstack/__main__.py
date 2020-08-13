@@ -115,12 +115,14 @@ def main() -> None:
                 no_skip=args.no_skip,
                 draft=args.draft,
                 github_url=conf.github_url,
+                remote_name=conf.remote_name,
             )
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
                 commits=args.COMMITS,
                 sh=sh,
                 github_url=conf.github_url,
+                remote_name=conf.remote_name,
             )
         elif args.cmd == 'land':
             ghstack.land.main(
@@ -128,6 +130,7 @@ def main() -> None:
                 github=github,
                 sh=sh,
                 github_url=conf.github_url,
+                remote_name=conf.remote_name,
             )
         elif args.cmd == 'action':
             ghstack.action.main(
@@ -155,7 +158,12 @@ def main() -> None:
             ))
             loop.close()
         elif args.cmd == 'checkout':
-            ghstack.checkout.main(pull_request=args.pull_request, github=github, sh=sh)
+            ghstack.checkout.main(
+                pull_request=args.pull_request,
+                github=github,
+                sh=sh,
+                remote_name=conf.remote_name,
+            )
         else:
             raise RuntimeError("Unrecognized command {}".format(args.cmd))
 
