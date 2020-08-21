@@ -99,7 +99,6 @@ def main() -> None:
             oauth_token=conf.github_oauth,
             proxy=conf.proxy,
             github_url=conf.github_url,
-            master_branch=conf.master_branch,
         )
 
         if args.cmd == 'rage':
@@ -116,6 +115,7 @@ def main() -> None:
                 no_skip=args.no_skip,
                 draft=args.draft,
                 github_url=conf.github_url,
+                master_branch=conf.master_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'unlink':
@@ -132,6 +132,7 @@ def main() -> None:
                 github=github,
                 sh=sh,
                 github_url=conf.github_url,
+                master_branch=conf.master_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'action':

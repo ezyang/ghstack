@@ -115,6 +115,7 @@ class TestGh(expecttest.TestCase):
 
     def gh_land(self, pull_request: str) -> None:
         return ghstack.land.main(
+            master_branch='master',
             remote_name='origin',
             pull_request=pull_request,
             github=self.github,

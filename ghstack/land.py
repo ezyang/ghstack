@@ -29,6 +29,7 @@ def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, owner: str, nam
 
 
 def main(pull_request: str,
+         master_branch: str,
          remote_name: str,
          github: ghstack.github.GitHubEndpoint,
          sh: ghstack.shell.Shell,
@@ -41,7 +42,6 @@ def main(pull_request: str,
 
     params = ghstack.github_utils.parse_pull_request(pull_request)
     orig_ref = lookup_pr_to_orig_ref(github, **params)
-    master_branch = github.master_branch or "master"
 
     if sh is None:
         # Use CWD
