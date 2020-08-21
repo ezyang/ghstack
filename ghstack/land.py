@@ -29,6 +29,7 @@ def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, owner: str, nam
 
 
 def main(pull_request: str,
+         remote_name: str,
          github: ghstack.github.GitHubEndpoint,
          sh: ghstack.shell.Shell,
          github_url: str) -> None:
@@ -47,9 +48,9 @@ def main(pull_request: str,
         sh = ghstack.shell.Shell()
 
     # Get up-to-date
-    sh.git("fetch", "origin")
-    remote_orig_ref = "origin/" + orig_ref
-    base = GitCommitHash(sh.git("merge-base", f"origin/{master_branch}", remote_orig_ref))
+    sh.git("fetch", remote_name)
+    remote_orig_ref = remote_name + "/" + orig_ref
+    base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{master_branch}", remote_orig_ref))
 
     # compute the stack of commits in chronological order (does not
     # include base)
@@ -65,7 +66,7 @@ def main(pull_request: str,
         prev_ref = sh.git("rev-parse", "HEAD")
 
     # If this fails, we don't have to reset
-    sh.git("checkout", f"origin/{master_branch}")
+    sh.git("checkout", f"{remote_name}/{master_branch}")
 
     try:
         # Compute the metadata for each commit
@@ -84,13 +85,13 @@ def main(pull_request: str,
         # OK, actually do the land now
         for sref in stack_orig_refs:
             try:
-                sh.git("cherry-pick", "origin/" + sref)
+                sh.git("cherry-pick", remote_name + "/" + sref)
             except BaseException:
                 sh.git("cherry-pick", "--abort")
                 raise
 
         # All good! Push!
-        sh.git("push", "origin", f"HEAD:refs/heads/{master_branch}")
+        sh.git("push", remote_name, f"HEAD:refs/heads/{master_branch}")
 
     finally:
         sh.git("checkout", prev_ref)

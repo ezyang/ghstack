@@ -11,6 +11,7 @@ import re
 def main(pull_request: str,
          github: ghstack.github.GitHubEndpoint,
          sh: ghstack.shell.Shell,
+         remote_name: str,
          ) -> None:
 
     params = ghstack.github_utils.parse_pull_request(pull_request)
@@ -30,5 +31,5 @@ def main(pull_request: str,
 
     # TODO: Handle remotes correctly too (so this subsumes hub)
 
-    sh.git("fetch", "origin")
-    sh.git("checkout", "origin/" + orig_ref)
+    sh.git("fetch", remote_name)
+    sh.git("checkout", remote_name + "/" + orig_ref)
