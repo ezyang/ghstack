@@ -29,7 +29,7 @@ def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, owner: str, nam
 
 
 def main(pull_request: str,
-         master_branch: str,
+         default_branch: str,
          remote_name: str,
          github: ghstack.github.GitHubEndpoint,
          sh: ghstack.shell.Shell,
@@ -50,7 +50,7 @@ def main(pull_request: str,
     # Get up-to-date
     sh.git("fetch", remote_name)
     remote_orig_ref = remote_name + "/" + orig_ref
-    base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{master_branch}", remote_orig_ref))
+    base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", remote_orig_ref))
 
     # compute the stack of commits in chronological order (does not
     # include base)
@@ -66,7 +66,7 @@ def main(pull_request: str,
         prev_ref = sh.git("rev-parse", "HEAD")
 
     # If this fails, we don't have to reset
-    sh.git("checkout", f"{remote_name}/{master_branch}")
+    sh.git("checkout", f"{remote_name}/{default_branch}")
 
     try:
         # Compute the metadata for each commit
@@ -91,7 +91,7 @@ def main(pull_request: str,
                 raise
 
         # All good! Push!
-        sh.git("push", remote_name, f"HEAD:refs/heads/{master_branch}")
+        sh.git("push", remote_name, f"HEAD:refs/heads/{default_branch}")
 
     finally:
         sh.git("checkout", prev_ref)

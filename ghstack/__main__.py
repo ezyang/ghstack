@@ -115,7 +115,7 @@ def main() -> None:
                 no_skip=args.no_skip,
                 draft=args.draft,
                 github_url=conf.github_url,
-                master_branch=conf.master_branch,
+                default_branch=conf.default_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'unlink':
@@ -123,7 +123,7 @@ def main() -> None:
                 commits=args.COMMITS,
                 sh=sh,
                 github_url=conf.github_url,
-                master_branch=conf.master_branch,
+                default_branch=conf.default_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'land':
@@ -132,7 +132,7 @@ def main() -> None:
                 github=github,
                 sh=sh,
                 github_url=conf.github_url,
-                master_branch=conf.master_branch,
+                default_branch=conf.default_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'action':
