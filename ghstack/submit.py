@@ -115,6 +115,7 @@ def main(msg: Optional[str],
          no_skip: bool = False,
          draft: bool = False,
          github_url: str = "github.com",
+         default_branch: str = "master",
          remote_name: str = "origin"
          ) -> List[Optional[DiffMeta]]:
 
@@ -174,7 +175,7 @@ def main(msg: Optional[str],
     repo_id = repo["id"]
 
     sh.git("fetch", remote_name)
-    base = GitCommitHash(sh.git("merge-base", remote_name + "/master", "HEAD"))
+    base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD"))
 
     # compute the stack of commits to process (reverse chronological order),
     stack = ghstack.git.parse_header(
