@@ -94,7 +94,6 @@ def main() -> None:
 
         sh = ghstack.shell.Shell()
         conf = ghstack.config.read_config()
-        ghstack.logging.formatter.redact(conf.github_oauth, '<GITHUB_OAUTH>')
         github = ghstack.github_real.RealGitHubEndpoint(
             oauth_token=conf.github_oauth,
             proxy=conf.proxy,

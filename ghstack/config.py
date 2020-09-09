@@ -8,6 +8,8 @@ import re
 from typing import NamedTuple, Optional
 from pathlib import Path
 
+import ghstack.logging
+
 
 Config = NamedTuple('Config', [
     # Proxy to use when making connections to GitHub
@@ -57,6 +59,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         config_path = os.path.expanduser("~/.ghstackrc")
         write_back = True
 
+    logging.debug(f"config_path = {config_path}")
     config.read(['.ghstackrc', config_path])
 
     if not config.has_section('ghstack'):
@@ -96,6 +99,8 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
             'github_oauth',
             github_oauth)
         write_back = True
+    if github_oauth is not None:
+        ghstack.logging.formatter.redact(github_oauth, '<GITHUB_OAUTH>')
 
     circle_token = None
     if circle_token is None and config.has_option('ghstack', 'circle_token'):
@@ -109,6 +114,8 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
             'circle_token',
             circle_token)
         write_back = True
+    if circle_token is not None:
+        ghstack.logging.formatter.redact(circle_token, '<CIRCLE_TOKEN>')
 
     github_username = None
     if config.has_option('ghstack', 'github_username'):
@@ -155,7 +162,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         config.write(open(config_path, 'w'))
         logging.info("NB: configuration saved to {}".format(config_path))
 
-    return Config(
+    conf = Config(
         github_oauth=github_oauth,
         circle_token=circle_token,
         github_username=github_username,
@@ -167,3 +174,5 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         default_branch=default_branch,
         remote_name=remote_name,
     )
+    logging.debug(f"conf = {conf}")
+    return conf
