@@ -43,7 +43,7 @@ setuptools.setup(
         'requests',
         'aiohttp',
         # 'typing_extensions>=3.7.2',  # need Literal
-        'dataclasses',
+        "dataclasses; python_version < '3.8'",
     ],
     # This is not supported by pip 10, which a lot of people have
     # installed (because it's the conda default)
