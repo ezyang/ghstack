@@ -12,7 +12,7 @@ except ImportError:
 
 
 RE_PR_URL = re.compile(
-    r'^https://github\.com/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$')
+    r'^(https://github\.com/)?(/)?(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$')
 
 GitHubPullRequestParams = TypedDict('GitHubPullRequestParams', {
     'owner': str,
