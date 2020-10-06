@@ -12,9 +12,10 @@ except ImportError:
 
 
 RE_PR_URL = re.compile(
-    r'^https://([^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$')
+    r'^https://(?P<github_url>[^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$')
 
 GitHubPullRequestParams = TypedDict('GitHubPullRequestParams', {
+    'github_url': str
     'owner': str,
     'name': str,
     'number': int,
@@ -26,7 +27,8 @@ def parse_pull_request(pull_request: str) -> GitHubPullRequestParams:
     if not m:
         raise RuntimeError("Did not understand PR argument.  PR must be URL")
 
+    github_url = m.group("github_url")
     owner = m.group("owner")
     name = m.group("name")
     number = int(m.group("number"))
-    return {'owner': owner, 'name': name, 'number': number}
+    return {'github_url': github_url, 'owner': owner, 'name': name, 'number': number}
