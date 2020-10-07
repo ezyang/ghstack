@@ -27,7 +27,7 @@ setuptools.setup(
     description="Stack diff support for GitHub",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/ghexport",
+    url="https://github.com/ezyang/ghstack",
     packages=setuptools.find_packages(exclude=("graphql", "graphql.*",)),
     include_package_data=True,
     package_data={
