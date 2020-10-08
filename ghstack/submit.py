@@ -21,6 +21,7 @@ DiffMeta = NamedTuple('DiffMeta', [
     ('title', str),
     ('number', GitHubNumber),
     ('body', str),
+    ('username', str),
     ('ghnum', GhNumber),
     # What Git commit hash we should push to what branch
     ('push_branches', Tuple[Tuple[GitCommitHash, BranchKind], ...]),
@@ -93,6 +94,7 @@ STACK_HEADER = "Stack from [ghstack](https://{github_url}/ezyang/ghstack)"
 class DiffWithGitHubMetadata:
     diff: ghstack.diff.Diff
     number: GitHubNumber
+    username: str
     # Really ought not to be optional, but for BC reasons it might be
     remote_source_id: Optional[str]
     title: str
@@ -450,7 +452,7 @@ the line 'Pull Request resolved' and then run ghexport again.
 ''')
 
         # TODO: Hmm, I'm not sure why this matches
-        m = re.match(r'gh/[^/]+/([0-9]+)/head$', r['headRefName'])
+        m = re.match(r'gh/([^/]+)/([0-9]+)/head$', r['headRefName'])
         if m is None:
             if is_ghexport:
                 raise RuntimeError('''\
@@ -474,7 +476,8 @@ If you think this is in error, run:
 to disassociate the commit with the pull request, and then try again.
 (This will create a new pull request!)
 '''.format(commit.oid))
-        gh_number = GhNumber(m.group(1))
+        username = m.group(1)
+        gh_number = GhNumber(m.group(2))
 
         # NB: Technically, we don't need to pull this information at
         # all, but it's more convenient to unconditionally edit
@@ -489,7 +492,7 @@ to disassociate the commit with the pull request, and then try again.
         remote_summary = ghstack.git.split_header(
             self.sh.git(
                 "rev-list", "--max-count=1", "--header",
-                self.remote_name + "/" + branch_orig(self.username, gh_number)
+                self.remote_name + "/" + branch_orig(username, gh_number)
             )
         )[0]
         m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
@@ -501,6 +504,7 @@ to disassociate the commit with the pull request, and then try again.
             body=pr_body,
             closed=r['closed'],
             number=number,
+            username=username,
             ghnum=gh_number,
             remote_source_id=remote_source_id,
             pull_request_resolved=commit.pull_request_resolved,
@@ -515,12 +519,14 @@ to disassociate the commit with the pull request, and then try again.
         """
 
         ghnum = commit.ghnum
+        username = commit.username
 
         self.stack_meta.append(DiffMeta(
             title=commit.title,
             number=commit.number,
             body=commit.body,
             ghnum=ghnum,
+            username=username,
             push_branches=(),
             head_branch=None,
             what='Skipped',
@@ -530,10 +536,10 @@ to disassociate the commit with the pull request, and then try again.
 
         self.base_commit = GitCommitHash(self.sh.git(
             "rev-parse",
-            self.remote_name + "/" + branch_head(self.username, ghnum)))
+            self.remote_name + "/" + branch_head(username, ghnum)))
         self.base_orig = GitCommitHash(self.sh.git(
             "rev-parse",
-            self.remote_name + "/" + branch_orig(self.username, ghnum)
+            self.remote_name + "/" + branch_orig(username, ghnum)
         ))
         self.base_tree = GitTreeHash(self.sh.git(
             "rev-parse", self.base_orig + "^{tree}"
@@ -568,6 +574,8 @@ Since we cannot proceed, ghstack will abort now.
         # multiple machines (you bad bad)
         refs = self.sh.git(
             "for-each-ref",
+            # Use OUR username here, since there's none attached to the
+            # diff
             "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
             "--format=%(refname)").split()
         max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
@@ -650,6 +658,7 @@ Since we cannot proceed, ghstack will abort now.
             number=number,
             body=pr_body,
             ghnum=ghnum,
+            username=self.username,
             push_branches=((new_orig, 'orig'), ),
             head_branch=new_pull,
             what='Created',
@@ -667,6 +676,7 @@ Since we cannot proceed, ghstack will abort now.
         """
 
         commit = elab_commit.diff
+        username = elab_commit.username
         ghnum = elab_commit.ghnum
         number = elab_commit.number
 
@@ -706,6 +716,7 @@ Since we cannot proceed, ghstack will abort now.
                     "up-to-date with remote.")
             else:
                 if local_source_id != elab_commit.remote_source_id and not self.force:
+                    logging.debug(f"elab_commit.remote_source_id = {elab_commit.remote_source_id}")
                     raise RuntimeError(
                         "Cowardly refusing to push an update to GitHub, since it "
                         "looks another source has updated GitHub since you last "
@@ -765,7 +776,7 @@ Since we cannot proceed, ghstack will abort now.
         base_args: Tuple[str, ...]
         orig_base_hash = self.sh.git(
             "rev-parse",
-            self.remote_name + "/" + branch_base(self.username, ghnum))
+            self.remote_name + "/" + branch_base(username, ghnum))
 
         # I vacillated between whether or not we should use the PR
         # body or the literal commit message here.  Right now we use
@@ -790,7 +801,7 @@ Since we cannot proceed, ghstack will abort now.
             is_ancestor = self.sh.git(
                 "merge-base",
                 "--is-ancestor",
-                self.remote_name + "/" + branch_base(self.username, ghnum),
+                self.remote_name + "/" + branch_base(username, ghnum),
                 self.base_commit, exitcode=True)
 
             if is_ancestor:
@@ -808,7 +819,7 @@ Since we cannot proceed, ghstack will abort now.
                 new_base = GitCommitHash(self.sh.git(
                     "commit-tree", self.base_tree,
                     "-p",
-                    self.remote_name + "/" + branch_base(self.username, ghnum),
+                    self.remote_name + "/" + branch_base(username, ghnum),
                     "-p", self.base_commit,
                     input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
                           .format(self.msg, elab_commit.title,
@@ -830,7 +841,7 @@ Since we cannot proceed, ghstack will abort now.
 
         new_pull = GitCommitHash(self.sh.git(
             "commit-tree", tree,
-            "-p", self.remote_name + "/" + branch_head(self.username, ghnum),
+            "-p", self.remote_name + "/" + branch_head(username, ghnum),
             *base_args,
             input='{} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(self.msg, elab_commit.title, non_orig_commit_msg)))
 
@@ -869,6 +880,7 @@ Since we cannot proceed, ghstack will abort now.
             # it.
             body=elab_commit.body,
             ghnum=ghnum,
+            username=username,
             push_branches=push_branches,
             head_branch=new_pull,
             what=what,
@@ -975,7 +987,7 @@ Since we cannot proceed, ghstack will abort now.
                     q = base_push_branches
                 else:
                     q = push_branches
-                q.append(push_spec(commit, branch(self.username, s.ghnum, b)))
+                q.append(push_spec(commit, branch(s.username, s.ghnum, b)))
         # Careful!  Don't push master.
         # TODO: These pushes need to be atomic (somehow)
         if base_push_branches:
