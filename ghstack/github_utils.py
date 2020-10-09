@@ -15,7 +15,7 @@ RE_PR_URL = re.compile(
     r'^https://(?P<github_url>[^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$')
 
 GitHubPullRequestParams = TypedDict('GitHubPullRequestParams', {
-    'github_url': str
+    'github_url': str,
     'owner': str,
     'name': str,
     'number': int,
