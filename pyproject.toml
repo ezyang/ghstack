@@ -1,20 +1,32 @@
 [tool.poetry]
 name = "ghstack"
 version = "0.3.3"
-description = "Stack diff support for GitHub"
 authors = ["Edward Z. Yang <ezyang@mit.edu>"]
+description = "Stack diff support for GitHub"
+readme = "README.md"
+repository = "https://github.com/ezyang/ghstack"
+include = ["ghstack/py.typed"]
 license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.scripts]
+ghstack = "ghstack.__main__:main"
 
 [tool.poetry.dependencies]
-aiohttp = "^3.7.3"
+aiohttp = "^3"
 dataclasses = { version = "^0.8", python = "<3.7" }
+importlib-metadata = "^3"
 python = "^3.6"
-requests = "^2.25.1"
+requests = "^2"
 
 [tool.poetry.dev-dependencies]
-GraphQL-core-next = "^1.1.1"
-flake8 = "^3.8.4"
-hypothesis = "^6.1.1"
+GraphQL-core-next = "^1"
+flake8 = "^3"
+hypothesis = "^6"
 mypy = "^0.800"
 
 [build-system]

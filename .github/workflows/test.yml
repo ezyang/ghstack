@@ -12,15 +12,9 @@ jobs:
           python-version: '3.6'
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v4
+        with:
+          poetry-version: '1.1.4'
       - name: Install dependencies
         run: poetry install
-      - name: Run Flake8
-        run: poetry run flake8 ghstack
-      - name: Run mypy
-        run: poetry run mypy --config=detailed-mypy.ini ghstack test_ghstack.py
-      - name: Test expecttest
-        run: poetry run python3 test_expecttest.py
-      - name: Test shell
-        run: poetry run python3 test_shell.py
-      - name: Test ghstack
-        run: poetry run python3 test_ghstack.py
+      - name: Run tests
+        run: poetry run ./run_tests.sh
