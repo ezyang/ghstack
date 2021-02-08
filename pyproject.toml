@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "ghstack"
+version = "0.3.3"
+description = "Stack diff support for GitHub"
+authors = ["Edward Z. Yang <ezyang@mit.edu>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+aiohttp = "^3.7.3"
+dataclasses = { version = "^0.8", python = "<3.7" }
+python = "^3.6"
+requests = "^2.25.1"
+
+[tool.poetry.dev-dependencies]
+GraphQL-core-next = "^1.1.1"
+flake8 = "^3.8.4"
+hypothesis = "^6.1.1"
+mypy = "^0.800"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

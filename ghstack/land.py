@@ -8,9 +8,10 @@ from ghstack.typing import GitCommitHash
 
 import logging
 import re
+from typing import Optional
 
 
-def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, owner: str, name: str, number: int) -> str:
+def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, github_url: Optional[str] = None, owner: str, name: str, number: int) -> str:
     pr_result = github.graphql("""
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
