@@ -65,6 +65,19 @@ repo to install all the dependencies you need for working on `ghstack`:
 ```
 poetry install
 ```
+Note that this installs the dependencies (and `ghstack` itself) in an isolated
+Python virtual environment rather than globally. If your cwd is in your clone of
+this repo then you can run your locally-built `ghstack` using `poetry run
+ghstack $ARGS`, but if you want to run it from somewhere else, you probably want
+[`poetry shell`](https://python-poetry.org/docs/cli/#shell) instead:
+```
+poetry shell
+cd $SOMEWHERE
+ghstack $ARGS
+```
+
+### Testing
+
 We have tests, using a mock GitHub GraphQL server!  How cool is that?
 ```
 poetry run python test_ghstack.py
@@ -73,8 +86,12 @@ That runs most of the tests; you can run all tests (including lints) like this:
 ```
 poetry run ./run_tests.sh
 ```
-You can also use Poetry to publish to a package repository. For instance, if
-you've configured your [Poetry
+
+### Publishing
+
+You can also [use Poetry to
+publish](https://python-poetry.org/docs/cli/#publish) to a package repository.
+For instance, if you've configured your [Poetry
 repositories](https://python-poetry.org/docs/repositories/) like this:
 ```
 poetry config repositories.testpypi https://test.pypi.org/legacy/
