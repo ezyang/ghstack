@@ -105,7 +105,7 @@ class GitHubState:
             # operations depend on repository state (e.g., what
             # the headRef is at the time a PR is created), so
             # we need this information
-            self.upstream_sh.git("init", "--bare")
+            self.upstream_sh.git("init", "--bare", "-b", "master")
             tree = self.upstream_sh.git("write-tree")
             commit = self.upstream_sh.git(
                 "commit-tree",
