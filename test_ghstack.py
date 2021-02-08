@@ -991,7 +991,7 @@ Repository state:
     | | * rINI2 (HEAD -> master, gh/ezyang/1/base) Master commit 1
     * | | rMRG2 Commit 2
     |/ /
-    * | rMRG1 Commit 1
+    * / rMRG1 Commit 1
     |/
     * rINI0 Initial commit
 
@@ -1107,7 +1107,7 @@ Repository state:
     | | * rINI2 (HEAD -> master) Master commit 1
     * | | rMRG2 Commit 2
     |/ /
-    * | rMRG1 (gh/ezyang/1/head) Commit 1
+    * / rMRG1 (gh/ezyang/1/head) Commit 1
     |/
     * rINI0 (gh/ezyang/1/base) Initial commit
 
@@ -1630,7 +1630,7 @@ Repository state:
     | |\\
     * | | rMRG2 Commit 2
     |/ /
-    * | rMRG1 (gh/ezyang/1/head) Commit 1
+    * / rMRG1 (gh/ezyang/1/head) Commit 1
     |/
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 

@@ -59,8 +59,48 @@ pull request and pushes commits onto three branches:
 
 ## Developer notes
 
+This project uses [Poetry](https://python-poetry.org/docs/#installation), so
+after you've installed Poetry itself, run this command in your clone of this
+repo to install all the dependencies you need for working on `ghstack`:
+```
+poetry install
+```
+Note that this installs the dependencies (and `ghstack` itself) in an isolated
+Python virtual environment rather than globally. If your cwd is in your clone of
+this repo then you can run your locally-built `ghstack` using `poetry run
+ghstack $ARGS`, but if you want to run it from somewhere else, you probably want
+[`poetry shell`](https://python-poetry.org/docs/cli/#shell) instead:
+```
+poetry shell
+cd $SOMEWHERE
+ghstack $ARGS
+```
+
+### Testing
+
 We have tests, using a mock GitHub GraphQL server!  How cool is that?
-Run these tests using `python test_ghstack.py`
+```
+poetry run python test_ghstack.py
+```
+That runs most of the tests; you can run all tests (including lints) like this:
+```
+poetry run ./run_tests.sh
+```
+
+### Publishing
+
+You can also [use Poetry to
+publish](https://python-poetry.org/docs/cli/#publish) to a package repository.
+For instance, if you've configured your [Poetry
+repositories](https://python-poetry.org/docs/repositories/) like this:
+```
+poetry config repositories.testpypi https://test.pypi.org/legacy/
+```
+Then you can publish to TestPyPI like this:
+```
+poetry publish --build --repository testpypi
+```
+To publish to PyPI itself, just omit the `--repository` argument.
 
 ## Design constraints
 
