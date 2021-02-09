@@ -5,7 +5,5 @@ set -ex
 # from imported things won't get processed correctly
 flake8 ghstack
 mypy --config=detailed-mypy.ini ghstack test_ghstack.py
-python3 test_expecttest.py
-python3 test_shell.py
-python3 test_ghstack.py
+pytest --verbose
 echo "OK"

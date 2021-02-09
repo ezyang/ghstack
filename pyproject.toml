@@ -28,6 +28,7 @@ GraphQL-core-next = "^1"
 flake8 = "^3"
 hypothesis = "^6"
 mypy = "^0.800"
+pytest = "^6.2.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
