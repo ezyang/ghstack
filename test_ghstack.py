@@ -9,7 +9,7 @@ import sys
 import contextlib
 import io
 
-from typing import ClassVar, Dict, NewType, List, Tuple, Iterator, Optional
+from typing import Dict, NewType, List, Tuple, Iterator, Optional
 
 import ghstack.expecttest as expecttest
 

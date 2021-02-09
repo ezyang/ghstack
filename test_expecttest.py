@@ -4,48 +4,49 @@ import unittest
 import string
 import textwrap
 import doctest
+from typing import Any, Dict, Tuple
 
 import hypothesis
 from hypothesis.strategies import text, integers, composite, sampled_from, booleans
 
 
 @composite
-def text_lineno(draw):
+def text_lineno(draw: Any) -> Tuple[str, int]:
     t = draw(text("a\n"))
-    lineno = draw(integers(min_value=1, max_value=t.count("\n")+1))
+    lineno = draw(integers(min_value=1, max_value=t.count("\n") + 1))
     return (t, lineno)
 
 
 class TestExpectTest(expecttest.TestCase):
     @hypothesis.given(text_lineno())
-    def test_nth_line_ref(self, t_lineno):
+    def test_nth_line_ref(self, t_lineno: Tuple[str, int]) -> None:
         t, lineno = t_lineno
         hypothesis.event("lineno = {}".format(lineno))
 
-        def nth_line_ref(src, lineno):
+        def nth_line_ref(src: str, lineno: int) -> int:
             xs = src.split("\n")[:lineno]
             xs[-1] = ''
             return len("\n".join(xs))
         self.assertEqual(expecttest.nth_line(t, lineno), nth_line_ref(t, lineno))
 
     @hypothesis.given(text(string.printable), booleans(), sampled_from(['"', "'"]))
-    def test_replace_string_literal_roundtrip(self, t, raw, quote):
+    def test_replace_string_literal_roundtrip(self, t: str, raw: bool, quote: str) -> None:
         if raw:
             hypothesis.assume(expecttest.ok_for_raw_triple_quoted_string(t, quote=quote))
         prog = """\
         r = {r}{quote}placeholder{quote}
         r2 = {r}{quote}placeholder2{quote}
         r3 = {r}{quote}placeholder3{quote}
-        """.format(r='r' if raw else '', quote=quote*3)
+        """.format(r='r' if raw else '', quote=quote * 3)
         new_prog = expecttest.replace_string_literal(textwrap.dedent(prog), 2, t)[0]
-        ns = {}
+        ns: Dict[str, str] = {}
         exec(new_prog, ns)
         msg = "program was:\n{}".format(new_prog)
         self.assertEqual(ns['r'], 'placeholder', msg=msg)  # noqa: F821
         self.assertEqual(ns['r2'], expecttest.normalize_nl(t), msg=msg)  # noqa: F821
         self.assertEqual(ns['r3'], 'placeholder3', msg=msg)  # noqa: F821
 
-    def test_sample(self):
+    def test_sample(self) -> None:
         prog = r"""
 single_single('''0''')
 single_multi('''1''')
@@ -96,7 +97,7 @@ g
 """)
 
 
-def load_tests(loader, tests, ignore):
+def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, ignore: Any) -> unittest.TestSuite:
     tests.addTests(doctest.DocTestSuite(expecttest))
     return tests
 
