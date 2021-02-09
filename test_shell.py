@@ -45,7 +45,7 @@ class TestShell(expecttest.TestCase):
                 args.extend(('r', '-'))
         return self.sh.sh(*args, **kwargs)
 
-    def flog(self, cm: 'unittest._AssertLogsContext') -> str:
+    def flog(self, cm: 'unittest._AssertLogsContext') -> str:  # type: ignore[name-defined]
         def redact(s: str) -> str:
             s = s.replace(sys.executable, 'python')
             return s
