@@ -5,3 +5,4 @@
 dist
 build
 .mypy_cache
+.vscode
