@@ -588,7 +588,7 @@ Since we cannot proceed, ghstack will abort now.
         # Actually, if there's no change in the tree, stop processing
         if tree == self.base_tree:
             self.ignored_diffs.append((commit, None))
-            logging.warn("Skipping {} {}, as the commit has no changes"
+            logging.warning("Skipping {} {}, as the commit has no changes"
                          .format(commit.oid, title))
             self.stack_meta.append(None)
             return
@@ -835,7 +835,7 @@ Since we cannot proceed, ghstack will abort now.
         # Nothing to do, just ignore the diff
         if tree == self.base_tree:
             self.ignored_diffs.append((commit, number))
-            logging.warn("Skipping PR #{} {}, as the commit now has no changes"
+            logging.warning("Skipping PR #{} {}, as the commit now has no changes"
                          .format(number, elab_commit.title))
             return
 
