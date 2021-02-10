@@ -83,7 +83,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
     # This envvar is legacy from ghexport days
     github_oauth = os.getenv("OAUTH_TOKEN")
     if github_oauth is not None:
-        logging.warn(
+        logging.warning(
             'Deprecated OAUTH_TOKEN environment variable used to populate github_oauth--'
             'this is probably not what you intended; unset OAUTH_TOKEN from your '
             'environment to use the setting in .ghstackrc instead.')
