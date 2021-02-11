@@ -23,7 +23,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description='Submit stack of diffs to GitHub.')
     parser.add_argument(
-        '--version', action='store_true',
+        '--version', action='version',
+        version="ghstack {}".format(ghstack.__version__),
         help='Print version')
     parser.add_argument(
         '--debug', action='store_true',
@@ -82,10 +83,6 @@ def main() -> None:
         help='GitHub pull request URL to perform action on')
 
     args = parser.parse_args()
-
-    if args.version:
-        print("ghstack {}".format(ghstack.__version__))
-        return
 
     if args.cmd is None:
         args.cmd = 'submit'
