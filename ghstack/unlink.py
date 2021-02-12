@@ -14,11 +14,12 @@ from typing import Set, List, Optional
 RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 
 
-def main(commits: Optional[List[str]] = None,
+def main(*,
+         commits: Optional[List[str]] = None,
          sh: Optional[ghstack.shell.Shell] = None,
-         github_url: str = "github.com",
-         default_branch: str = "master",
-         remote_name: str = "origin") -> GitCommitHash:
+         github_url: str,
+         default_branch: str,
+         remote_name: str) -> GitCommitHash:
     # If commits is empty, we unlink the entire stack
     #
     # For now, we only process commits on our current

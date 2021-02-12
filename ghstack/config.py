@@ -130,9 +130,18 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
             github_username)
         write_back = True
 
-    default_branch = 'master'
     if config.has_option('ghstack', 'default_branch'):
         default_branch = config.get('ghstack', 'default_branch')
+    else:
+        default_branch = input('Default branch [master]: ')
+        if not default_branch:
+            default_branch = 'master'
+        config.set(
+            'ghstack',
+            'default_branch',
+            default_branch
+        )
+        write_back = True
 
     proxy = None
     if config.has_option('ghstack', 'proxy'):
