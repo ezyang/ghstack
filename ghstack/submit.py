@@ -104,8 +104,8 @@ class DiffWithGitHubMetadata:
     pull_request_resolved: ghstack.diff.PullRequestResolved
 
 
-def main(msg: Optional[str],
-         *,
+def main(*,
+         msg: Optional[str],
          username: str,
          github: ghstack.github.GitHubEndpoint,
          update_fields: bool = False,
