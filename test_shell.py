@@ -57,7 +57,7 @@ class TestShell(expecttest.TestCase):
                 out("arf\n")
             )
         self.assertExpected(self.flog(cm), '''\
-$ python emitter.py o arf\\n
+$ python emitter.py o 'arf\n'
 arf
 ''')
 
@@ -67,7 +67,7 @@ arf
                 err("arf\n")
             )
         self.assertExpected(self.flog(cm), '''\
-$ python emitter.py e arf\\n
+$ python emitter.py e 'arf\n'
 # stderr:
 arf
 ''')
@@ -79,7 +79,7 @@ arf
                 stdout=None
             )
         self.assertExpected(self.flog(cm), '''\
-$ python emitter.py o arf\\n
+$ python emitter.py o 'arf\n'
 arf
 ''')
 
@@ -94,7 +94,7 @@ arf
                 stdout=None
             )
         self.assertExpected(self.flog(cm), '''\
-$ python emitter.py e "Step 1...\\n" e "Step 2...\\n" e "Step 3...\\n" o out\\n
+$ python emitter.py e 'Step 1...\n' e 'Step 2...\n' e 'Step 3...\n' o 'out\n'
 # stderr:
 Step 1...
 Step 2...
@@ -115,7 +115,7 @@ out
                 stdout=None
             )
         self.assertExpected(self.flog(cm), '''\
-$ python emitter.py o A\\n e B\\n o C\\n e D\\n
+$ python emitter.py o 'A\n' e 'B\n' o 'C\n' e 'D\n'
 # stderr:
 B
 D

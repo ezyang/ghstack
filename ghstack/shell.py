@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import shlex
 import subprocess
 import sys
 from typing import (IO, Any, Dict, Optional, Sequence, Tuple, TypeVar, Union,
@@ -25,9 +26,7 @@ def log_command(args: Sequence[str]) -> None:
         *args: the list of command line arguments you want to run
         env: the dictionary of environment variable settings for the command
     """
-    # TODO: Irritatingly, this doesn't insert quotes for shell
-    # metacharacters like exclamation marks or parentheses.
-    cmd = subprocess.list2cmdline(args).replace("\n", "\\n")
+    cmd = ' '.join(shlex.quote(arg) for arg in args)
     logging.info("$ " + cmd)
 
 
