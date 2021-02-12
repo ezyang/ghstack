@@ -63,8 +63,8 @@ RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 
 
 # repo layout:
-#   - gh/username/23/base -- what we think GitHub's current tip for commit is
-#   - gh/username/23/head -- what we think base commit for commit is
+#   - gh/username/23/head -- what we think GitHub's current tip for commit is
+#   - gh/username/23/base -- what we think base commit for commit is
 #   - gh/username/23/orig -- the "clean" commit history, i.e., what we're
 #                      rebasing, what you'd like to cherry-pick (???)
 #                      (Maybe this isn't necessary, because you can
