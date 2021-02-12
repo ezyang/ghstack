@@ -124,7 +124,6 @@ class TestGh(expecttest.TestCase):
             github_url="github.com",
         )
 
-    # TODO: pass arguments
     def gh_unlink(self) -> None:
         ghstack.unlink.main(
             sh=self.sh,
