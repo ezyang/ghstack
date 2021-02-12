@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-import ghstack.shell
-import ghstack.github
-import ghstack.github_utils
-
 import logging
 import re
+
+import ghstack.github
+import ghstack.github_utils
+import ghstack.shell
 
 
 def main(pull_request: str,

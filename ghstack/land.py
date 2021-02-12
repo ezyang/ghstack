@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-import ghstack.shell
-import ghstack.github
-import ghstack.github_utils
-import ghstack.git
-from ghstack.typing import GitCommitHash
-
 import logging
 import re
 from typing import Optional
+
+import ghstack.git
+import ghstack.github
+import ghstack.github_utils
+import ghstack.shell
+from ghstack.typing import GitCommitHash
 
 
 def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, github_url: Optional[str] = None, owner: str, name: str, number: int) -> str:

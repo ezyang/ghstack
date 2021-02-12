@@ -1,25 +1,23 @@
 from __future__ import print_function
-import unittest
-import os
-import shutil
-import tempfile
-import re
-import logging
-import sys
+
 import contextlib
 import io
-
-from typing import Dict, NewType, List, Tuple, Iterator, Optional
+import logging
+import os
+import re
+import shutil
+import sys
+import tempfile
+import unittest
+from typing import Dict, Iterator, List, NewType, Optional, Tuple
 
 import ghstack.expecttest as expecttest
-
-import ghstack.submit
+import ghstack.github
+import ghstack.github_fake
 import ghstack.land
 import ghstack.shell
-import ghstack.github
+import ghstack.submit
 import ghstack.unlink
-import ghstack.github_fake
-
 from ghstack.typing import GitCommitHash
 
 

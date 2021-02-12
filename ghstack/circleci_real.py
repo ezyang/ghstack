@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Any
-import logging
 import json
-import aiohttp
+import logging
 import re
+from typing import Any, Optional
 
-import ghstack.circleci
+import aiohttp
+
 import ghstack.cache
-
+import ghstack.circleci
 
 RE_BUILD_PATH = re.compile(r'^project/github/[^/]+/[^/]+/[0-9]+$')
 

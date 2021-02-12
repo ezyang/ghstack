@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 # TODO: do something better about this...
 try:
     from mypy_extensions import TypedDict as TypedDict

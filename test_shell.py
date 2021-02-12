@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-import unittest
 import logging
-from typing import List, Any
-from dataclasses import dataclass
 import sys
+import unittest
+from dataclasses import dataclass
+from typing import Any, List
 
 import ghstack.expecttest as expecttest
 import ghstack.shell

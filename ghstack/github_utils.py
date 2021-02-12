@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import re
-from typing import Dict, Any
+from typing import Any, Dict
+
 try:
     from mypy_extensions import TypedDict
 except ImportError:

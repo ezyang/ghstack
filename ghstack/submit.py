@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
+import logging
 import re
+from dataclasses import dataclass
+from typing import List, NamedTuple, Optional, Set, Tuple
+
 import ghstack
 import ghstack.git
-import ghstack.shell
 import ghstack.github
 import ghstack.logging
-from ghstack.typing import GitHubNumber, GitHubRepositoryId, GhNumber, GitCommitHash, GitTreeHash
-from typing import List, Optional, NamedTuple, Tuple, Set
-import logging
-from dataclasses import dataclass
+import ghstack.shell
+from ghstack.typing import (GhNumber, GitCommitHash, GitHubNumber,
+                            GitHubRepositoryId, GitTreeHash)
 
 # Either "base", "head" or "orig"; which of the ghstack generated
 # branches this diff corresponds to

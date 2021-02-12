@@ -4,13 +4,14 @@
 # This script looks at all commits downloads their logs and prints them
 # for you
 
-import ghstack.github
-import ghstack.circleci
-import ghstack.github_utils
-
 import re
 from typing import Any, Dict
+
 import aiohttp
+
+import ghstack.circleci
+import ghstack.github
+import ghstack.github_utils
 
 RE_CIRCLECI_URL = re.compile(r'^https://circleci.com/gh/pytorch/pytorch/([0-9]+)')
 

@@ -3,9 +3,9 @@
 # Helper binary used by test_shell.py to print interleaved sequences
 # of strings to stderr/stdout.
 
-import sys
-from typing import Sequence, TypeVar, Tuple, Iterator
 import itertools
+import sys
+from typing import Iterator, Sequence, Tuple, TypeVar
 
 T = TypeVar('T')
 

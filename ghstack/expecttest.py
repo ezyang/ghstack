@@ -1,11 +1,9 @@
-import re
-import unittest
-import traceback
 import os
+import re
 import string
-
-from typing import List, Dict, Tuple, Match, Optional
-
+import traceback
+import unittest
+from typing import Dict, List, Match, Optional, Tuple
 
 ACCEPT = os.getenv('EXPECTTEST_ACCEPT')
 

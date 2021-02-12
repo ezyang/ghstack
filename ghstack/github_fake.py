@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
+import os.path
+import re
+from dataclasses import dataclass  # Oof! Python 3.7 only!!
+from typing import Any, Dict, List, NewType, Optional, Sequence, cast
+
 import graphql
 
-import re
-import os.path
-
-# Oof! Python 3.7 only!!
-from dataclasses import dataclass
-
-from typing import Dict, NewType, List, Optional, Any, Sequence, cast
-from ghstack.typed_dict import TypedDict
-
-import ghstack.shell
 import ghstack.github
+import ghstack.shell
+from ghstack.typed_dict import TypedDict
 
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)

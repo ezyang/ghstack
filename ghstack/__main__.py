@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
-import ghstack
-
-import ghstack.submit
-import ghstack.unlink
-import ghstack.rage
-import ghstack.land
-import ghstack.action
-import ghstack.status
-import ghstack.checkout
-
-import ghstack.logging
-import ghstack.github_real
-import ghstack.circleci_real
-import ghstack.config
-
 import argparse
 import asyncio
+
+import ghstack
+import ghstack.action
+import ghstack.checkout
+import ghstack.circleci_real
+import ghstack.config
+import ghstack.github_real
+import ghstack.land
+import ghstack.logging
+import ghstack.rage
+import ghstack.status
+import ghstack.submit
+import ghstack.unlink
 
 
 def main() -> None:

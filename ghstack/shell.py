@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import subprocess
-import os
-import logging
-from typing import Dict, Sequence, Optional, TypeVar, Union, Any, overload, IO, Tuple
 import asyncio
+import logging
+import os
+import subprocess
 import sys
-
+from typing import (IO, Any, Dict, Optional, Sequence, Tuple, TypeVar, Union,
+                    overload)
 
 # Shell commands generally return str, but with exitcode=True
 # they return a bool, and if stdout is piped straight to sys.stdout

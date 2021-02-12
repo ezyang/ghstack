@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
+import logging
+import re
+import textwrap
+from typing import List, Optional, Set
+
+import ghstack.diff
 import ghstack.git
 import ghstack.shell
 from ghstack.typing import GitCommitHash
-import ghstack.diff
-import textwrap
-import logging
-import re
-
-from typing import Set, List, Optional
-
 
 RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 

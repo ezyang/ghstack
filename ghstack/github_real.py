@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import json
-import requests
-from typing import Optional, Any, Sequence, Union, Tuple
 import logging
+from typing import Any, Optional, Sequence, Tuple, Union
+
+import requests
 
 import ghstack.github
 

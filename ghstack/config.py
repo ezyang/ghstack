@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
-import os
-import getpass
 import configparser
+import getpass
 import logging
+import os
 import re
-from typing import NamedTuple, Optional
 from pathlib import Path
+from typing import NamedTuple, Optional
 
 import ghstack.logging
-
 
 Config = NamedTuple('Config', [
     # Proxy to use when making connections to GitHub

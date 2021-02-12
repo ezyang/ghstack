@@ -27,6 +27,7 @@ requests = "^2"
 flake8 = "^3"
 graphql-core = "^3"
 hypothesis = "^6"
+isort = "^5"
 mypy = "^0.800"
 pytest = "^6"
 

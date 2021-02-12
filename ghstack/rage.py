@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import ghstack
-import ghstack.logging
-import os
 import datetime
+import os
 import tempfile
 from typing import Dict, NewType
 
+import ghstack
+import ghstack.logging
 
 RawIndex = NewType('RawIndex', int)
 FilteredIndex = NewType('FilteredIndex', int)

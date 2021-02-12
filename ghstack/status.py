@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import ghstack.github
+import asyncio
+import logging
+import re
+
+import aiohttp
+
 import ghstack.circleci
+import ghstack.github
 import ghstack.github_utils
 from ghstack.typed_dict import TypedDict
-
-import asyncio
-import re
-import logging
-import aiohttp
 
 RE_CIRCLECI_URL = re.compile(r'^https://circleci.com/gh/pytorch/pytorch/([0-9]+)')
 

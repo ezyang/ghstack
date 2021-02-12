@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 
-import subprocess
-import os
-import functools
-import re
-import datetime
-import uuid
-import shutil
-import sys
-import logging
 import contextlib
-from typing import Dict, Optional, Iterator
-
+import datetime
+import functools
+import logging
+import os
+import re
+import shutil
+import subprocess
+import sys
+import uuid
+from typing import Dict, Iterator, Optional
 
 DATETIME_FORMAT = '%Y-%m-%d_%Hh%Mm%Ss'
 

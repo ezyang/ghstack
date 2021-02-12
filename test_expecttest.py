@@ -1,13 +1,14 @@
-import ghstack.expecttest as expecttest
-
-import unittest
+import doctest
 import string
 import textwrap
-import doctest
+import unittest
 from typing import Any, Dict, Tuple
 
 import hypothesis
-from hypothesis.strategies import text, integers, composite, sampled_from, booleans
+from hypothesis.strategies import (booleans, composite, integers, sampled_from,
+                                   text)
+
+import ghstack.expecttest as expecttest
 
 
 @composite

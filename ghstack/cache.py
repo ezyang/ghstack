@@ -4,8 +4,8 @@
 # - Concurrency safe
 # - Handles eviction
 
-import sqlite3
 import os
+import sqlite3
 from typing import Optional
 
 _handle: Optional[sqlite3.Connection] = None

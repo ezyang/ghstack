@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-from dataclasses import dataclass
-from ghstack.typing import GitHubNumber, GitTreeHash
-import ghstack.shell
-from typing import Optional, Pattern
 import re
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Optional, Pattern
 
+import ghstack.shell
+from ghstack.typing import GitHubNumber, GitTreeHash
 
 RE_GH_METADATA = re.compile(
     r'gh-metadata: (?P<owner>[^/]+) (?P<repo>[^/]+) (?P<number>[0-9]+) '
