@@ -111,7 +111,10 @@ class TestGh(expecttest.TestCase):
             repo_owner='pytorch',
             repo_name='pytorch',
             short=short,
-            no_skip=no_skip)
+            no_skip=no_skip,
+            github_url='github.com',
+            default_branch='master',
+            remote_name='origin')
 
     def gh_land(self, pull_request: str) -> None:
         return ghstack.land.main(
@@ -126,7 +129,10 @@ class TestGh(expecttest.TestCase):
     # TODO: pass arguments
     def gh_unlink(self) -> None:
         ghstack.unlink.main(
-            sh=self.sh
+            sh=self.sh,
+            github_url='github.com',
+            default_branch='master',
+            remote_name='origin',
         )
 
     def dump_github(self) -> str:

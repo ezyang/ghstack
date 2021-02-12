@@ -105,6 +105,7 @@ class DiffWithGitHubMetadata:
 
 
 def main(msg: Optional[str],
+         *,
          username: str,
          github: ghstack.github.GitHubEndpoint,
          update_fields: bool = False,
@@ -116,9 +117,9 @@ def main(msg: Optional[str],
          force: bool = False,
          no_skip: bool = False,
          draft: bool = False,
-         github_url: str = "github.com",
-         default_branch: str = "master",
-         remote_name: str = "origin"
+         github_url: str,
+         default_branch: str,
+         remote_name: str
          ) -> List[Optional[DiffMeta]]:
 
     if sh is None:
