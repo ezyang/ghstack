@@ -120,7 +120,6 @@ def main(*,
          no_skip: bool = False,
          draft: bool = False,
          github_url: str,
-         default_branch: str,
          remote_name: str
          ) -> List[Optional[DiffMeta]]:
 
@@ -162,6 +161,9 @@ def main(*,
             repository(name: $name, owner: $owner) {
                 id
                 isFork
+                defaultBranchRef {
+                    name
+                }
             }
         }""",
         owner=repo_owner_nonopt,
@@ -178,6 +180,7 @@ def main(*,
             "error, please register your complaint on GitHub issues (or edit "
             "this line to delete the check above).".format(remote_name))
     repo_id = repo["id"]
+    default_branch = repo["defaultBranchRef"]["name"]
 
     sh.git("fetch", remote_name)
     base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD"))

@@ -110,7 +110,6 @@ class TestGh(expecttest.TestCase):
             short=short,
             no_skip=no_skip,
             github_url='github.com',
-            default_branch='master',
             remote_name='origin')
 
     def gh_land(self, pull_request: str) -> None:

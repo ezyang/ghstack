@@ -19,8 +19,6 @@ Config = NamedTuple('Config', [
     ('github_username', str),
     # Token to authenticate to CircleCI with
     ('circle_token', Optional[str]),
-    # The repo's default branch
-    ('default_branch', str),
 
     # These config parameters are not used by ghstack, but other
     # tools that reuse this module
@@ -129,19 +127,6 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
             github_username)
         write_back = True
 
-    if config.has_option('ghstack', 'default_branch'):
-        default_branch = config.get('ghstack', 'default_branch')
-    else:
-        default_branch = input('Default branch [master]: ')
-        if not default_branch:
-            default_branch = 'master'
-        config.set(
-            'ghstack',
-            'default_branch',
-            default_branch
-        )
-        write_back = True
-
     proxy = None
     if config.has_option('ghstack', 'proxy'):
         proxy = config.get('ghstack', 'proxy')
@@ -179,7 +164,6 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         github_path=github_path,
         default_project_dir=default_project_dir,
         github_url=github_url,
-        default_branch=default_branch,
         remote_name=remote_name,
     )
     logging.debug(f"conf = {conf}")
