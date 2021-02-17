@@ -65,7 +65,6 @@ class TestGh(expecttest.TestCase):
         else:
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
-        # I plan to fix this type error soon
         self.github = ghstack.github_fake.FakeGitHubEndpoint(self.upstream_sh)
 
         local_dir = tempfile.mkdtemp()
