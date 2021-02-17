@@ -141,8 +141,6 @@ def main() -> None:
             # TODO: Restructure this so that we just request
             # configurations "on-demand" rather than all upfront
             conf = ghstack.config.read_config(request_circle_token=True)
-            if conf.circle_token:
-                ghstack.logging.formatter.redact(conf.circle_token, '<CIRCLE_TOKEN>')
             circleci = ghstack.circleci_real.RealCircleCIEndpoint(
                 circle_token=conf.circle_token
             )
