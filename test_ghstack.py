@@ -327,9 +327,7 @@ Repository state:
         print("### test_amend")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -354,9 +352,7 @@ Repository state:
 ''')
         print("###")
         print("### Amend the commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("ABBA")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM2")
@@ -389,9 +385,7 @@ Repository state:
         print("### test_amend")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -448,9 +442,7 @@ Repository state:
         print("### test_amend_out_of_date")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -458,9 +450,7 @@ Repository state:
 
         print("###")
         print("### Amend the commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("ABBA")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
@@ -468,9 +458,7 @@ Repository state:
 
         # Reset to the old version
         self.sh.git("reset", "--hard", old_head)
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("BAAB")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "BAAB")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
@@ -483,16 +471,12 @@ Repository state:
         print("### test_multi")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
 
@@ -538,9 +522,7 @@ Repository state:
         print("### test_amend_top")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -549,9 +531,7 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -588,9 +568,7 @@ Repository state:
 ''')
         print("###")
         print("### Amend the top commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("BAAB")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "BAAB")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM2A")
@@ -635,9 +613,7 @@ Repository state:
         print("### test_amend_bottom")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -646,9 +622,7 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -687,9 +661,7 @@ Repository state:
         print("###")
         print("### Amend the bottom commit")
         self.sh.git("checkout", "HEAD~")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("ABBA")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM1A")
@@ -776,9 +748,7 @@ Repository state:
         print("### test_amend_all")
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -787,9 +757,7 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -828,9 +796,7 @@ Repository state:
         print("###")
         print("### Amend the commits")
         self.sh.git("checkout", "HEAD~")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("ABBA")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM1A")
@@ -889,9 +855,7 @@ Repository state:
 
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -900,9 +864,7 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -941,9 +903,7 @@ Repository state:
         print("###")
         print("### Push master forward")
         self.sh.git("checkout", "master")
-        with self.sh.open("master.txt", "w") as f:
-            f.write("M")
-        self.sh.git("add", "master.txt")
+        self.writeFileAndAdd("master.txt", "M")
         self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
         self.substituteRev("HEAD", "rINI2")
         self.sh.test_tick()
@@ -1009,9 +969,7 @@ Repository state:
 
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -1020,9 +978,7 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -1061,9 +1017,7 @@ Repository state:
         print("###")
         print("### Push master forward")
         self.sh.git("checkout", "master")
-        with self.sh.open("master.txt", "w") as f:
-            f.write("M")
-        self.sh.git("add", "master.txt")
+        self.writeFileAndAdd("master.txt", "M")
         self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
         self.substituteRev("HEAD", "rINI2")
         self.sh.test_tick()
@@ -1176,9 +1130,7 @@ Repository state:
 
         print("###")
         print("### Submit an update")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
         self.gh('Update 1')
@@ -1250,9 +1202,7 @@ Directly updated message body""".replace('\n', '\r\n'),
 
         print("###")
         print("### Submit a new commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 2")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -1540,9 +1490,7 @@ Repository state:
 
         print("###")
         print("### First commit")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
         self.gh('Initial 1')
@@ -1551,9 +1499,7 @@ Repository state:
 
         print("###")
         print("### Second commit")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
         self.gh('Initial 2')
@@ -1651,9 +1597,7 @@ Repository state:
     # ------------------------------------------------------------------------- #
 
     def test_land_ff(self) -> None:
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         diff, = self.gh('Initial')
@@ -1670,14 +1614,10 @@ rINI0 Initial commit''')
     # ------------------------------------------------------------------------- #
     #
     def test_land_ff_stack(self) -> None:
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         diff1, diff2, = self.gh('Initial')
@@ -1697,14 +1637,10 @@ rINI0 Initial commit''')
     # ------------------------------------------------------------------------- #
     #
     def test_land_ff_stack_two_phase(self) -> None:
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         diff1, diff2, = self.gh('Initial')
@@ -1726,14 +1662,10 @@ rINI0 Initial commit''')
     # ------------------------------------------------------------------------- #
     #
     def test_land_with_early_mod(self) -> None:
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         diff1, diff2, = self.gh('Initial')
@@ -1743,9 +1675,7 @@ rINI0 Initial commit''')
 
         # edit earlier commit
         self.sh.git("checkout", "HEAD~")
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("ABBA")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM1A")
@@ -1758,9 +1688,7 @@ rINI0 Initial commit''')
     # ------------------------------------------------------------------------- #
 
     def test_land_non_ff(self) -> None:
-        with self.sh.open("file1.txt", "w") as f:
-            f.write("A")
-        self.sh.git("add", "file1.txt")
+        self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         diff, = self.gh('Initial')
@@ -1769,9 +1697,7 @@ rINI0 Initial commit''')
         self.substituteRev("HEAD", "rCOM1")
 
         self.sh.git("reset", "--hard", "origin/master")
-        with self.sh.open("file2.txt", "w") as f:
-            f.write("B")
-        self.sh.git("add", "file2.txt")
+        self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Upstream commit")
         self.substituteRev("HEAD", "rUP1")
         self.sh.git("push")
