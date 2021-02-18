@@ -4,6 +4,13 @@ on:
   - push
 jobs:
   test:
+    strategy:
+      matrix:
+        python-version:
+          - '3.6'
+          - '3.7'
+          - '3.8'
+          - '3.9'
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -11,7 +18,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.6'
+          python-version: ${{ matrix.python-version }}
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v4
         with:
