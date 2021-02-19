@@ -8,6 +8,7 @@ from typing import List, NamedTuple, Optional, Set, Tuple
 import ghstack
 import ghstack.git
 import ghstack.github
+import ghstack.github_utils
 import ghstack.logging
 import ghstack.shell
 from ghstack.typing import (GhNumber, GitCommitHash, GitHubNumber,
@@ -127,49 +128,18 @@ def main(*,
         # Use CWD
         sh = ghstack.shell.Shell()
 
-    if repo_owner is None or repo_name is None:
-        # Grovel in remotes to figure it out
-        remote_url = sh.git("remote", "get-url", remote_name)
-        while True:
-            match = r'^git@{github_url}:([^/]+)/([^.]+)(?:\.git)?$'.format(
-                github_url=github_url
-            )
-            m = re.match(match, remote_url)
-            if m:
-                repo_owner_nonopt = m.group(1)
-                repo_name_nonopt = m.group(2)
-                break
-            search = r'{github_url}/([^/]+)/([^.]+)'.format(
-                github_url=github_url
-            )
-            m = re.search(search, remote_url)
-            if m:
-                repo_owner_nonopt = m.group(1)
-                repo_name_nonopt = m.group(2)
-                break
-            raise RuntimeError(
-                "Couldn't determine repo owner and name from url: {}"
-                .format(remote_url))
-    else:
-        repo_owner_nonopt = repo_owner
-        repo_name_nonopt = repo_name
+    repo = ghstack.github_utils.get_github_repo_info(
+        github=github,
+        sh=sh,
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        github_url=github_url,
+        remote_name=remote_name,
+    )
+    repo_owner_nonopt = repo["name_with_owner"]["owner"]
+    repo_name_nonopt = repo["name_with_owner"]["name"]
 
-    # TODO: Cache this guy
-    repo = github.graphql(
-        """
-        query ($owner: String!, $name: String!) {
-            repository(name: $name, owner: $owner) {
-                id
-                isFork
-                defaultBranchRef {
-                    name
-                }
-            }
-        }""",
-        owner=repo_owner_nonopt,
-        name=repo_name_nonopt)["data"]["repository"]
-
-    if repo["isFork"]:
+    if repo["is_fork"]:
         raise RuntimeError(
             "Cowardly refusing to upload diffs to a repository that is a "
             "fork.  ghstack expects '{}' of your Git checkout to point "
@@ -180,7 +150,7 @@ def main(*,
             "error, please register your complaint on GitHub issues (or edit "
             "this line to delete the check above).".format(remote_name))
     repo_id = repo["id"]
-    default_branch = repo["defaultBranchRef"]["name"]
+    default_branch = repo["default_branch"]
 
     sh.git("fetch", remote_name)
     base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD"))

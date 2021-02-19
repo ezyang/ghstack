@@ -114,6 +114,7 @@ def main() -> None:
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
                 commits=args.COMMITS,
+                github=github,
                 sh=sh,
                 github_url=conf.github_url,
                 remote_name=conf.remote_name,

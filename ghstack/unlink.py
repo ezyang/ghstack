@@ -7,6 +7,8 @@ from typing import List, Optional, Set
 
 import ghstack.diff
 import ghstack.git
+import ghstack.github
+import ghstack.github_utils
 import ghstack.shell
 from ghstack.typing import GitCommitHash
 
@@ -15,9 +17,11 @@ RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 
 def main(*,
          commits: Optional[List[str]] = None,
+         github: ghstack.github.GitHubEndpoint,
          sh: Optional[ghstack.shell.Shell] = None,
+         repo_owner: Optional[str] = None,
+         repo_name: Optional[str] = None,
          github_url: str,
-         default_branch: str,
          remote_name: str) -> GitCommitHash:
     # If commits is empty, we unlink the entire stack
     #
@@ -28,6 +32,15 @@ def main(*,
     if sh is None:
         # Use CWD
         sh = ghstack.shell.Shell()
+
+    default_branch = ghstack.github_utils.get_github_repo_info(
+        github=github,
+        sh=sh,
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        github_url=github_url,
+        remote_name=remote_name,
+    )["default_branch"]
 
     # Parse the commits
     parsed_commits: Optional[Set[GitCommitHash]] = None
