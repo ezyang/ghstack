@@ -1783,10 +1783,112 @@ Repository state:
 
 ''')
 
+    # ------------------------------------------------------------------------- #
 
-#   def load_tests(loader, tests, ignore):
-#       tests.addTests(doctest.DocTestSuite(gh))
-#       return tests
+    def test_default_branch_change(self) -> None:
+        # make commit
+        self.writeFileAndAdd('file1.txt', 'A')
+        self.sh.git('commit', '-m', 'Commit 1\n\nThis is my first commit')
+        self.sh.test_tick()
+        # ghstack
+        diff1, = self.gh('Initial 1')
+        assert diff1 is not None
+        self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1')
+
+        # make main branch
+        self.sh.git('branch', 'main', 'master')
+        self.sh.git('push', 'origin', 'main')
+        # change default branch to main
+        self.github.patch(
+            'repos/pytorch/pytorch',
+            name='pytorch',
+            default_branch='main',
+        )
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        # land
+        self.gh_land(diff1.pr_url)
+        self.substituteRev('origin/main', 'rUP1')
+
+        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'master'), '''\
+rINI0 Initial commit''')
+        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'main'), '''\
+rUP1 Commit 1
+rINI0 Initial commit''')
+
+        # make another commit
+        self.writeFileAndAdd('file2.txt', 'B')
+        self.sh.git('commit', '-m', 'Commit 2\n\nThis is my second commit')
+        self.sh.test_tick()
+        # ghstack
+        diff2, = self.gh('Initial 2')
+        assert diff2 is not None
+        self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2')
+
+        # change default branch back to master
+        self.github.patch(
+            'repos/pytorch/pytorch',
+            name='pytorch',
+            default_branch='master',
+        )
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 2**
+
+    This is my second commit
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rUP1 (main, gh/ezyang/2/base, gh/ezyang/1/orig) Commit 1
+    | * rMRG1 (gh/ezyang/1/head) Commit 1
+    |/
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        # land again
+        self.gh_land(diff2.pr_url)
+        self.substituteRev('origin/master', 'rUP3')
+        self.substituteRev('origin/master~', 'rUP2')
+
+        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'master'), '''\
+rUP3 Commit 2
+rUP2 Commit 1
+rINI0 Initial commit''')
+        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'main'), '''\
+rUP1 Commit 1
+rINI0 Initial commit''')
 
 
 if __name__ == '__main__':

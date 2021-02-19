@@ -363,6 +363,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                         cast(UpdatePullRequestInput, kwargs))
                 elif 'default_branch' in kwargs:
                     return self._set_default_branch(
+                        owner, name,
                         cast(SetDefaultBranchInput, kwargs))
         raise NotImplementedError(
             "FakeGitHubEndpoint REST {} {} not implemented"
