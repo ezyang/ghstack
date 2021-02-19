@@ -15,6 +15,12 @@ GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
 GitObjectID = NewType('GitObjectID', str)
 
+# https://stackoverflow.com/a/55250601
+SetDefaultBranchInput = TypedDict('SetDefaultBranchInput', {
+    'name': str,
+    'default_branch': str,
+})
+
 UpdatePullRequestInput = TypedDict('UpdatePullRequestInput', {
     'base': Optional[str],
     'title': Optional[str],
@@ -86,12 +92,14 @@ class GitHubState:
         self.root = Root()
 
         # Populate it with the most important repo ;)
-        self.repositories[GraphQLId("1000")] = Repository(
+        repo = Repository(
             id=GraphQLId("1000"),
             name="pytorch",
             nameWithOwner="pytorch/pytorch",
             isFork=False,
+            defaultBranchRef=None,
         )
+        self.repositories[GraphQLId("1000")] = repo
         self._next_pull_request_number[GraphQLId("1000")] = 500
 
         self.upstream_sh = upstream_sh
@@ -109,6 +117,12 @@ class GitHubState:
                 tree,
                 input="Initial commit")
             self.upstream_sh.git("branch", "-f", "master", commit)
+
+            # We only update this when a PATCH changes the default
+            # branch; hopefully that's fine?  In any case, it should
+            # work for now since currently we only ever access the name
+            # of the default branch rather than other parts of its ref.
+            repo.defaultBranchRef = repo._make_ref(self, "master")
 
 
 @dataclass
@@ -130,6 +144,7 @@ class Repository(Node):
     name: str
     nameWithOwner: str
     isFork: bool
+    defaultBranchRef: Optional['Ref']
 
     def pullRequest(self,
                     info: GraphQLResolveInfo,
@@ -272,8 +287,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def push_hook(self, refNames: Sequence[str]) -> None:
         self.state.push_hook(refNames)
 
-    # NB: This technically does have a payload, but we don't
-    # use it so I didn't bother constructing it.
     def _create_pull(self, owner: str, name: str,
                      input: CreatePullRequestInput) -> CreatePullRequestPayload:
         state = self.state
@@ -326,6 +339,14 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if 'body' in input and input['body'] is not None:
             pr.body = input['body']
 
+    # NB: This may have a payload, but we don't
+    # use it so I didn't bother constructing it.
+    def _set_default_branch(self, owner: str, name: str,
+                            input: SetDefaultBranchInput) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        repo.defaultBranchRef = repo._make_ref(state, input['default_branch'])
+
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
         if method == 'post':
             m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
@@ -333,11 +354,17 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 return self._create_pull(m.group(1), m.group(2),
                                          cast(CreatePullRequestInput, kwargs))
         elif method == 'patch':
-            m = re.match(r'^repos/([^/]+)/([^/]+)/pulls/([^/]+)$', path)
+            m = re.match(r'^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$', path)
             if m:
-                return self._update_pull(
-                    m.group(1), m.group(2), GitHubNumber(int(m.group(3))),
-                    cast(UpdatePullRequestInput, kwargs))
+                owner, name, number = m.groups()
+                if number is not None:
+                    return self._update_pull(
+                        owner, name, GitHubNumber(int(number)),
+                        cast(UpdatePullRequestInput, kwargs))
+                elif 'default_branch' in kwargs:
+                    return self._set_default_branch(
+                        owner, name,
+                        cast(SetDefaultBranchInput, kwargs))
         raise NotImplementedError(
             "FakeGitHubEndpoint REST {} {} not implemented"
             .format(method.upper(), path)

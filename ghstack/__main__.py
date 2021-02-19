@@ -109,15 +109,14 @@ def main() -> None:
                 no_skip=args.no_skip,
                 draft=args.draft,
                 github_url=conf.github_url,
-                default_branch=conf.default_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'unlink':
             ghstack.unlink.main(
                 commits=args.COMMITS,
+                github=github,
                 sh=sh,
                 github_url=conf.github_url,
-                default_branch=conf.default_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'land':
@@ -126,7 +125,6 @@ def main() -> None:
                 github=github,
                 sh=sh,
                 github_url=conf.github_url,
-                default_branch=conf.default_branch,
                 remote_name=conf.remote_name,
             )
         elif args.cmd == 'action':

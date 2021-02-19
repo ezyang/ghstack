@@ -2,7 +2,6 @@
 
 import logging
 import re
-from typing import Optional
 
 import ghstack.git
 import ghstack.github
@@ -11,7 +10,7 @@ import ghstack.shell
 from ghstack.typing import GitCommitHash
 
 
-def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, github_url: Optional[str] = None, owner: str, name: str, number: int) -> str:
+def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, owner: str, name: str, number: int) -> str:
     pr_result = github.graphql("""
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
@@ -30,7 +29,6 @@ def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, github_url: 
 
 
 def main(pull_request: str,
-         default_branch: str,
          remote_name: str,
          github: ghstack.github.GitHubEndpoint,
          sh: ghstack.shell.Shell,
@@ -42,7 +40,20 @@ def main(pull_request: str,
     # take the canonical version of the patch from any given pr
 
     params = ghstack.github_utils.parse_pull_request(pull_request)
-    orig_ref = lookup_pr_to_orig_ref(github, **params)
+    default_branch = ghstack.github_utils.get_github_repo_info(
+        github=github,
+        sh=sh,
+        repo_owner=params["owner"],
+        repo_name=params["name"],
+        github_url=github_url,
+        remote_name=remote_name,
+    )["default_branch"]
+    orig_ref = lookup_pr_to_orig_ref(
+        github,
+        owner=params["owner"],
+        name=params["name"],
+        number=params["number"],
+    )
 
     if sh is None:
         # Use CWD
