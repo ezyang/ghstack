@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import re
 
 import ghstack.git
@@ -24,7 +23,7 @@ def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, owner: str, 
     assert isinstance(head_ref, str)
     orig_ref = re.sub(r'/head$', '/orig', head_ref)
     if orig_ref == head_ref:
-        logging.warning("The ref {} doesn't look like a ghstack reference".format(head_ref))
+        raise RuntimeError("The ref {} doesn't look like a ghstack reference".format(head_ref))
     return orig_ref
 
 
@@ -95,15 +94,40 @@ def main(pull_request: str,
                 number=pr_resolved.number))
 
         # OK, actually do the land now
-        for sref in stack_orig_refs:
+        for orig_ref in stack_orig_refs:
             try:
-                sh.git("cherry-pick", remote_name + "/" + sref)
+                sh.git("cherry-pick", f"{remote_name}/{orig_ref}")
             except BaseException:
                 sh.git("cherry-pick", "--abort")
                 raise
 
+        # Advance base to head to "close" the PR for all PRs.
+        # This has to happen before the push because the push
+        # will trigger a closure, but we want a *merge*.  This should
+        # happen after the cherry-pick, because the cherry-picks can
+        # fail
+        # TODO: It might be helpful to advance orig to reflect the true
+        # state of upstream at the time we are doing the land, and then
+        # directly *merge* head into base, so that the PR accurately
+        # reflects what we ACTUALLY merged to master, as opposed to
+        # this synthetic thing I'm doing right now just to make it look
+        # like the PR got closed
+
+        for orig_ref in stack_orig_refs:
+            # TODO: regex here so janky
+            base_ref = re.sub(r'/orig$', '/base', orig_ref)
+            head_ref = re.sub(r'/orig$', '/head', orig_ref)
+            sh.git("push", remote_name, f"{remote_name}/{head_ref}:{base_ref}")
+
         # All good! Push!
         sh.git("push", remote_name, f"HEAD:refs/heads/{default_branch}")
+
+        # Delete the branches
+        for orig_ref in stack_orig_refs:
+            # TODO: regex here so janky
+            base_ref = re.sub(r'/orig$', '/base', orig_ref)
+            head_ref = re.sub(r'/orig$', '/head', orig_ref)
+            sh.git("push", remote_name, "--delete", orig_ref, base_ref, head_ref)
 
     finally:
         sh.git("checkout", prev_ref)
