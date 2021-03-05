@@ -768,38 +768,19 @@ Since we cannot proceed, ghstack will abort now.
             base_args = ()
 
         else:
-            # Second, check if our local base (self.base_commit)
-            # added some new commits, but is still rooted on the
-            # old base.
-            #
-            # If so, all we need to do is include the local base
-            # as a parent when we do the merge.
-            is_ancestor = self.sh.git(
-                "merge-base",
-                "--is-ancestor",
+            # Make a fake commit that
+            # "resets" the tree back to something that makes
+            # sense and merge with that.  This doesn't fix
+            # the fact that we still incorrectly report
+            # the old base as an ancestor of our commit, but
+            # it's better than nothing.
+            new_base = GitCommitHash(self.sh.git(
+                "commit-tree", self.base_tree,
+                "-p",
                 self.remote_name + "/" + branch_base(username, ghnum),
-                self.base_commit, exitcode=True)
-
-            if is_ancestor:
-                new_base = self.base_commit
-
-            else:
-                # If we've gotten here, it means that the new
-                # base and the old base are completely
-                # unrelated.  We'll make a fake commit that
-                # "resets" the tree back to something that makes
-                # sense and merge with that.  This doesn't fix
-                # the fact that we still incorrectly report
-                # the old base as an ancestor of our commit, but
-                # it's better than nothing.
-                new_base = GitCommitHash(self.sh.git(
-                    "commit-tree", self.base_tree,
-                    "-p",
-                    self.remote_name + "/" + branch_base(username, ghnum),
-                    "-p", self.base_commit,
-                    input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
-                          .format(self.msg, elab_commit.title,
-                                  non_orig_commit_msg)))
+                input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
+                      .format(self.msg, elab_commit.title,
+                              non_orig_commit_msg)))
 
             base_args = ("-p", new_base)
 

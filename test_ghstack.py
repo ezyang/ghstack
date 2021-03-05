@@ -705,6 +705,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Update B')
         self.substituteRev("HEAD", "rCOM2A")
+        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
         self.assertExpected(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
@@ -733,8 +734,10 @@ Repository state:
 
     *   rMRG2A (gh/ezyang/2/head) Update B on "Commit 2"
     |\\
-    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update A on "Commit 1"
+    | * rINI2A (gh/ezyang/2/base) Update base for Update B on "Commit 2"
     * | rMRG2 Commit 2
+    |/
+    | * rMRG1A (gh/ezyang/1/head) Update A on "Commit 1"
     |/
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
@@ -808,6 +811,7 @@ Repository state:
 
         self.gh('Update A')
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
@@ -835,10 +839,13 @@ Repository state:
 
 Repository state:
 
-    *   rMRG2A (gh/ezyang/2/head) Update A on "Commit 2"
-    |\\
-    | * rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Update A on "Commit 1"
-    * | rMRG2 Commit 2
+    * rMRG1A (gh/ezyang/1/head) Update A on "Commit 1"
+    | *   rMRG2A (gh/ezyang/2/head) Update A on "Commit 2"
+    | |\\
+    | | * rINI2A (gh/ezyang/2/base) Update base for Update A on "Commit 2"
+    | |/
+    |/|
+    | * rMRG2 Commit 2
     |/
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
@@ -918,7 +925,9 @@ Repository state:
         self.substituteRev("HEAD~", "rCOM1A")
 
         self.gh('Rebase')
+        self.substituteRev("origin/gh/ezyang/1/base", "rINI1A")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpected(self.dump_github(), '''\
@@ -946,14 +955,18 @@ Repository state:
 
 Repository state:
 
-    *   rMRG2A (gh/ezyang/2/head) Rebase on "Commit 2"
+    *   rMRG1A (gh/ezyang/1/head) Rebase on "Commit 1"
     |\\
-    | *   rMRG1A (gh/ezyang/2/base, gh/ezyang/1/head) Rebase on "Commit 1"
-    | |\\
-    | | * rINI2 (HEAD -> master, gh/ezyang/1/base) Master commit 1
-    * | | rMRG2 Commit 2
-    |/ /
-    * / rMRG1 Commit 1
+    | * rINI1A (gh/ezyang/1/base) Update base for Rebase on "Commit 1"
+    | | *   rMRG2A (gh/ezyang/2/head) Rebase on "Commit 2"
+    | | |\\
+    | | | * rINI2A (gh/ezyang/2/base) Update base for Rebase on "Commit 2"
+    | |_|/
+    |/| |
+    | | * rMRG2 Commit 2
+    | |/
+    |/|
+    * | rMRG1 Commit 1
     |/
     * rINI0 Initial commit
 
@@ -1058,14 +1071,111 @@ Repository state:
 
     *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
     |\\
-    | *   rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
-    | |\\
-    | | * rINI2 (HEAD -> master) Master commit 1
-    * | | rMRG2 Commit 2
-    |/ /
-    * / rMRG1 (gh/ezyang/1/head) Commit 1
+    | * rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
+    * | rMRG2 Commit 2
     |/
+    * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_reorder(self) -> None:
+        self.writeFileAndAdd('file1.txt', 'A')
+        self.sh.git('commit', '-m', 'Commit 1\n\nA commit with an A')
+        self.sh.test_tick()
+
+        self.writeFileAndAdd('file2.txt', 'B')
+        self.sh.git('commit', '-m', 'Commit 2\n\nA commit with an B')
+        self.sh.test_tick()
+
+        self.gh('Initial')
+        self.sh.test_tick()
+        self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1')
+        self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2')
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501 Commit 2
+    * **#500 Commit 1**
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501 Commit 2**
+    * #500 Commit 1
+
+    A commit with an B
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+''')
+
+        # https://stackoverflow.com/a/16205257
+        self.sh.git('rebase', '--onto', 'HEAD~2', 'HEAD~', 'HEAD')
+        self.sh.test_tick()
+        self.sh.git('cherry-pick', 'master~')
+        self.sh.test_tick()
+
+        self.gh('Reorder')
+        self.sh.test_tick()
+        self.substituteRev('origin/gh/ezyang/1/base', 'rINI1A')
+        self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1A')
+        self.substituteRev('origin/gh/ezyang/2/base', 'rINI2A')
+        self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2A')
+
+        self.assertExpected(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500 Commit 1**
+    * #501 Commit 2
+
+    A commit with an A
+
+     * rMRG1 Commit 1
+     * rMRG1A Reorder on "Commit 1"
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500 Commit 1
+    * **#501 Commit 2**
+
+    A commit with an B
+
+     * rMRG2 Commit 2
+     * rMRG2A Reorder on "Commit 2"
+
+Repository state:
+
+    *   rMRG1A (gh/ezyang/1/head) Reorder on "Commit 1"
+    |\\
+    | * rINI1A (gh/ezyang/1/base) Update base for Reorder on "Commit 1"
+    | | *   rMRG2A (gh/ezyang/2/head) Reorder on "Commit 2"
+    | | |\\
+    | | | * rINI2A (gh/ezyang/2/base) Update base for Reorder on "Commit 2"
+    | |_|/
+    |/| |
+    | | * rMRG2 Commit 2
+    | |/
+    |/|
+    * | rMRG1 Commit 1
+    |/
+    * rINI0 (HEAD -> master) Initial commit
 
 ''')
 
@@ -1574,12 +1684,10 @@ Repository state:
 
     *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
     |\\
-    | *   rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
-    | |\\
-    * | | rMRG2 Commit 2
-    |/ /
-    * / rMRG1 (gh/ezyang/1/head) Commit 1
+    | * rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
+    * | rMRG2 Commit 2
     |/
+    * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
 ''')
