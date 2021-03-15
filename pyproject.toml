@@ -22,6 +22,7 @@ dataclasses = { version = "^0.8", python = "<3.7" }
 importlib-metadata = "^3"
 python = "^3.6"
 requests = "^2"
+typing-extensions = "^3"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3"
