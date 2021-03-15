@@ -10,7 +10,7 @@ import ghstack.circleci_real
 import ghstack.config
 import ghstack.github_real
 import ghstack.land
-import ghstack.logging
+import ghstack.logs
 import ghstack.rage
 import ghstack.status
 import ghstack.submit
@@ -85,7 +85,7 @@ def main() -> None:
     if args.cmd is None:
         args.cmd = 'submit'
 
-    with ghstack.logging.manager(debug=args.debug):
+    with ghstack.logs.manager(debug=args.debug):
 
         sh = ghstack.shell.Shell()
         conf = ghstack.config.read_config()

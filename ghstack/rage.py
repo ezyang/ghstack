@@ -6,7 +6,7 @@ import tempfile
 from typing import Dict, NewType
 
 import ghstack
-import ghstack.logging
+import ghstack.logs
 
 RawIndex = NewType('RawIndex', int)
 FilteredIndex = NewType('FilteredIndex', int)
@@ -32,7 +32,7 @@ def get_status(log_dir: str) -> str:
 
 def main(latest: bool = False) -> None:
 
-    log_base = ghstack.logging.base_dir()
+    log_base = ghstack.logs.base_dir()
     logs = os.listdir(log_base)
     logs.sort(reverse=True)
 
@@ -75,10 +75,10 @@ def main(latest: bool = False) -> None:
 
             filtered_mapping[cur_index] = raw_index
 
-            m = ghstack.logging.RE_LOG_DIRNAME.fullmatch(fn)
+            m = ghstack.logs.RE_LOG_DIRNAME.fullmatch(fn)
             if m:
                 date = datetime.datetime.strptime(
-                    m.group(1), ghstack.logging.DATETIME_FORMAT
+                    m.group(1), ghstack.logs.DATETIME_FORMAT
                 ).astimezone(tz=None).strftime("%a %b %d %H:%M:%S %Z")
             else:
                 date = "Unknown"

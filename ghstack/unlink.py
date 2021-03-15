@@ -10,7 +10,7 @@ import ghstack.git
 import ghstack.github
 import ghstack.github_utils
 import ghstack.shell
-from ghstack.typing import GitCommitHash
+from ghstack.types import GitCommitHash
 
 RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
 

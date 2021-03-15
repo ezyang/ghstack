@@ -18,7 +18,7 @@ import ghstack.land
 import ghstack.shell
 import ghstack.submit
 import ghstack.unlink
-from ghstack.typing import GitCommitHash
+from ghstack.types import GitCommitHash
 
 
 @contextlib.contextmanager
