@@ -9,10 +9,10 @@ import ghstack
 import ghstack.git
 import ghstack.github
 import ghstack.github_utils
-import ghstack.logging
+import ghstack.logs
 import ghstack.shell
-from ghstack.typing import (GhNumber, GitCommitHash, GitHubNumber,
-                            GitHubRepositoryId, GitTreeHash)
+from ghstack.types import (GhNumber, GitCommitHash, GitHubNumber,
+                           GitHubRepositoryId, GitTreeHash)
 
 # Either "base", "head" or "orig"; which of the ghstack generated
 # branches this diff corresponds to
@@ -166,7 +166,7 @@ def main(*,
 
     assert len(stack) > 0
 
-    ghstack.logging.record_status(
+    ghstack.logs.record_status(
         "{} \"{}\"".format(stack[0].oid[:9], stack[0].title))
 
     submitter = Submitter(github=github,

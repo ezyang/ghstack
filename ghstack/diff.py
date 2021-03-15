@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, Pattern
 
 import ghstack.shell
-from ghstack.typing import GitHubNumber, GitTreeHash
+from ghstack.types import GitHubNumber, GitTreeHash
 
 RE_GH_METADATA = re.compile(
     r'gh-metadata: (?P<owner>[^/]+) (?P<repo>[^/]+) (?P<number>[0-9]+) '

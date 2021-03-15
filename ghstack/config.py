@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-import ghstack.logging
+import ghstack.logs
 
 Config = NamedTuple('Config', [
     # Proxy to use when making connections to GitHub
@@ -97,7 +97,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
             github_oauth)
         write_back = True
     if github_oauth is not None:
-        ghstack.logging.formatter.redact(github_oauth, '<GITHUB_OAUTH>')
+        ghstack.logs.formatter.redact(github_oauth, '<GITHUB_OAUTH>')
 
     circle_token = None
     if circle_token is None and config.has_option('ghstack', 'circle_token'):
@@ -112,7 +112,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
             circle_token)
         write_back = True
     if circle_token is not None:
-        ghstack.logging.formatter.redact(circle_token, '<CIRCLE_TOKEN>')
+        ghstack.logs.formatter.redact(circle_token, '<CIRCLE_TOKEN>')
 
     github_username = None
     if config.has_option('ghstack', 'github_username'):

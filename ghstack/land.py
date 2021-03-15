@@ -6,7 +6,7 @@ import ghstack.git
 import ghstack.github
 import ghstack.github_utils
 import ghstack.shell
-from ghstack.typing import GitCommitHash
+from ghstack.types import GitCommitHash
 
 
 def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, owner: str, name: str, number: int) -> str:

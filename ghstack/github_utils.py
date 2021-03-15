@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 import ghstack.github
 import ghstack.shell
-from ghstack.typing import GitHubRepositoryId
+from ghstack.types import GitHubRepositoryId
 
 try:
     from mypy_extensions import TypedDict
