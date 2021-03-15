@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 
 import re
-from typing import Any, Dict, Optional
+from typing import Optional
+
+from typing_extensions import TypedDict
 
 import ghstack.github
 import ghstack.shell
 from ghstack.typing import GitHubRepositoryId
-
-try:
-    from mypy_extensions import TypedDict
-except ImportError:
-    # Avoid the dependency on the mypy_extensions package.
-    # It is required, however, for type checking.
-    def TypedDict(name, attrs, total=True):  # type: ignore
-        return Dict[Any, Any]
-
 
 GitHubRepoNameWithOwner = TypedDict('GitHubRepoNameWithOwner', {
     'owner': str,

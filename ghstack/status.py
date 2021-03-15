@@ -6,11 +6,11 @@ import logging
 import re
 
 import aiohttp
+from typing_extensions import TypedDict
 
 import ghstack.circleci
 import ghstack.github
 import ghstack.github_utils
-from ghstack.typed_dict import TypedDict
 
 RE_CIRCLECI_URL = re.compile(r'^https://circleci.com/gh/pytorch/pytorch/([0-9]+)')
 

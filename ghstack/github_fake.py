@@ -6,10 +6,10 @@ from dataclasses import dataclass  # Oof! Python 3.7 only!!
 from typing import Any, Dict, List, NewType, Optional, Sequence, cast
 
 import graphql
+from typing_extensions import TypedDict
 
 import ghstack.github
 import ghstack.shell
-from ghstack.typed_dict import TypedDict
 
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
