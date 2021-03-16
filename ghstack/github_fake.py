@@ -238,7 +238,7 @@ class Root:
 
 
 with open(os.path.join(os.path.dirname(__file__),
-          'github_schema.graphql')) as f:
+          'github_schema.graphql'), encoding='utf-8') as f:
     GITHUB_SCHEMA = graphql.build_schema(f.read())
 
 
