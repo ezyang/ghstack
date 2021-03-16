@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ghstack"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Edward Z. Yang <ezyang@mit.edu>"]
 description = "Stack diff support for GitHub"
 readme = "README.md"
