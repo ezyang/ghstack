@@ -177,6 +177,7 @@ def main(*,
                           repo_id=repo_id,
                           base_commit=base,
                           base_tree=base_obj.tree(),
+                          stack_base=base,
                           stack_header=stack_header,
                           update_fields=update_fields,
                           msg=msg,
@@ -254,6 +255,9 @@ class Submitter(object):
     # corresponds to the 'orig' branch in GH.
     base_orig: GitCommitHash
 
+    # The base commit of the entire stack.
+    stack_base: GitCommitHash
+
     # Message describing the update to the stack that was done
     msg: Optional[str]
 
@@ -308,6 +312,7 @@ class Submitter(object):
             repo_id: GitHubRepositoryId,
             base_commit: GitCommitHash,
             base_tree: GitTreeHash,
+            stack_base: GitCommitHash,
             stack_header: str,
             update_fields: bool,
             msg: Optional[str],
@@ -327,6 +332,7 @@ class Submitter(object):
         self.base_commit = base_commit
         self.base_orig = base_commit
         self.base_tree = base_tree
+        self.stack_base = stack_base
         self.update_fields = update_fields
         self.stack_header = None if stack_header is None else stack_header.format(github_url=github_url)
         self.stack_meta = []
@@ -768,6 +774,16 @@ Since we cannot proceed, ghstack will abort now.
             base_args = ()
 
         else:
+            # Second, check if our stack as a whole is still rooted on
+            # the old base. If not, we need to include the local stack
+            # base as a parent of the new commit base.
+            same_stack_base = self.sh.git(
+                "merge-base",
+                "--is-ancestor",
+                self.stack_base,
+                self.remote_name + "/" + branch_base(username, ghnum),
+                exitcode=True)
+
             # Make a fake commit that
             # "resets" the tree back to something that makes
             # sense and merge with that.  This doesn't fix
@@ -778,6 +794,7 @@ Since we cannot proceed, ghstack will abort now.
                 "commit-tree", self.base_tree,
                 "-p",
                 self.remote_name + "/" + branch_base(username, ghnum),
+                *(() if same_stack_base else ("-p", self.stack_base)),
                 input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
                       .format(self.msg, elab_commit.title,
                               non_orig_commit_msg)))

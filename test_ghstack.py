@@ -957,12 +957,16 @@ Repository state:
 
     *   rMRG1A (gh/ezyang/1/head) Rebase on "Commit 1"
     |\\
-    | * rINI1A (gh/ezyang/1/base) Update base for Rebase on "Commit 1"
-    | | *   rMRG2A (gh/ezyang/2/head) Rebase on "Commit 2"
-    | | |\\
-    | | | * rINI2A (gh/ezyang/2/base) Update base for Rebase on "Commit 2"
-    | |_|/
-    |/| |
+    | *   rINI1A (gh/ezyang/1/base) Update base for Rebase on "Commit 1"
+    | |\\
+    | | | *   rMRG2A (gh/ezyang/2/head) Rebase on "Commit 2"
+    | | | |\\
+    | | | | * rINI2A (gh/ezyang/2/base) Update base for Rebase on "Commit 2"
+    | |_|_|/|
+    |/| | |/
+    | | |/|
+    | | * | rINI2 (HEAD -> master) Master commit 1
+    | |/ /
     | | * rMRG2 Commit 2
     | |/
     |/|
@@ -1071,10 +1075,13 @@ Repository state:
 
     *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
     |\\
-    | * rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
-    * | rMRG2 Commit 2
+    | *   rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
+    | |\\
+    | | * rINI2 (HEAD -> master) Master commit 1
+    * | | rMRG2 Commit 2
+    |/ /
+    * / rMRG1 (gh/ezyang/1/head) Commit 1
     |/
-    * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (gh/ezyang/1/base) Initial commit
 
 ''')
