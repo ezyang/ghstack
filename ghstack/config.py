@@ -152,7 +152,8 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         remote_name = 'origin'
 
     if write_back:
-        config.write(open(config_path, 'w'))
+        with open(config_path, 'w') as f:
+            config.write(f)
         logging.info("NB: configuration saved to {}".format(config_path))
 
     conf = Config(
