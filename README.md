@@ -32,10 +32,8 @@ resolve conflicts in *each* PR, not just for the entire stack.)
 branch, and start working on a fresh branch.
 
 **WARNING.**  You will NOT be able to merge these commits using the
-normal GitHub UI, as their branch bases won't be master.  For the
-PyTorch repository, we have a special mechanism for landing diffs;
-if you need a way to land these commits on a regular GitHub
-repository, give a holler on issues and we'll add this functionality.
+normal GitHub UI, as their branch bases won't be master.  Use
+`ghstack land $PR_URL` to land a ghstack'ed pull request.
 
 ## Structure of submitted pull requests
 
