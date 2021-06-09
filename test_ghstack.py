@@ -97,7 +97,8 @@ class TestGh(expecttest.TestCase):
     def gh(self, msg: str = 'Update',
            update_fields: bool = False,
            short: bool = False,
-           no_skip: bool = False) -> List[Optional[ghstack.submit.DiffMeta]]:
+           no_skip: bool = False,
+           labels: List[str] = []) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
             username='ezyang',
@@ -109,6 +110,7 @@ class TestGh(expecttest.TestCase):
             repo_name='pytorch',
             short=short,
             no_skip=no_skip,
+            labels=labels,
             github_url='github.com',
             remote_name='origin')
 
@@ -2004,6 +2006,36 @@ rINI0 Initial commit''')
         self.assertExpected(self.upstream_sh.git('log', '--oneline', 'main'), '''\
 rUP1 Commit 1
 rINI0 Initial commit''')
+
+    # ------------------------------------------------------------------------- #
+
+    def test_labels(self) -> None:
+        # first commit
+        self.writeFileAndAdd('file1.txt', 'A')
+        self.sh.git('commit', '-m', 'Commit 1')
+        self.sh.test_tick()
+        # ghstack
+        self.gh()
+        # second commit
+        self.writeFileAndAdd('file2.txt', 'B')
+        self.sh.git('commit', '-m', 'Commit 2')
+        self.sh.test_tick()
+        # third commit
+        self.writeFileAndAdd('file3.txt', 'C')
+        self.sh.git('commit', '-m', 'Commit 3')
+        self.sh.test_tick()
+        # ghstack with labels
+        self.gh(labels=['foo', 'bar'])
+
+        def get_labels(n: int) -> List[str]:
+            labels = self.github.get(f'repos/pytorch/pytorch/issues/{n}/labels')
+            return [label['name'] for label in labels]
+
+        # was already created before second ghstack run
+        self.assertEqual(get_labels(500), [])
+        # included in the second ghstack run
+        self.assertEqual(get_labels(501), ['foo', 'bar'])
+        self.assertEqual(get_labels(502), ['foo', 'bar'])
 
 
 if __name__ == '__main__':

@@ -52,6 +52,10 @@ def main() -> None:
         subparser.add_argument(
             '--draft', action='store_true',
             help='Create the pull request in draft mode (only if it has not already been created)')
+        subparser.add_argument(
+            '--label', action='append', default=[],
+            help='Add this label to any newly created pull requests '
+                 '(multiple --label arguments can be given)')
 
     unlink = subparsers.add_parser('unlink')
     unlink.add_argument('COMMITS', nargs='*')
@@ -108,6 +112,7 @@ def main() -> None:
                 force=args.force,
                 no_skip=args.no_skip,
                 draft=args.draft,
+                labels=args.label,
                 github_url=conf.github_url,
                 remote_name=conf.remote_name,
             )

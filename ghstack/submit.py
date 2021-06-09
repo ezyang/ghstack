@@ -120,6 +120,7 @@ def main(*,
          force: bool = False,
          no_skip: bool = False,
          draft: bool = False,
+         labels: List[str],
          github_url: str,
          remote_name: str
          ) -> List[Optional[DiffMeta]]:
@@ -185,6 +186,7 @@ def main(*,
                           force=force,
                           no_skip=no_skip,
                           draft=draft,
+                          labels=labels,
                           stack=list(reversed(stack)),
                           github_url=github_url,
                           remote_name=remote_name)
@@ -296,6 +298,9 @@ class Submitter(object):
     # Create the PR in draft mode if it is going to be created (and not updated).
     draft: bool
 
+    # Add these labels to newly created PRs
+    labels: List[str]
+
     # Github url (normally github.com)
     github_url: str
 
@@ -321,6 +326,7 @@ class Submitter(object):
             force: bool,
             no_skip: bool,
             draft: bool,
+            labels: List[str],
             github_url: str,
             remote_name: str):
         self.github = github
@@ -344,6 +350,7 @@ class Submitter(object):
         self.force = force
         self.no_skip = no_skip
         self.draft = draft
+        self.labels = labels
         self.github_url = github_url
         self.remote_name = remote_name
 
@@ -608,6 +615,11 @@ Since we cannot proceed, ghstack will abort now.
             draft=self.draft,
         )
         number = r['number']
+        if len(self.labels) > 0:
+            self.github.post(
+                f"repos/{self.repo_owner}/{self.repo_name}/issues/{number}/labels",
+                labels=self.labels,
+            )
 
         logging.info("Opened PR #{}".format(number))
 

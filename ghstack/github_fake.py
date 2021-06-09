@@ -35,9 +35,28 @@ CreatePullRequestInput = TypedDict('CreatePullRequestInput', {
     'maintainer_can_modify': bool,
 })
 
+AddLabelsInput = TypedDict('AddLabelsInput', {
+    'labels': List[str],
+})
+
 CreatePullRequestPayload = TypedDict('CreatePullRequestPayload', {
     'number': int,
 })
+
+# omitting many of these fields because we don't use them
+Label = TypedDict('Label', {
+    # 'id': int,
+    # 'node_id': str,
+    # 'url': str,
+    'name': str,
+    # 'description': str,
+    # 'color': str,
+    # 'default': bool,
+})
+
+AddLabelsPayload = List[Label]
+
+ListLabelsPayload = List[Label]
 
 
 # The "database" for our mock instance
@@ -213,6 +232,7 @@ class PullRequest(Node):
     # state: PullRequestState
     title: str
     url: str
+    labels: List[Label]
 
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
@@ -313,6 +333,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             headRefName=input['head'],
             title=input['title'],
             body=input['body'],
+            labels=[],
         )
         # TODO: compute files changed
         state.pull_requests[id] = pr
@@ -347,12 +368,33 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         repo = state.repository(owner, name)
         repo.defaultBranchRef = repo._make_ref(state, input['default_branch'])
 
+    def _add_labels(self, owner: str, name: str, number: GitHubNumber,
+                    input: AddLabelsInput) -> AddLabelsPayload:
+        state = self.state
+        repo = state.repository(owner, name)
+        pr = state.pull_request(repo, number)
+        pr.labels += [{'name': label} for label in input['labels']]
+        return pr.labels
+
+    def _list_labels(self, owner: str, name: str, number: GitHubNumber) -> ListLabelsPayload:
+        state = self.state
+        repo = state.repository(owner, name)
+        pr = state.pull_request(repo, number)
+        return pr.labels
+
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+        labels_re = r'^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels$'
         if method == 'post':
             m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
             if m:
                 return self._create_pull(m.group(1), m.group(2),
                                          cast(CreatePullRequestInput, kwargs))
+            m = re.match(labels_re, path)
+            if m:
+                owner, name, number = m.groups()
+                return self._add_labels(
+                    owner, name, GitHubNumber(int(number)),
+                    cast(AddLabelsInput, kwargs))
         elif method == 'patch':
             m = re.match(r'^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$', path)
             if m:
@@ -365,6 +407,11 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     return self._set_default_branch(
                         owner, name,
                         cast(SetDefaultBranchInput, kwargs))
+        elif method == 'get':
+            m = re.match(labels_re, path)
+            if m:
+                owner, name, number = m.groups()
+                return self._list_labels(owner, name, GitHubNumber(int(number)))
         raise NotImplementedError(
             "FakeGitHubEndpoint REST {} {} not implemented"
             .format(method.upper(), path)
