@@ -43,21 +43,6 @@ CreatePullRequestPayload = TypedDict('CreatePullRequestPayload', {
     'number': int,
 })
 
-# omitting many of these fields because we don't use them
-Label = TypedDict('Label', {
-    # 'id': int,
-    # 'node_id': str,
-    # 'url': str,
-    'name': str,
-    # 'description': str,
-    # 'color': str,
-    # 'default': bool,
-})
-
-AddLabelsPayload = List[Label]
-
-ListLabelsPayload = List[Label]
-
 
 # The "database" for our mock instance
 class GitHubState:
@@ -218,6 +203,22 @@ class Ref(Node):
 
 
 @dataclass
+class Label(Node):
+    name: str
+
+
+@dataclass
+class PageInfo:
+    endCursor: Optional[str]
+
+
+@dataclass
+class LabelConnection:
+    nodes: Optional[List[Optional[Label]]]
+    pageInfo: PageInfo
+
+
+@dataclass
 class PullRequest(Node):
     baseRef: Optional[Ref]
     baseRefName: str
@@ -226,16 +227,36 @@ class PullRequest(Node):
     headRef: Optional[Ref]
     headRefName: str
     # headRepository: Optional[Repository]
+    _labels: List[Label]
     # maintainerCanModify: bool
     number: GitHubNumber
     _repository: GraphQLId  # cycle breaker
     # state: PullRequestState
     title: str
     url: str
-    labels: List[Label]
 
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
+
+    def labels(self, info: GraphQLResolveInfo,
+               after: Optional[str] = None, before: Optional[str] = None,
+               first: Optional[int] = None, last: Optional[int] = None,
+               ) -> Optional[LabelConnection]:
+        if first is None:
+            # the real API also supports `last`, but we do not
+            raise RuntimeError(
+                "You must provide a `first` value"
+                "to properly paginate the `labels` connection."
+            )
+        # the real API uses a more sophisticated base64-encoded syntax
+        # for cursors, but this serves our purposes well enough
+        start = int(after) if after else 0
+        result: Sequence[Optional[Label]] = self._labels[start:start + first]
+        cursor = str(start + len(result)) if result else None
+        return LabelConnection(
+            nodes=list(result),
+            pageInfo=PageInfo(endCursor=cursor),
+        )
 
 
 @dataclass
@@ -331,9 +352,9 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             baseRefName=input['base'],
             headRef=headRef,
             headRefName=input['head'],
+            _labels=[],
             title=input['title'],
             body=input['body'],
-            labels=[],
         )
         # TODO: compute files changed
         state.pull_requests[id] = pr
@@ -368,28 +389,23 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         repo = state.repository(owner, name)
         repo.defaultBranchRef = repo._make_ref(state, input['default_branch'])
 
+    # NB: This technically does have a payload, but we don't
+    # use it so I didn't bother constructing it.
     def _add_labels(self, owner: str, name: str, number: GitHubNumber,
-                    input: AddLabelsInput) -> AddLabelsPayload:
+                    input: AddLabelsInput) -> None:
         state = self.state
         repo = state.repository(owner, name)
         pr = state.pull_request(repo, number)
-        pr.labels += [{'name': label} for label in input['labels']]
-        return pr.labels
-
-    def _list_labels(self, owner: str, name: str, number: GitHubNumber) -> ListLabelsPayload:
-        state = self.state
-        repo = state.repository(owner, name)
-        pr = state.pull_request(repo, number)
-        return pr.labels
+        for name in input['labels']:
+            pr._labels.append(Label(id=state.next_id(), name=name))
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        labels_re = r'^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels$'
         if method == 'post':
             m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
             if m:
                 return self._create_pull(m.group(1), m.group(2),
                                          cast(CreatePullRequestInput, kwargs))
-            m = re.match(labels_re, path)
+            m = re.match(r'^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels$', path)
             if m:
                 owner, name, number = m.groups()
                 return self._add_labels(
@@ -407,11 +423,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     return self._set_default_branch(
                         owner, name,
                         cast(SetDefaultBranchInput, kwargs))
-        elif method == 'get':
-            m = re.match(labels_re, path)
-            if m:
-                owner, name, number = m.groups()
-                return self._list_labels(owner, name, GitHubNumber(int(number)))
         raise NotImplementedError(
             "FakeGitHubEndpoint REST {} {} not implemented"
             .format(method.upper(), path)

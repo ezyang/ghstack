@@ -2028,8 +2028,32 @@ rINI0 Initial commit''')
         self.gh(labels=['foo', 'bar'])
 
         def get_labels(n: int) -> List[str]:
-            labels = self.github.get(f'repos/pytorch/pytorch/issues/{n}/labels')
-            return [label['name'] for label in labels]
+            cursor = None
+            labels = []
+            while True:
+                page = self.github.graphql("""
+                  query ($number: Int!, $cursor: String) {
+                    repository(owner: "pytorch", name: "pytorch") {
+                      pullRequest(number: $number) {
+                        labels(first: 5, after: $cursor) {
+                          nodes {
+                            name
+                          }
+                          pageInfo {
+                            endCursor
+                          }
+                        }
+                      }
+                    }
+                  }
+                """, number=n, cursor=cursor)['data']['repository']['pullRequest']['labels']
+                nodes = page['nodes']
+                if nodes:
+                    labels += [label['name'] for label in nodes]
+                    cursor = page['pageInfo']['endCursor']
+                else:
+                    break
+            return labels
 
         # was already created before second ghstack run
         self.assertEqual(get_labels(500), [])
