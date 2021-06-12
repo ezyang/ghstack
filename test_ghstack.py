@@ -2035,7 +2035,7 @@ rINI0 Initial commit''')
                   query ($number: Int!, $cursor: String) {
                     repository(owner: "pytorch", name: "pytorch") {
                       pullRequest(number: $number) {
-                        labels(first: 5, after: $cursor) {
+                        labels(first: 1, after: $cursor) {
                           nodes {
                             name
                           }
