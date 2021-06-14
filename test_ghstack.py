@@ -2010,23 +2010,6 @@ rINI0 Initial commit''')
     # ------------------------------------------------------------------------- #
 
     def test_labels(self) -> None:
-        # first commit
-        self.writeFileAndAdd('file1.txt', 'A')
-        self.sh.git('commit', '-m', 'Commit 1')
-        self.sh.test_tick()
-        # ghstack
-        self.gh()
-        # second commit
-        self.writeFileAndAdd('file2.txt', 'B')
-        self.sh.git('commit', '-m', 'Commit 2')
-        self.sh.test_tick()
-        # third commit
-        self.writeFileAndAdd('file3.txt', 'C')
-        self.sh.git('commit', '-m', 'Commit 3')
-        self.sh.test_tick()
-        # ghstack with labels
-        self.gh(labels=['foo', 'bar'])
-
         def get_labels(n: int) -> List[str]:
             cursor = None
             labels = []
@@ -2035,7 +2018,7 @@ rINI0 Initial commit''')
                   query ($number: Int!, $cursor: String) {
                     repository(owner: "pytorch", name: "pytorch") {
                       pullRequest(number: $number) {
-                        labels(first: 1, after: $cursor) {
+                        labels(first: 2, after: $cursor) {
                           nodes {
                             name
                           }
@@ -2055,11 +2038,30 @@ rINI0 Initial commit''')
                     break
             return labels
 
-        # was already created before second ghstack run
+        self.writeFileAndAdd('file1.txt', 'A')
+        self.sh.git('commit', '-m', 'Commit 1')
+        self.sh.test_tick()
+        self.gh()
+
         self.assertEqual(get_labels(500), [])
-        # included in the second ghstack run
-        self.assertEqual(get_labels(501), ['foo', 'bar'])
-        self.assertEqual(get_labels(502), ['foo', 'bar'])
+
+        self.writeFileAndAdd('file2.txt', 'B')
+        self.sh.git('commit', '-m', 'Commit 2')
+        self.sh.test_tick()
+        self.gh(labels=['foo', 'bar'])
+
+        # alphabetical order
+        self.assertEqual(get_labels(500), ['bar', 'foo'])
+        self.assertEqual(get_labels(501), ['bar', 'foo'])
+
+        self.writeFileAndAdd('file3.txt', 'C')
+        self.sh.git('commit', '-m', 'Commit 3')
+        self.sh.test_tick()
+        self.gh(labels=['foo', 'baz'])
+
+        self.assertEqual(get_labels(500), ['bar', 'baz', 'foo'])
+        self.assertEqual(get_labels(501), ['bar', 'baz', 'foo'])
+        self.assertEqual(get_labels(502), ['baz', 'foo'])
 
 
 if __name__ == '__main__':

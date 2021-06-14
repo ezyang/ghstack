@@ -298,7 +298,7 @@ class Submitter(object):
     # Create the PR in draft mode if it is going to be created (and not updated).
     draft: bool
 
-    # Add these labels to newly created PRs
+    # Add these labels to all PRs in the stack
     labels: List[str]
 
     # Github url (normally github.com)
@@ -615,11 +615,6 @@ Since we cannot proceed, ghstack will abort now.
             draft=self.draft,
         )
         number = r['number']
-        if len(self.labels) > 0:
-            self.github.post(
-                f"repos/{self.repo_owner}/{self.repo_name}/issues/{number}/labels",
-                labels=self.labels,
-            )
 
         logging.info("Opened PR #{}".format(number))
 
@@ -952,6 +947,11 @@ Since we cannot proceed, ghstack will abort now.
                             number=s.number),
                     body=RE_STACK.sub(self._format_stack(i), s.body),
                     title=s.title)
+            if len(self.labels) > 0:
+                self.github.post(
+                    f"repos/{self.repo_owner}/{self.repo_name}/issues/{s.number}/labels",
+                    labels=self.labels,
+                )
             else:
                 logging.info(
                     "# Skipping closed https://{github_url}/{owner}/{repo}/pull/{number}"

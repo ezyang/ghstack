@@ -3,9 +3,11 @@
 import os.path
 import re
 from dataclasses import dataclass  # Oof! Python 3.7 only!!
+from itertools import islice
 from typing import Any, Dict, List, NewType, Optional, Sequence, cast
 
 import graphql
+from sortedcontainers import SortedKeyList  # type: ignore[import]
 from typing_extensions import TypedDict
 
 import ghstack.github
@@ -219,7 +221,7 @@ class LabelConnection:
 
 
 @dataclass
-class PullRequest(Node):
+class PullRequest(Node):  # type: ignore[no-any-unimported]
     baseRef: Optional[Ref]
     baseRefName: str
     body: str
@@ -227,7 +229,7 @@ class PullRequest(Node):
     headRef: Optional[Ref]
     headRefName: str
     # headRepository: Optional[Repository]
-    _labels: List[Label]
+    _labels: SortedKeyList  # type: ignore[no-any-unimported]
     # maintainerCanModify: bool
     number: GitHubNumber
     _repository: GraphQLId  # cycle breaker
@@ -248,14 +250,13 @@ class PullRequest(Node):
                 "You must provide a `first` value"
                 "to properly paginate the `labels` connection."
             )
-        # the real API uses a more sophisticated base64-encoded syntax
-        # for cursors, but this serves our purposes well enough
-        start = int(after) if after else 0
-        result: Sequence[Optional[Label]] = self._labels[start:start + first]
-        cursor = str(start + len(result)) if result else None
+        nodes = list(islice(
+            self._labels.irange_key(after, inclusive=(False, True)),
+            first,
+        ))
         return LabelConnection(
-            nodes=list(result),
-            pageInfo=PageInfo(endCursor=cursor),
+            nodes=nodes,
+            pageInfo=PageInfo(endCursor=nodes[-1].name if nodes else None),
         )
 
 
@@ -352,7 +353,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             baseRefName=input['base'],
             headRef=headRef,
             headRefName=input['head'],
-            _labels=[],
+            _labels=SortedKeyList(key=lambda label: label.name),
             title=input['title'],
             body=input['body'],
         )
@@ -396,8 +397,11 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         state = self.state
         repo = state.repository(owner, name)
         pr = state.pull_request(repo, number)
+        labels = pr._labels
         for name in input['labels']:
-            pr._labels.append(Label(id=state.next_id(), name=name))
+            # https://stackoverflow.com/a/3114640
+            if not any(True for _ in labels.irange_key(name, name)):
+                labels.add(Label(id=state.next_id(), name=name))
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
         if method == 'post':

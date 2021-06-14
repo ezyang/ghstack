@@ -54,7 +54,7 @@ def main() -> None:
             help='Create the pull request in draft mode (only if it has not already been created)')
         subparser.add_argument(
             '--label', action='append', default=[],
-            help='Add this label to any newly created pull requests '
+            help='Add this label to all pull requests in the stack '
                  '(multiple --label arguments can be given)')
 
     unlink = subparsers.add_parser('unlink')
