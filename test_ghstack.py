@@ -2011,40 +2011,30 @@ rINI0 Initial commit''')
     # ------------------------------------------------------------------------- #
 
     def test_labels(self) -> None:
-        def get_labels(n: int) -> List[str]:
-            cursor = None
-            labels = []
-            while True:
-                page = self.github.graphql("""
-                  query ($number: Int!, $cursor: String) {
-                    repository(owner: "pytorch", name: "pytorch") {
-                      pullRequest(number: $number) {
-                        labels(first: 2, after: $cursor) {
-                          nodes {
-                            name
-                          }
-                          pageInfo {
-                            endCursor
-                          }
-                        }
+        def assert_labels(pr: int, expected: List[str]) -> None:
+            raw = self.github.graphql("""
+              query ($pr: Int!, $first: Int!) {
+                repository(owner: "pytorch", name: "pytorch") {
+                  pullRequest(number: $pr) {
+                    labels(first: $first) {
+                      nodes {
+                        name
                       }
                     }
                   }
-                """, number=n, cursor=cursor)['data']['repository']['pullRequest']['labels']
-                nodes = page['nodes']
-                if nodes:
-                    labels += [label['name'] for label in nodes]
-                    cursor = page['pageInfo']['endCursor']
-                else:
-                    break
-            return labels
+                }
+              }
+            """, pr=pr, first=len(expected) + 1)
+            nodes = raw['data']['repository']['pullRequest']['labels']['nodes']
+            actual = [label['name'] for label in nodes]
+            self.assertEqual(actual, expected)
 
         self.writeFileAndAdd('file1.txt', 'A')
         self.sh.git('commit', '-m', 'Commit 1')
         self.sh.test_tick()
         self.gh()
 
-        self.assertEqual(get_labels(500), [])
+        assert_labels(500, [])
 
         self.writeFileAndAdd('file2.txt', 'B')
         self.sh.git('commit', '-m', 'Commit 2')
@@ -2052,17 +2042,17 @@ rINI0 Initial commit''')
         self.gh(labels=['foo', 'bar'])
 
         # alphabetical order
-        self.assertEqual(get_labels(500), ['bar', 'foo'])
-        self.assertEqual(get_labels(501), ['bar', 'foo'])
+        assert_labels(500, ['bar', 'foo'])
+        assert_labels(501, ['bar', 'foo'])
 
         self.writeFileAndAdd('file3.txt', 'C')
         self.sh.git('commit', '-m', 'Commit 3')
         self.sh.test_tick()
         self.gh(labels=['foo', 'baz'])
 
-        self.assertEqual(get_labels(500), ['bar', 'baz', 'foo'])
-        self.assertEqual(get_labels(501), ['bar', 'baz', 'foo'])
-        self.assertEqual(get_labels(502), ['baz', 'foo'])
+        assert_labels(500, ['bar', 'baz', 'foo'])
+        assert_labels(501, ['bar', 'baz', 'foo'])
+        assert_labels(502, ['baz', 'foo'])
 
 
 if __name__ == '__main__':
