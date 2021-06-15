@@ -98,7 +98,8 @@ class TestGh(expecttest.TestCase):
            update_fields: bool = False,
            short: bool = False,
            no_skip: bool = False,
-           labels: List[str] = []) -> List[Optional[ghstack.submit.DiffMeta]]:
+           labels: Optional[List[str]] = None
+           ) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
             username='ezyang',
@@ -110,7 +111,7 @@ class TestGh(expecttest.TestCase):
             repo_name='pytorch',
             short=short,
             no_skip=no_skip,
-            labels=labels,
+            labels=labels or [],
             github_url='github.com',
             remote_name='origin')
 
