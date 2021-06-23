@@ -872,9 +872,9 @@ Since we cannot proceed, ghstack will abort now.
             if s is None:
                 continue
             if index == i:
-                rows.append('* **#{} {}**'.format(s.number, s.title.strip()))
+                rows.append(f'* **#{s.number}**')
             else:
-                rows.append('* #{} {}'.format(s.number, s.title.strip()))
+                rows.append(f'* #{s.number}')
         return self.stack_header + ':\n' + '\n'.join(rows) + '\n'
 
     def prepare_updates(self, *, is_ghexport: bool = False) -> None:

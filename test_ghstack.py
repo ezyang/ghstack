@@ -183,7 +183,7 @@ class TestGh(expecttest.TestCase):
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     This is my first commit
 
@@ -211,8 +211,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     This is my first commit
 
@@ -221,8 +221,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     This is my second commit
 
@@ -256,7 +256,7 @@ Repository state:
 #500 Commit 2 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 2**
+    * **#500**
 
 
 
@@ -287,7 +287,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     This is my first commit
 
@@ -308,7 +308,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     This is my first commit
 
@@ -339,7 +339,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     A commit with an A
 
@@ -364,7 +364,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     A commit with an A
 
@@ -397,7 +397,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     A commit with an A
 
@@ -421,7 +421,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     A commit with an A
 
@@ -491,8 +491,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -501,8 +501,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -543,8 +543,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -553,8 +553,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -580,8 +580,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -590,8 +590,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -634,8 +634,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -644,8 +644,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -673,7 +673,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     A commit with an A
 
@@ -683,8 +683,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -712,8 +712,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -723,8 +723,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -772,8 +772,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -782,8 +782,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -819,8 +819,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -830,8 +830,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -883,8 +883,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -893,8 +893,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -935,8 +935,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -946,8 +946,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -1007,8 +1007,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -1017,8 +1017,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -1055,8 +1055,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -1065,7 +1065,7 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
+    * **#501**
 
     A commit with a B
 
@@ -1107,8 +1107,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -1117,8 +1117,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with an B
 
@@ -1149,8 +1149,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
-    * #501 Commit 2
+    * **#500**
+    * #501
 
     A commit with an A
 
@@ -1160,8 +1160,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * #500 Commit 1
-    * **#501 Commit 2**
+    * #500
+    * **#501**
 
     A commit with an B
 
@@ -1206,7 +1206,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1260,7 +1260,7 @@ Repository state:
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Directly updated title**
+    * **#500**
 
     Directly updated message body
 
@@ -1295,7 +1295,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1332,8 +1332,8 @@ Directly updated message body""".replace('\n', '\r\n'),
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Directly updated title**
+    * #501
+    * **#500**
 
     Directly updated message body
 
@@ -1342,8 +1342,8 @@ Directly updated message body""".replace('\n', '\r\n'),
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Directly updated title
+    * **#501**
+    * #500
 
 
 
@@ -1395,7 +1395,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1437,7 +1437,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1471,7 +1471,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1494,7 +1494,7 @@ Repository state:
 #500 Amended (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Amended**
+    * **#500**
 
     Commit 1
 
@@ -1531,7 +1531,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1581,7 +1581,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     Original message
 
@@ -1628,8 +1628,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -1638,8 +1638,8 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with a B
 
@@ -1671,8 +1671,8 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 2
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -1681,7 +1681,7 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
+    * **#501**
 
     A commit with a B
 
@@ -1854,8 +1854,8 @@ rINI0 Initial commit''')
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * #501 Commit 1
-    * **#500 Commit 1**
+    * #501
+    * **#500**
 
     A commit with an A
 
@@ -1864,8 +1864,8 @@ rINI0 Initial commit''')
 #501 Commit 1 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 1**
-    * #500 Commit 1
+    * **#501**
+    * #500
 
     A commit with an B
 
@@ -1874,8 +1874,8 @@ rINI0 Initial commit''')
 #502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
 
     Stack:
-    * #503 Commit 1
-    * **#502 Commit 1**
+    * #503
+    * **#502**
 
     A commit with an A
 
@@ -1884,8 +1884,8 @@ rINI0 Initial commit''')
 #503 Commit 1 (gh/ezyang/4/head -> gh/ezyang/4/base)
 
     Stack:
-    * **#503 Commit 1**
-    * #502 Commit 1
+    * **#503**
+    * #502
 
     A commit with an B
 
@@ -1925,7 +1925,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     This is my first commit
 
@@ -1968,7 +1968,7 @@ rINI0 Initial commit''')
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500 Commit 1**
+    * **#500**
 
     This is my first commit
 
@@ -1977,7 +1977,7 @@ rINI0 Initial commit''')
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501 Commit 2**
+    * **#501**
 
     This is my second commit
 
