@@ -25,6 +25,7 @@ requests = "^2"
 typing-extensions = "^3"
 
 [tool.poetry.dev-dependencies]
+expecttest = "^0.1"
 flake8 = "^3"
 graphql-core = "^3"
 hypothesis = "^6"

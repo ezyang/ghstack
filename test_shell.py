@@ -6,7 +6,8 @@ import unittest
 from dataclasses import dataclass
 from typing import Any, List
 
-import ghstack.expecttest as expecttest
+import expecttest
+
 import ghstack.shell
 
 
@@ -56,7 +57,7 @@ class TestShell(expecttest.TestCase):
             self.emit(
                 out("arf\n")
             )
-        self.assertExpected(self.flog(cm), '''\
+        self.assertExpectedInline(self.flog(cm), '''\
 $ python emitter.py o 'arf\n'
 arf
 ''')
@@ -66,7 +67,7 @@ arf
             self.emit(
                 err("arf\n")
             )
-        self.assertExpected(self.flog(cm), '''\
+        self.assertExpectedInline(self.flog(cm), '''\
 $ python emitter.py e 'arf\n'
 # stderr:
 arf
@@ -78,7 +79,7 @@ arf
                 out("arf\n"),
                 stdout=None
             )
-        self.assertExpected(self.flog(cm), '''\
+        self.assertExpectedInline(self.flog(cm), '''\
 $ python emitter.py o 'arf\n'
 arf
 ''')
@@ -93,7 +94,7 @@ arf
                 out("out\n"),
                 stdout=None
             )
-        self.assertExpected(self.flog(cm), '''\
+        self.assertExpectedInline(self.flog(cm), '''\
 $ python emitter.py e 'Step 1...\n' e 'Step 2...\n' e 'Step 3...\n' o 'out\n'
 # stderr:
 Step 1...
@@ -114,7 +115,7 @@ out
                 err("D\n"),
                 stdout=None
             )
-        self.assertExpected(self.flog(cm), '''\
+        self.assertExpectedInline(self.flog(cm), '''\
 $ python emitter.py o 'A\n' e 'B\n' o 'C\n' e 'D\n'
 # stderr:
 B
