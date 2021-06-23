@@ -11,7 +11,8 @@ import tempfile
 import unittest
 from typing import Dict, Iterator, List, NewType, Optional, Tuple
 
-import ghstack.expecttest as expecttest
+import expecttest
+
 import ghstack.github
 import ghstack.github_fake
 import ghstack.land
@@ -178,7 +179,7 @@ class TestGh(expecttest.TestCase):
         self.gh('Initial 1')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -206,7 +207,7 @@ Repository state:
         self.gh('Initial 2')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -251,7 +252,7 @@ Repository state:
         self.gh('Initial')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 2 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -282,7 +283,7 @@ Repository state:
         self.gh('Initial')
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -303,7 +304,7 @@ Repository state:
         self.sh.git("commit", "--amend", "--allow-empty")
         self.sh.test_tick()
         self.gh('Update')
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -334,7 +335,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -359,7 +360,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Update A')
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -392,7 +393,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -416,7 +417,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Update A', no_skip=True)
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -486,7 +487,7 @@ Repository state:
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -538,7 +539,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -575,7 +576,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Update A')
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -629,7 +630,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -668,7 +669,7 @@ Repository state:
         self.sh.test_tick()
         self.gh('Update A')
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -707,7 +708,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -767,7 +768,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -814,7 +815,7 @@ Repository state:
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -878,7 +879,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -930,7 +931,7 @@ Repository state:
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1002,7 +1003,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1050,7 +1051,7 @@ Repository state:
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1102,7 +1103,7 @@ Repository state:
         self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1')
         self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2')
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1144,7 +1145,7 @@ Repository state:
         self.substituteRev('origin/gh/ezyang/2/base', 'rINI2A')
         self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2A')
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1201,7 +1202,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1228,7 +1229,7 @@ Stack:
 Directly updated message body""",
                           title="Directly updated title")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1255,7 +1256,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1290,7 +1291,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1327,7 +1328,7 @@ Directly updated message body""".replace('\n', '\r\n'),
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1390,7 +1391,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1413,7 +1414,7 @@ Repository state:
                           body="Directly updated message body",
                           title="Directly updated title")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Directly updated message body
@@ -1432,7 +1433,7 @@ Repository state:
         self.gh('Update 1', update_fields=True)
         self.sh.test_tick()
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1466,7 +1467,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1489,7 +1490,7 @@ Repository state:
         self.gh('Update 1', update_fields=True)
         self.sh.test_tick()
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Amended (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1526,7 +1527,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1553,7 +1554,7 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
                           body=body,
                           title="Directly updated title")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
 
@@ -1576,7 +1577,7 @@ Repository state:
         self.gh('Update 1', update_fields=True)
         self.sh.test_tick()
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1623,7 +1624,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1666,7 +1667,7 @@ Repository state:
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1722,7 +1723,7 @@ Repository state:
         self.substituteRev("HEAD", "rCOM1")
 
         self.gh_land(pr_url)
-        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
 rCOM1 Commit 1
 rINI0 Initial commit''')
 
@@ -1744,7 +1745,7 @@ rINI0 Initial commit''')
         self.substituteRev("HEAD", "rCOM2")
 
         self.gh_land(pr_url)
-        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
 rCOM2 Commit 2
 rCOM1 Commit 1
 rINI0 Initial commit''')
@@ -1769,7 +1770,7 @@ rINI0 Initial commit''')
 
         self.gh_land(pr_url1)
         self.gh_land(pr_url2)
-        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
 rCOM2 Commit 2
 rCOM1 Commit 1
 rINI0 Initial commit''')
@@ -1797,8 +1798,8 @@ rINI0 Initial commit''')
         self.gh('Update')
 
         self.gh_land(pr_url)
-        self.assertExpected(self.upstream_sh.git("show", "master:file1.txt"), '''ABBA''')
-        self.assertExpected(self.upstream_sh.git("show", "master:file2.txt"), '''B''')
+        self.assertExpectedInline(self.upstream_sh.git("show", "master:file1.txt"), '''ABBA''')
+        self.assertExpectedInline(self.upstream_sh.git("show", "master:file2.txt"), '''B''')
 
     # ------------------------------------------------------------------------- #
 
@@ -1822,7 +1823,7 @@ rINI0 Initial commit''')
 
         self.substituteRev("origin/master", "rUP2")
 
-        self.assertExpected(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
 rUP2 Commit 1
 rUP1 Upstream commit
 rINI0 Initial commit''')
@@ -1849,7 +1850,7 @@ rINI0 Initial commit''')
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1920,7 +1921,7 @@ Repository state:
             default_branch='main',
         )
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1941,9 +1942,9 @@ Repository state:
         self.gh_land(diff1.pr_url)
         self.substituteRev('origin/main', 'rUP1')
 
-        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'master'), '''\
+        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'master'), '''\
 rINI0 Initial commit''')
-        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'main'), '''\
+        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'main'), '''\
 rUP1 Commit 1
 rINI0 Initial commit''')
 
@@ -1963,7 +1964,7 @@ rINI0 Initial commit''')
             default_branch='master',
         )
 
-        self.assertExpected(self.dump_github(), '''\
+        self.assertExpectedInline(self.dump_github(), '''\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1997,11 +1998,11 @@ Repository state:
         self.substituteRev('origin/master', 'rUP3')
         self.substituteRev('origin/master~', 'rUP2')
 
-        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'master'), '''\
+        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'master'), '''\
 rUP3 Commit 2
 rUP2 Commit 1
 rINI0 Initial commit''')
-        self.assertExpected(self.upstream_sh.git('log', '--oneline', 'main'), '''\
+        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'main'), '''\
 rUP1 Commit 1
 rINI0 Initial commit''')
 
