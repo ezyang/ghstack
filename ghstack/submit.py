@@ -386,6 +386,13 @@ class Submitter(object):
         )
         return title, pr_body
 
+    def _is_valid_ref(self, ref: str) -> bool:
+        splits = ref.split('/')
+        if len(splits) < 3:
+            return False
+        else:
+            return splits[-2].isnumeric()
+
     def elaborate_diff(self, commit: ghstack.diff.Diff, *,
                        is_ghexport: bool = False) -> DiffWithGitHubMetadata:
         """
@@ -560,6 +567,7 @@ Since we cannot proceed, ghstack will abort now.
             # diff
             "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
             "--format=%(refname)").split()
+        refs = list(filter(lambda r: self._is_valid_ref(r), refs))
         max_ref_num = max(int(ref.split('/')[-2]) for ref in refs) \
             if refs else 0
         ghnum = GhNumber(str(max_ref_num + 1))
