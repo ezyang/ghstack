@@ -8,12 +8,13 @@ on:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         python-version:
-          - '3.6'
-          - '3.7'
-          - '3.8'
-          - '3.9'
+          - 3.6
+          - 3.7
+          - 3.8
+          - 3.9
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
@@ -25,7 +26,7 @@ jobs:
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v4
         with:
-          poetry-version: '1.1.4'
+          poetry-version: 1.1.7
       - name: Install dependencies
         run: poetry install
       - name: Run tests
