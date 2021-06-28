@@ -238,6 +238,81 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_when_malform_gh_branch_exist(self) -> None:
+        print("####################")
+        print("### test_when_malform_gh_branch_exist")
+        print("###")
+        # Ensure that even if there are gh/{} branch that doesn't conform with
+        # ghstack naming convension, it still works
+        self.sh.git("checkout", "-b", "gh/ezyang/malform")
+        self.sh.git("push", "origin", "gh/ezyang/malform")
+        self.sh.git("checkout", "-b", "gh/ezyang/non_int/head")
+        self.sh.git("push", "origin", "gh/ezyang/non_int/head")
+        self.sh.git("checkout", "master")
+
+        # It is doing same thing as test_simple from this point forward.
+        print("### First commit")
+        self.writeFileAndAdd("a", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.gh('Initial 1')
+        self.substituteRev("HEAD", "rCOM1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.assertExpectedInline(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * **#500**
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+Repository state:
+
+    * rMRG1 (gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform, gh/ezyang/1/base) Initial commit
+
+''')
+        print("###")
+        print("### Second commit")
+        self.writeFileAndAdd("b", "asdf")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        self.gh('Initial 2')
+        self.substituteRev("HEAD", "rCOM2")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+        self.assertExpectedInline(self.dump_github(), '''\
+#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501
+    * **#500**
+
+    This is my first commit
+
+     * rMRG1 Commit 1
+
+#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * **#501**
+    * #500
+
+    This is my second commit
+
+     * rMRG2 Commit 2
+
+Repository state:
+
+    * rMRG2 (gh/ezyang/2/head) Commit 2
+    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
+    * rINI0 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform, gh/ezyang/1/base) Initial commit
+
+''')
+
+    # ------------------------------------------------------------------------- #
+
     def test_empty_commit(self) -> None:
         print("####################")
         print("### test_empty_commit")
