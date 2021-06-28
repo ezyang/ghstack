@@ -872,7 +872,7 @@ Since we cannot proceed, ghstack will abort now.
             if s is None:
                 continue
             if index == i:
-                rows.append(f'* #{s.number} __*__')
+                rows.append(f'* __->__ #{s.number}')
             else:
                 rows.append(f'* #{s.number}')
         return self.stack_header + ':\n' + '\n'.join(rows) + '\n'
