@@ -262,7 +262,7 @@ Repository state:
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
-    * **#500**
+    * __->__ #500
 
     This is my first commit
 
@@ -287,7 +287,7 @@ Repository state:
 
     Stack:
     * #501
-    * **#500**
+    * __->__ #500
 
     This is my first commit
 
@@ -296,7 +296,7 @@ Repository state:
 #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
-    * **#501**
+    * __->__ #501
     * #500
 
     This is my second commit
