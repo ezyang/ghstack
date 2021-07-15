@@ -8,7 +8,22 @@ pip3 install ghstack
 
 Python 3.6 and greater only.
 
+## How to setup
+
+Go to github.com `Settings→Developer Settings→Personal Access Tokens` and
+generate a token with `public_repo` access only.
+Create a `~/.ghstackrc` as shown below:
+```
+λ cat ~/.ghstackrc
+[ghstack]
+github_url = github.com
+github_oauth = [your_own_token]
+github_username = [your_username]
+```
+
 ## How to use
+
+Make sure you have write permission to the repo you're opening PR with.
 
 Prepare a series of commits on top of master, then run `ghstack`.  This
 tool will push and create pull requests for each commit on the stack.
