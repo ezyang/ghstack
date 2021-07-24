@@ -2081,6 +2081,34 @@ rINI0 Initial commit''')
 rUP1 Commit 1
 rINI0 Initial commit''')
 
+    # ------------------------------------------------------------------------- #
+
+    def test_gpgsign_should_fail_if_no_default_key(self) -> None:
+        print("####################")
+        print("### test_gpgsign_should_fail_if_no_default_key")
+        print("###")
+
+        print("### Try to commit")
+        self.writeFileAndAdd("a", "asdf")
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.writelines(f"{x}\n".encode() for x in [
+                "[user]",
+                "\temail = test@ghstack.test",
+                "\tname = test.ghstack",
+                "[commit]"
+                "\tgpgsign=true",
+            ])
+            os.environ["GIT_CONFIG"] = f.name
+            print(f.name)
+        try:
+            result = self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+            print(result)
+            print(self.sh.git("config", "--list"))
+        except RuntimeError as ex:
+            print(ex)
+            assert False
+        assert False
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(message)s')

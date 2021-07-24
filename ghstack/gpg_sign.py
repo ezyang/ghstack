@@ -11,20 +11,25 @@ This module will retain this behavior:
 We will attempt to sign as long as `commit.gpgsign` is true.
 If not key is configure, error will occur
 """
-from typing import Tuple
+from typing import Tuple, Union
 
 import ghstack.shell
+
+__should_sign = None
 
 
 def gpg_args_if_necessary(
     shell: ghstack.shell.Shell = ghstack.shell.Shell()
-) -> Tuple[str]:
-    # If the config is not set, we get exit 1
-    try:
-        # Why the complicated compare
-        # https://git-scm.com/docs/git-config#Documentation/git-config.txt-boolean
-        should_sign = shell.git("config", "--get", "commit.gpgsign") in ("yes", "on", "true", "1")
-    except:
-        should_sign = False
+) -> Union[Tuple[str], Tuple[()]]:
+    global __should_sign
+    # cache the config result
+    if __should_sign is None:
+        # If the config is not set, we get exit 1
+        try:
+            # Why the complicated compare
+            # https://git-scm.com/docs/git-config#Documentation/git-config.txt-boolean
+            __should_sign = shell.git("config", "--get", "commit.gpgsign") in ("yes", "on", "true", "1")
+        except:
+            __should_sign = False
 
-    return ("-S",) if should_sign else ()
+    return ("-S",) if __should_sign else ()
