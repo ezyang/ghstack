@@ -11,12 +11,14 @@ This module will retain this behavior:
 We will attempt to sign as long as `commit.gpgsign` is true.
 If not key is configure, error will occur
 """
+from typing import Tuple
+
 import ghstack.shell
 
 
 def gpg_args_if_necessary(
     shell: ghstack.shell.Shell = ghstack.shell.Shell()
-) -> str:
+) -> Tuple[str]:
     # If the config is not set, we get exit 1
     try:
         # Why the complicated compare
@@ -25,4 +27,4 @@ def gpg_args_if_necessary(
     except:
         should_sign = False
 
-    return "-S" if should_sign else ""
+    return ("-S",) if should_sign else ()
