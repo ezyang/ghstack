@@ -9,6 +9,7 @@ import ghstack.diff
 import ghstack.git
 import ghstack.github
 import ghstack.github_utils
+import ghstack.gpg_sign
 import ghstack.shell
 from ghstack.types import GitCommitHash
 
@@ -93,6 +94,7 @@ def main(*,
                 textwrap.indent(commit_msg, '   ')))
         head = GitCommitHash(sh.git(
             "commit-tree",
+            ghstack.gpg_sign.gpg_args_if_necessary(sh),
             s.tree(),
             "-p", head,
             input=commit_msg))
