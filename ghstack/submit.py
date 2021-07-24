@@ -589,7 +589,7 @@ Since we cannot proceed, ghstack will abort now.
 
         new_pull = GitCommitHash(
             self.sh.git("commit-tree", ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                        tree, "-p", self.base_commit,
+                        "-p", self.base_commit, tree,
                         input=commit.summary + "\n\n[ghstack-poisoned]"))
 
         # Push the branches, so that we can create a PR for them
@@ -641,8 +641,8 @@ Since we cannot proceed, ghstack will abort now.
         new_orig = GitCommitHash(self.sh.git(
             "commit-tree",
             ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-            tree,
             "-p", self.base_orig,
+            tree,
             input=commit_msg))
 
         self.stack_meta.append(DiffMeta(
@@ -802,10 +802,10 @@ Since we cannot proceed, ghstack will abort now.
             # it's better than nothing.
             new_base = GitCommitHash(self.sh.git(
                 "commit-tree", ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                self.base_tree,
                 "-p",
                 self.remote_name + "/" + branch_base(username, ghnum),
                 *(() if same_stack_base else ("-p", self.stack_base)),
+                self.base_tree,
                 input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'
                       .format(self.msg, elab_commit.title,
                               non_orig_commit_msg)))
@@ -826,8 +826,9 @@ Since we cannot proceed, ghstack will abort now.
 
         new_pull = GitCommitHash(self.sh.git(
             "commit-tree", ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-            tree, "-p", self.remote_name + "/" + branch_head(username, ghnum),
+            "-p", self.remote_name + "/" + branch_head(username, ghnum),
             *base_args,
+            tree,
             input='{} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(self.msg, elab_commit.title, non_orig_commit_msg)))
 
         # Perform what is effectively an interactive rebase
@@ -842,7 +843,7 @@ Since we cannot proceed, ghstack will abort now.
         logging.info("Restacking commit on {}".format(self.base_orig))
         new_orig = GitCommitHash(self.sh.git(
             "commit-tree", ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-            tree, "-p", self.base_orig, input=summary))
+            "-p", self.base_orig, tree, input=summary))
 
         push_branches = (
             (new_base, "base"),
