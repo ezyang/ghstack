@@ -59,7 +59,7 @@ def main(pull_request: str,
         sh = ghstack.shell.Shell()
 
     # Get up-to-date
-    sh.git("fetch", remote_name)
+    sh.git("fetch", "--prune", remote_name)
     remote_orig_ref = remote_name + "/" + orig_ref
     base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", remote_orig_ref))
 
