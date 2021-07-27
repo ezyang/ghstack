@@ -31,5 +31,5 @@ def main(pull_request: str,
 
     # TODO: Handle remotes correctly too (so this subsumes hub)
 
-    sh.git("fetch", remote_name)
+    sh.git("fetch", "--prune", remote_name)
     sh.git("checkout", remote_name + "/" + orig_ref)

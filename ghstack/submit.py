@@ -153,7 +153,7 @@ def main(*,
     repo_id = repo["id"]
     default_branch = repo["default_branch"]
 
-    sh.git("fetch", remote_name)
+    sh.git("fetch", "--prune", remote_name)
     base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD"))
 
     # compute the stack of commits to process (reverse chronological order),
