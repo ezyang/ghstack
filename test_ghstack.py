@@ -2102,15 +2102,17 @@ rINI0 Initial commit''')
             # HACK: Since we cache the sign config, we need to manaully clear the cache
             import ghstack.gpg_sign
             ghstack.gpg_sign._should_sign = None
-            yield
 
-            # Clean up
-            if config is None:
-                del os.environ["GIT_CONFIG"]
-            else:
-                os.environ["GIT_CONFIG"] = config
-            # HACK: Reset the config again, because we changed the config
-            ghstack.gpg_sign._should_sign = None
+            try:
+                yield
+            finally:
+                # Clean up
+                if config is None:
+                    del os.environ["GIT_CONFIG"]
+                else:
+                    os.environ["GIT_CONFIG"] = config
+                # HACK: Reset the config again, because we changed the config
+                ghstack.gpg_sign._should_sign = None
 
         # Make a commit WITHOUT signing, we are testing if we are correctly injecting '-S' during submit
         print("### Try to commit")
@@ -2123,7 +2125,6 @@ rINI0 Initial commit''')
                 self.gh()
                 print(result)
             except RuntimeError as ex:
-                # NOTE: DO NOT raise or assert in a context manager
                 exception_thrown = ex
 
         assert exception_thrown is not None
