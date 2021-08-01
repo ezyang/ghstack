@@ -2081,49 +2081,6 @@ rINI0 Initial commit''')
 rUP1 Commit 1
 rINI0 Initial commit''')
 
-    # ------------------------------------------------------------------------- #
-
-    def test_gpgsign_should_fail_if_no_default_key(self) -> None:
-        print("####################")
-        print("### test_gpgsign_should_fail_if_no_default_key")
-        print("###")
-
-        @contextlib.contextmanager
-        def signing_enabled() -> Iterator[None]:
-            # Create a config file that enables signing
-            with tempfile.NamedTemporaryFile(delete=False) as f:
-                f.writelines(f"{x}\n".encode() for x in [
-                    "[commit]",
-                    "\tgpgsign=true",
-                ])
-            # Set the env var
-            config = os.environ.get("GIT_CONFIG", None)
-            os.environ["GIT_CONFIG"] = f.name
-            # HACK: Since we cache the sign config, we need to manaully clear the cache
-            import ghstack.gpg_sign
-            ghstack.gpg_sign._should_sign = None
-
-            try:
-                yield
-            finally:
-                # Clean up
-                if config is None:
-                    del os.environ["GIT_CONFIG"]
-                else:
-                    os.environ["GIT_CONFIG"] = config
-                # HACK: Reset the config again, because we changed the config
-                ghstack.gpg_sign._should_sign = None
-
-        # Make a commit WITHOUT signing, we are testing if we are correctly injecting '-S' during submit
-        print("### Try to commit")
-        self.writeFileAndAdd("a", "asdf")
-        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
-
-        with signing_enabled():
-            self.assertRaisesRegex(RuntimeError,
-                r"^(git commit-tree -S -p)( )[0-9a-f]{40}( )[0-9a-f]{40} (failed with exit code )[0-9]{1,3}$",
-                lambda: self.gh())
-
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(message)s')
