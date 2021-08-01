@@ -29,7 +29,6 @@ def gpg_args_if_necessary(
             # Why the complicated compare
             # https://git-scm.com/docs/git-config#Documentation/git-config.txt-boolean
             _should_sign = shell.git("config", "--get", "commit.gpgsign") in ("yes", "on", "true", "1")
-            print(_should_sign)
         except:
             _should_sign = False
 
