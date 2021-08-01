@@ -15,21 +15,22 @@ from typing import Tuple, Union
 
 import ghstack.shell
 
-__should_sign = None
+_should_sign = None
 
 
 def gpg_args_if_necessary(
     shell: ghstack.shell.Shell = ghstack.shell.Shell()
 ) -> Union[Tuple[str], Tuple[()]]:
-    global __should_sign
+    global _should_sign
     # cache the config result
-    if __should_sign is None:
+    if _should_sign is None:
         # If the config is not set, we get exit 1
         try:
             # Why the complicated compare
             # https://git-scm.com/docs/git-config#Documentation/git-config.txt-boolean
-            __should_sign = shell.git("config", "--get", "commit.gpgsign") in ("yes", "on", "true", "1")
+            _should_sign = shell.git("config", "--get", "commit.gpgsign") in ("yes", "on", "true", "1")
+            print(_should_sign)
         except:
-            __should_sign = False
+            _should_sign = False
 
-    return ("-S",) if __should_sign else ()
+    return ("-S",) if _should_sign else ()

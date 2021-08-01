@@ -2088,26 +2088,45 @@ rINI0 Initial commit''')
         print("### test_gpgsign_should_fail_if_no_default_key")
         print("###")
 
+        @contextlib.contextmanager
+        def signing_enabled() -> Iterator[None]:
+            # Create a config file that enables signing
+            with tempfile.NamedTemporaryFile(delete=False) as f:
+                f.writelines(f"{x}\n".encode() for x in [
+                    "[commit]"
+                    "\tgpgsign=true",
+                ])
+            # Set the env var
+            config = os.environ.get("GIT_CONFIG", None)
+            os.environ["GIT_CONFIG"] = f.name
+            # HACK: Since we cache the sign config, we need to manaully clear the cache
+            import ghstack.gpg_sign
+            ghstack.gpg_sign._should_sign = None
+            yield
+
+            # Clean up
+            if config is None:
+                del os.environ["GIT_CONFIG"]
+            else:
+                os.environ["GIT_CONFIG"] = config
+            # HACK: Reset the config again, because we changed the config
+            ghstack.gpg_sign._should_sign = None
+
+        # Make a commit WITHOUT signing, we are testing if correctly inject '-S' in submit
         print("### Try to commit")
         self.writeFileAndAdd("a", "asdf")
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.writelines(f"{x}\n".encode() for x in [
-                "[user]",
-                "\temail = test@ghstack.test",
-                "\tname = test.ghstack",
-                "[commit]"
-                "\tgpgsign=true",
-            ])
-            os.environ["GIT_CONFIG"] = f.name
-            print(f.name)
-        try:
-            result = self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
-            print(result)
-            print(self.sh.git("config", "--list"))
-        except RuntimeError as ex:
-            print(ex)
-            assert False
-        assert False
+        result = self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+
+        exception_thrown = None
+        with signing_enabled():
+            try:
+                self.gh()
+                print(result)
+            except RuntimeError as ex:
+                # NOTE: DO NOT raise or assert in a context manager
+                exception_thrown = ex
+
+        assert exception_thrown is not None
 
 
 if __name__ == '__main__':
