@@ -2119,10 +2119,10 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("a", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
 
-        with self.assertRaisesRegex(RuntimeError,
-                r"^(git commit-tree -S -p)( )[0-9a-f]{40}( )[0-9a-f]{40} (failed with exit code )[0-9]{1,3}$"):
-            with signing_enabled():
-                self.gh()
+        with signing_enabled():
+            self.assertRaisesRegex(RuntimeError,
+                r"^(git commit-tree -S -p)( )[0-9a-f]{40}( )[0-9a-f]{40} (failed with exit code )[0-9]{1,3}$",
+                lambda: self.gh())
 
 
 if __name__ == '__main__':
