@@ -2112,7 +2112,7 @@ rINI0 Initial commit''')
             # HACK: Reset the config again, because we changed the config
             ghstack.gpg_sign._should_sign = None
 
-        # Make a commit WITHOUT signing, we are testing if correctly inject '-S' in submit
+        # Make a commit WITHOUT signing, we are testing if we are correctly injecting '-S' during submit
         print("### Try to commit")
         self.writeFileAndAdd("a", "asdf")
         result = self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
