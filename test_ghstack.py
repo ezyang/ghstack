@@ -2093,7 +2093,7 @@ rINI0 Initial commit''')
             # Create a config file that enables signing
             with tempfile.NamedTemporaryFile(delete=False) as f:
                 f.writelines(f"{x}\n".encode() for x in [
-                    "[commit]"
+                    "[commit]",
                     "\tgpgsign=true",
                 ])
             # Set the env var
