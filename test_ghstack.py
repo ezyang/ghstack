@@ -2117,17 +2117,12 @@ rINI0 Initial commit''')
         # Make a commit WITHOUT signing, we are testing if we are correctly injecting '-S' during submit
         print("### Try to commit")
         self.writeFileAndAdd("a", "asdf")
-        result = self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
 
-        exception_thrown = None
-        with signing_enabled():
-            try:
+        with self.assertRaisesRegex(RuntimeError,
+                r"^(git commit-tree -S -p)( )[0-9a-f]{40}( )[0-9a-f]{40} (failed with exit code )[0-9]{1,3}$"):
+            with signing_enabled():
                 self.gh()
-                print(result)
-            except RuntimeError as ex:
-                exception_thrown = ex
-
-        assert exception_thrown is not None
 
 
 if __name__ == '__main__':
