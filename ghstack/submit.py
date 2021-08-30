@@ -91,6 +91,13 @@ def branch_orig(username: str, ghnum: GhNumber) -> GitCommitHash:
     return branch(username, ghnum, "orig")
 
 
+RE_MENTION = re.compile(r'@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})')
+
+# Replace GitHub mentions with non mentions, to prevent spamming people
+def strip_mentions(body: str) -> str:
+    return RE_MENTION.sub(r'\1', body)
+
+
 STACK_HEADER = "Stack from [ghstack](https://{github_url}/ezyang/ghstack)"
 
 
@@ -628,7 +635,7 @@ Since we cannot proceed, ghstack will abort now.
                       "ghstack-source-id: {sourceid}\n"
                       "Pull Request resolved: "
                       "https://{github_url}/{owner}/{repo}/pull/{number}"
-                      .format(commit_msg=commit.summary.rstrip(),
+                      .format(commit_msg=strip_mentions(commit.summary.rstrip()),
                               owner=self.repo_owner,
                               repo=self.repo_name,
                               number=number,
@@ -776,7 +783,7 @@ Since we cannot proceed, ghstack will abort now.
         # commit message is not supposed to "matter" anymore.  orig
         # still uses the original commit message, however, because
         # it's supposed to be the "original".
-        non_orig_commit_msg = RE_STACK.sub('', elab_commit.body)
+        non_orig_commit_msg = strip_mentions(RE_STACK.sub('', elab_commit.body))
 
         if orig_base_hash == self.base_commit:
 
