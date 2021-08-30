@@ -346,6 +346,45 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_strip_mentions(self) -> None:
+        self.writeFileAndAdd("bar", "baz")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit, hello @foobar")
+
+        self.sh.test_tick()
+        self.gh('Initial')
+
+        self.github.patch("repos/pytorch/pytorch/pulls/500",
+                          body="""\
+Stack:
+* **#500 Commit 1**
+
+cc @foobar""",
+                          title="This is my first commit")
+
+        self.sh.test_tick()
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "--amend")
+        self.gh('Update 1')
+
+        # Ensure no mentions in the log
+        self.assertExpectedInline(self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"), '''\
+Update 1 on "This is my first commit"
+
+
+cc foobar
+
+[ghstack-poisoned]''')
+        self.assertExpectedInline(self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), '''\
+Commit 1
+
+This is my first commit, hello foobar
+
+ghstack-source-id: 36c3df70a403234bbd5005985399205a8109950b
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/500''')
+
+
+    # ------------------------------------------------------------------------- #
+
     def test_commit_amended_to_empty(self) -> None:
         print("####################")
         print("### test_empty_commit")
