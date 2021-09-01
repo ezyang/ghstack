@@ -93,6 +93,7 @@ def branch_orig(username: str, ghnum: GhNumber) -> GitCommitHash:
 
 RE_MENTION = re.compile(r'@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})')
 
+
 # Replace GitHub mentions with non mentions, to prevent spamming people
 def strip_mentions(body: str) -> str:
     return RE_MENTION.sub(r'\1', body)

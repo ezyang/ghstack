@@ -382,7 +382,6 @@ This is my first commit, hello foobar
 ghstack-source-id: 36c3df70a403234bbd5005985399205a8109950b
 Pull Request resolved: https://github.com/pytorch/pytorch/pull/500''')
 
-
     # ------------------------------------------------------------------------- #
 
     def test_commit_amended_to_empty(self) -> None:
