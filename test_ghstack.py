@@ -348,7 +348,7 @@ Repository state:
 
     def test_strip_mentions(self) -> None:
         self.writeFileAndAdd("bar", "baz")
-        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit, hello @foobar")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit, hello @foobar @Ivan")
 
         self.sh.test_tick()
         self.gh('Initial')
@@ -358,7 +358,7 @@ Repository state:
 Stack:
 * **#500 Commit 1**
 
-cc @foobar""",
+cc @foobar @Ivan""",
                           title="This is my first commit")
 
         self.sh.test_tick()
@@ -371,13 +371,13 @@ cc @foobar""",
 Update 1 on "This is my first commit"
 
 
-cc foobar
+cc foobar Ivan
 
 [ghstack-poisoned]''')
         self.assertExpectedInline(self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), '''\
 Commit 1
 
-This is my first commit, hello foobar
+This is my first commit, hello foobar Ivan
 
 ghstack-source-id: 36c3df70a403234bbd5005985399205a8109950b
 Pull Request resolved: https://github.com/pytorch/pytorch/pull/500''')
