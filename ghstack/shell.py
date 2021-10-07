@@ -247,6 +247,8 @@ class Shell(object):
             **kwargs: Any valid kwargs for sh()
         """
         env = kwargs.setdefault("env", {})
+        # For git hooks to detect execution inside ghstack
+        env.setdefault("GHSTACK", "1")
         # Some envvars to make things a little more script mode nice
         if self.testing:
             env.setdefault("EDITOR", ":")
