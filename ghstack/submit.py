@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import os
 import re
 from dataclasses import dataclass
 from typing import List, NamedTuple, Optional, Set, Tuple
@@ -174,6 +175,8 @@ def main(*,
     base_obj = ghstack.git.split_header(sh.git("rev-list", "--header", "^" + base + "^@", base))[0]
 
     assert len(stack) > 0
+
+    run_pre_ghstack_hook(sh, base, stack[0].oid)
 
     ghstack.logs.record_status(
         "{} \"{}\"".format(stack[0].oid[:9], stack[0].title))
@@ -1051,3 +1054,15 @@ Since we cannot proceed, ghstack will abort now.
             if noop_pr:
                 print()
                 print("I did NOT close or update PRs previously associated with these commits.")
+
+
+def run_pre_ghstack_hook(sh: ghstack.shell.Shell, base_commit: str, top_commit: str) -> None:
+    """If a `pre-ghstack` git hook is configured, run it."""
+    default_hooks_path = os.path.join(sh.git("rev-parse", "--show-toplevel"), ".git/hooks")
+    hooks_path = sh.git("config", "--default", default_hooks_path, "--get", "core.hooksPath")
+    hook_file = os.path.join(hooks_path, "pre-ghstack")
+
+    if not os.path.isfile(hook_file) or not os.access(hook_file, os.X_OK):
+        return
+
+    sh.sh(hook_file, base_commit, top_commit, stdout=None)
