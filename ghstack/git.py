@@ -90,6 +90,8 @@ def parse_header(s: str, github_url: str) -> List[ghstack.diff.Diff]:
             oid=h.commit_id(),
             source_id=h.tree(),
             pull_request_resolved=ghstack.diff.PullRequestResolved.search(h.raw_header, github_url),
-            patch=GitPatch(h)
+            patch=GitPatch(h),
+            author_name=h.author_name(),
+            author_email=h.author_email()
         )
     return list(map(convert, split_header(s)))

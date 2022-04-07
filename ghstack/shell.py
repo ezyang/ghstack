@@ -233,6 +233,11 @@ class Shell(object):
         ...
 
     @overload  # noqa: F811
+    def git(self, *args: str, input: str, env: Dict[str, str]) -> str:
+
+        ...
+
+    @overload  # noqa: F811
     def git(self, *args: str, **kwargs: Any) -> _SHELL_RET:
 
         ...

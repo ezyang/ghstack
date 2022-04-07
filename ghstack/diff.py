@@ -112,3 +112,8 @@ class Diff:
     # require me to read out diff into memory and I don't really want
     # to do that if I don't have to.
     patch: Patch
+
+    # The name and email of the author, used so we can preserve
+    # authorship information when constructing a rebased commit
+    author_name: str
+    author_email: str

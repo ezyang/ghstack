@@ -646,15 +646,15 @@ Since we cannot proceed, ghstack will abort now.
                               sourceid=commit.source_id,
                               github_url=self.github_url))
 
-        # TODO: Try harder to preserve the old author/commit
-        # information (is it really necessary? Check what
-        # --amend does...)
         new_orig = GitCommitHash(self.sh.git(
             "commit-tree",
             *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
             "-p", self.base_orig,
             tree,
-            input=commit_msg))
+            input=commit_msg, env={
+                'GIT_AUTHOR_NAME': commit.author_name,
+                'GIT_AUTHOR_EMAIL': commit.author_email
+            }))
 
         self.stack_meta.append(DiffMeta(
             title=title,

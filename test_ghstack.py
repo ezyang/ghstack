@@ -2119,6 +2119,23 @@ rINI0 Initial commit''')
 rUP1 Commit 1
 rINI0 Initial commit''')
 
+    # ------------------------------------------------------------------------- #
+
+    def test_preserve_authorship(self) -> None:
+        # make a commit with non-standard author
+        self.writeFileAndAdd('file1.txt', 'A')
+        self.sh.git('commit', '-m', 'Commit 1\n\nThis is my first commit', env={
+            'GIT_AUTHOR_NAME': 'Ben Bitdiddle',
+            'GIT_AUTHOR_EMAIL': 'benbitdiddle@example.com'
+        })
+        self.sh.test_tick()
+        # ghstack
+        diff1, = self.gh('Initial 1')
+        assert diff1 is not None
+        self.assertExpectedInline(self.sh.git("log", "--format=Author: %an <%ae>\nCommitter: %cn <%ce>", "-n1", "origin/gh/ezyang/1/orig"), '''\
+Author: Ben Bitdiddle <benbitdiddle@example.com>
+Committer: C O Mitter <committer@example.com>''')
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(message)s')
