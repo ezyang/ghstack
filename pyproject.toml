@@ -22,7 +22,7 @@ dataclasses = { version = "^0.8", python = "<3.7" }
 importlib-metadata = "^3"
 python = "^3.6"
 requests = "^2"
-typing-extensions = "^3"
+typing-extensions = ">=3 <5"
 
 [tool.poetry.dev-dependencies]
 expecttest = "^0.1"
