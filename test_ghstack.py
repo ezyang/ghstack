@@ -15,6 +15,7 @@ import expecttest
 
 import ghstack.github
 import ghstack.github_fake
+import ghstack.github_utils
 import ghstack.land
 import ghstack.shell
 import ghstack.submit
@@ -166,6 +167,26 @@ class TestGh(expecttest.TestCase):
         return "".join(prs) + "Repository state:\n\n" + indent(strip_trailing_whitespace(refs), '    ') + "\n\n"
 
     # ------------------------------------------------------------------------- #
+
+    def test_get_repo_name_with_owner(self) -> None:
+        self.sh.git("remote", "add", "normal", "git@github.com:ezyang/ghstack.git")
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh,
+                github_url="github.com",
+                remote_name="normal"
+            ),
+            {"owner": "ezyang", "name": "ghstack"}
+        )
+        self.sh.git("remote", "add", "with-dot", "git@github.com:ezyang/ghstack.dotted.git")
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh,
+                github_url="github.com",
+                remote_name="with-dot"
+            ),
+            {"owner": "ezyang", "name": "ghstack.dotted"}
+        )
 
     def test_simple(self) -> None:
         print("####################")
