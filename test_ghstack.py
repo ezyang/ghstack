@@ -187,6 +187,24 @@ class TestGh(expecttest.TestCase):
             ),
             {"owner": "ezyang", "name": "ghstack.dotted"}
         )
+        self.sh.git("remote", "add", "https", "https://github.com/ezyang/ghstack")
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh,
+                github_url="github.com",
+                remote_name="https"
+            ),
+            {"owner": "ezyang", "name": "ghstack"}
+        )
+        self.sh.git("remote", "add", "https-with-dot", "https://github.com/ezyang/ghstack.dotted")
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh,
+                github_url="github.com",
+                remote_name="https-with-dot"
+            ),
+            {"owner": "ezyang", "name": "ghstack.dotted"}
+        )
 
     def test_simple(self) -> None:
         print("####################")
