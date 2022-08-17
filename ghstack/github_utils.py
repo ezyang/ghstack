@@ -32,7 +32,7 @@ def get_github_repo_name_with_owner(
             owner = m.group(1)
             name = m.group(2)
             break
-        search = r'{github_url}/([^/]+)/(.+)'.format(
+        search = r'{github_url}/([^/]+)/(.+?)(?:\.git)?$'.format(
             github_url=github_url
         )
         m = re.search(search, remote_url)

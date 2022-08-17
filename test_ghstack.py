@@ -196,12 +196,30 @@ class TestGh(expecttest.TestCase):
             ),
             {"owner": "ezyang", "name": "ghstack"}
         )
+        self.sh.git("remote", "add", "https-with-dotgit", "https://github.com/ezyang/ghstack.git")
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh,
+                github_url="github.com",
+                remote_name="https-with-dotgit"
+            ),
+            {"owner": "ezyang", "name": "ghstack"}
+        )
         self.sh.git("remote", "add", "https-with-dot", "https://github.com/ezyang/ghstack.dotted")
         self.assertEqual(
             ghstack.github_utils.get_github_repo_name_with_owner(
                 sh=self.sh,
                 github_url="github.com",
                 remote_name="https-with-dot"
+            ),
+            {"owner": "ezyang", "name": "ghstack.dotted"}
+        )
+        self.sh.git("remote", "add", "https-with-dot-with-dotgit", "https://github.com/ezyang/ghstack.dotted.git")
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh,
+                github_url="github.com",
+                remote_name="https-with-dot-with-dotgit"
             ),
             {"owner": "ezyang", "name": "ghstack.dotted"}
         )
