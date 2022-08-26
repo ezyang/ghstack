@@ -60,8 +60,8 @@ resubmit your PRs using the normal pull request flow.
 See https://github.com/ezyang/ghstack/issues/50 for more details, or
 to complain to the ghstack authors.""")
         else:
-            need_force = True
-    except NotFoundError:
+            needs_force = True
+    except ghstack.github.NotFoundError:
         pass
 
     orig_ref = lookup_pr_to_orig_ref(
