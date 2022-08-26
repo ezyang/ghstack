@@ -1947,6 +1947,37 @@ rINI0 Initial commit''')
 
     # ------------------------------------------------------------------------- #
     #
+    def test_land_non_ff_stack_two_phase(self) -> None:
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.writeFileAndAdd("file2.txt", "B")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        diff1, diff2, = self.gh('Initial')
+        assert diff1 is not None
+        assert diff2 is not None
+        pr_url1 = diff1.pr_url
+        pr_url2 = diff2.pr_url
+
+        self.sh.git("checkout", "origin/master")
+        self.writeFileAndAdd("file3.txt", "C")
+        self.sh.git("commit", "-m", "Commit 3\n\nThis makes it not ff")
+        self.sh.git("push", "origin", "HEAD:master")
+        self.substituteRev("HEAD", "rCOM3")
+
+        self.gh_land(pr_url1)
+        self.substituteRev("origin/master", "rCOM1")
+        self.gh_land(pr_url2)
+        self.substituteRev("origin/master", "rCOM2")
+        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
+rCOM2 Commit 2
+rCOM1 Commit 1
+rCOM3 Commit 3
+rINI0 Initial commit''')
+
+    # ------------------------------------------------------------------------- #
+    #
     def test_land_with_early_mod(self) -> None:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")

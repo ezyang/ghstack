@@ -10,6 +10,7 @@ from typing_extensions import TypedDict
 
 import ghstack.github
 import ghstack.shell
+import ghstack.diff
 
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
@@ -83,6 +84,12 @@ class GitHubState:
         #    #    pr.headRef =
         #    pass
         pass
+
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved):
+        repo = self.repository(pr_resolved.owner, pr_resolved.repo)
+        pr = self.pull_request(repo, pr_resolved.number)
+        pr.closed = True
+        # TODO: model merged too
 
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
         self.repositories = {}
@@ -286,6 +293,9 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
     def push_hook(self, refNames: Sequence[str]) -> None:
         self.state.push_hook(refNames)
+
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
+        self.state.notify_merged(pr_resolved)
 
     def _create_pull(self, owner: str, name: str,
                      input: CreatePullRequestInput) -> CreatePullRequestPayload:

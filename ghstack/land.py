@@ -8,23 +8,30 @@ import ghstack.github_utils
 import ghstack.shell
 from ghstack.types import GitCommitHash
 
+from typing import Tuple
 
-def lookup_pr_to_orig_ref(github: ghstack.github.GitHubEndpoint, *, owner: str, name: str, number: int) -> str:
+
+def lookup_pr_to_orig_ref_and_closed(
+    github: ghstack.github.GitHubEndpoint, *, owner: str, name: str, number: int
+) -> Tuple[str, bool]:
     pr_result = github.graphql("""
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
                 pullRequest(number: $number) {
                     headRefName
+                    closed
                 }
             }
         }
     """, owner=owner, name=name, number=number)
-    head_ref = pr_result["data"]["repository"]["pullRequest"]["headRefName"]
+    pr = pr_result["data"]["repository"]["pullRequest"]
+    head_ref = pr["headRefName"]
+    closed = pr["closed"]
     assert isinstance(head_ref, str)
     orig_ref = re.sub(r'/head$', '/orig', head_ref)
     if orig_ref == head_ref:
         raise RuntimeError("The ref {} doesn't look like a ghstack reference".format(head_ref))
-    return orig_ref
+    return orig_ref, closed
 
 
 def main(pull_request: str,
@@ -64,7 +71,7 @@ to complain to the ghstack authors.""")
     except ghstack.github.NotFoundError:
         pass
 
-    orig_ref = lookup_pr_to_orig_ref(
+    orig_ref, _ = lookup_pr_to_orig_ref_and_closed(
         github,
         owner=params["owner"],
         name=params["name"],
@@ -98,20 +105,23 @@ to complain to the ghstack authors.""")
 
     try:
         # Compute the metadata for each commit
-        stack_orig_refs = []
+        stack_orig_refs: List[Tuple[str, PullRequestResolved]] = []
         for s in stack:
             pr_resolved = s.pull_request_resolved
             # We got this from GitHub, this better not be corrupted
             assert pr_resolved is not None
 
-            stack_orig_refs.append(lookup_pr_to_orig_ref(
+            ref, closed = lookup_pr_to_orig_ref_and_closed(
                 github,
                 owner=pr_resolved.owner,
                 name=pr_resolved.repo,
-                number=pr_resolved.number))
+                number=pr_resolved.number)
+            if closed:
+                continue
+            stack_orig_refs.append((ref, pr_resolved))
 
         # OK, actually do the land now
-        for orig_ref in stack_orig_refs:
+        for orig_ref, _ in stack_orig_refs:
             try:
                 sh.git("cherry-pick", f"{remote_name}/{orig_ref}")
             except BaseException:
@@ -130,11 +140,12 @@ to complain to the ghstack authors.""")
         # this synthetic thing I'm doing right now just to make it look
         # like the PR got closed
 
-        for orig_ref in stack_orig_refs:
+        for orig_ref, pr_resolved in stack_orig_refs:
             # TODO: regex here so janky
             base_ref = re.sub(r'/orig$', '/base', orig_ref)
             head_ref = re.sub(r'/orig$', '/head', orig_ref)
             sh.git("push", remote_name, f"{remote_name}/{head_ref}:{base_ref}")
+            github.notify_merged(pr_resolved)
 
         # All good! Push!
         maybe_force_arg = []
@@ -143,7 +154,7 @@ to complain to the ghstack authors.""")
         sh.git("push", *maybe_force_arg, remote_name, f"HEAD:refs/heads/{default_branch}")
 
         # Delete the branches
-        for orig_ref in stack_orig_refs:
+        for orig_ref, _ in stack_orig_refs:
             # TODO: regex here so janky
             base_ref = re.sub(r'/orig$', '/base', orig_ref)
             head_ref = re.sub(r'/orig$', '/head', orig_ref)
