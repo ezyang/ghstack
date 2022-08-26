@@ -144,7 +144,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             logging.debug("Response JSON:\n{}".format(pretty_json))
 
         if resp.status_code == 404:
-            raise RuntimeError("""\
+            raise ghstack.github.NotFoundError("""\
 GitHub raised a 404 error on the request for
 {url}.
 Usually, this doesn't actually mean the page doesn't exist; instead, it

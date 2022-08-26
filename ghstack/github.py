@@ -4,6 +4,10 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Sequence
 
 
+class NotFoundError(RuntimeError):
+    pass
+
+
 class GitHubEndpoint(metaclass=ABCMeta):
     @abstractmethod
     def graphql(self, query: str, **kwargs: Any) -> Any:
