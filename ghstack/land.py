@@ -47,6 +47,23 @@ def main(pull_request: str,
         github_url=github_url,
         remote_name=remote_name,
     )["default_branch"]
+
+    needs_force = False
+    try:
+        protection = github.get(f"repos/{params['owner']}/{params['name']}/branches/{default_branch}/protection")
+        if not protection["allow_force_pushes"]["enabled"]:
+            raise RuntimeError("""\
+Default branch {default_branch} is protected, and doesn't allow force pushes.
+ghstack land does not work.  You will not be able to land your ghstack; please
+resubmit your PRs using the normal pull request flow.
+
+See https://github.com/ezyang/ghstack/issues/50 for more details, or
+to complain to the ghstack authors.""")
+        else:
+            need_force = True
+    except NotFoundError:
+        pass
+
     orig_ref = lookup_pr_to_orig_ref(
         github,
         owner=params["owner"],
@@ -120,7 +137,10 @@ def main(pull_request: str,
             sh.git("push", remote_name, f"{remote_name}/{head_ref}:{base_ref}")
 
         # All good! Push!
-        sh.git("push", remote_name, f"HEAD:refs/heads/{default_branch}")
+        maybe_force_arg = []
+        if needs_force:
+            maybe_force_arg = ["--force"]
+        sh.git("push", *maybe_force_arg, remote_name, f"HEAD:refs/heads/{default_branch}")
 
         # Delete the branches
         for orig_ref in stack_orig_refs:
