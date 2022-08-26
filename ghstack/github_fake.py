@@ -348,7 +348,13 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         repo.defaultBranchRef = repo._make_ref(state, input['default_branch'])
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        if method == 'post':
+        if method == 'get':
+            m = re.match(r'^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection', path)
+            if m:
+                # For now, pretend all branches are not protected
+                raise ghstack.github.NotFoundError()
+
+        elif method == 'post':
             m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
             if m:
                 return self._create_pull(m.group(1), m.group(2),
