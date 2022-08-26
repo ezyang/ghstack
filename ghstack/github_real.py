@@ -9,10 +9,6 @@ import requests
 import ghstack.github
 
 
-class NotFoundError(RuntimeError):
-    pass
-
-
 class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
     A class representing a GitHub endpoint we can send queries to.
@@ -148,7 +144,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             logging.debug("Response JSON:\n{}".format(pretty_json))
 
         if resp.status_code == 404:
-            raise NotFoundError("""\
+            raise ghstack.github.NotFoundError("""\
 GitHub raised a 404 error on the request for
 {url}.
 Usually, this doesn't actually mean the page doesn't exist; instead, it
