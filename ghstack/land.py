@@ -139,7 +139,7 @@ to complain to the ghstack authors.""")
         # All good! Push!
         maybe_force_arg = []
         if needs_force:
-            maybe_force_arg = ["--force"]
+            maybe_force_arg = ["--force-with-lease"]
         sh.git("push", *maybe_force_arg, remote_name, f"HEAD:refs/heads/{default_branch}")
 
         # Delete the branches
