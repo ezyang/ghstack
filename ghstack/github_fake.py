@@ -8,9 +8,9 @@ from typing import Any, Dict, List, NewType, Optional, Sequence, cast
 import graphql
 from typing_extensions import TypedDict
 
+import ghstack.diff
 import ghstack.github
 import ghstack.shell
-import ghstack.diff
 
 GraphQLId = NewType('GraphQLId', str)
 GitHubNumber = NewType('GitHubNumber', int)
@@ -85,9 +85,9 @@ class GitHubState:
         #    pass
         pass
 
-    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved):
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         repo = self.repository(pr_resolved.owner, pr_resolved.repo)
-        pr = self.pull_request(repo, pr_resolved.number)
+        pr = self.pull_request(repo, GitHubNumber(pr_resolved.number))
         pr.closed = True
         # TODO: model merged too
 

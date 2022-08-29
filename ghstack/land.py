@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import re
+from typing import List, Tuple
 
 import ghstack.git
 import ghstack.github
 import ghstack.github_utils
 import ghstack.shell
+from ghstack.diff import PullRequestResolved
 from ghstack.types import GitCommitHash
-
-from typing import Tuple
 
 
 def lookup_pr_to_orig_ref_and_closed(

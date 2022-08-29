@@ -33,7 +33,7 @@ class GitHubEndpoint(metaclass=ABCMeta):
 
     # This should be subsumed by push_hook above, but push_hook is
     # annoying to implement and this is more direct
-    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved):
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         pass
 
     def get(self, path: str, **kwargs: Any) -> Any:
