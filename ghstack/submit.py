@@ -645,16 +645,18 @@ Since we cannot proceed, ghstack will abort now.
                               number=number,
                               sourceid=commit.source_id,
                               github_url=self.github_url))
+        env = {}
+        if commit.author_name is not None:
+            env['GIT_AUTHOR_NAME'] = commit.author_name
+        if commit.author_email is not None:
+            env['GIT_AUTHOR_EMAIL'] = commit.author_email
 
         new_orig = GitCommitHash(self.sh.git(
             "commit-tree",
             *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
             "-p", self.base_orig,
             tree,
-            input=commit_msg, env={
-                'GIT_AUTHOR_NAME': commit.author_name,
-                'GIT_AUTHOR_EMAIL': commit.author_email
-            }))
+            input=commit_msg, env=env))
 
         self.stack_meta.append(DiffMeta(
             title=title,
