@@ -3,6 +3,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, Sequence
 
+import ghstack.diff
+
 
 class NotFoundError(RuntimeError):
     pass
@@ -27,6 +29,11 @@ class GitHubEndpoint(metaclass=ABCMeta):
     # TODO: generalize to any repo
     @abstractmethod
     def push_hook(self, refName: Sequence[str]) -> None:
+        pass
+
+    # This should be subsumed by push_hook above, but push_hook is
+    # annoying to implement and this is more direct
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         pass
 
     def get(self, path: str, **kwargs: Any) -> Any:
