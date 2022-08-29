@@ -115,5 +115,5 @@ class Diff:
 
     # The name and email of the author, used so we can preserve
     # authorship information when constructing a rebased commit
-    author_name: str
-    author_email: str
+    author_name: Optional[str]
+    author_email: Optional[str]
