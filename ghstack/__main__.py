@@ -63,6 +63,8 @@ def main() -> None:
     land = subparsers.add_parser('land')
     land.add_argument('pull_request', metavar='PR',
         help='GitHub pull request URL of stack to land')
+    land.add_argument('--force', action='store_true',
+        help='force land even if the PR is closed')
 
     checkout = subparsers.add_parser('checkout')
     checkout.add_argument('pull_request', metavar='PR',
@@ -126,6 +128,7 @@ def main() -> None:
                 sh=sh,
                 github_url=conf.github_url,
                 remote_name=conf.remote_name,
+                force=args.force,
             )
         elif args.cmd == 'action':
             ghstack.action.main(

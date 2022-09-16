@@ -38,7 +38,9 @@ def main(pull_request: str,
          remote_name: str,
          github: ghstack.github.GitHubEndpoint,
          sh: ghstack.shell.Shell,
-         github_url: str) -> None:
+         github_url: str,
+         *,
+         force: bool = False) -> None:
 
     # We land the entire stack pointed to by a URL.
     # Local state is ignored; PR is source of truth
@@ -116,7 +118,7 @@ to complain to the ghstack authors.""")
                 owner=pr_resolved.owner,
                 name=pr_resolved.repo,
                 number=pr_resolved.number)
-            if closed:
+            if closed and not force:
                 continue
             stack_orig_refs.append((ref, pr_resolved))
 
