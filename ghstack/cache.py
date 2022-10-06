@@ -48,7 +48,7 @@ def get(domain: str, key: str) -> Optional[str]:
     if r is None:
         return None
     r = r[0]
-    assert(isinstance(r, str))
+    assert isinstance(r, str)
     return r
 
 
