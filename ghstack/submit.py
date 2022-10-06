@@ -346,7 +346,7 @@ class Submitter(object):
         self.base_tree = base_tree
         self.stack_base = stack_base
         self.update_fields = update_fields
-        self.stack_header = None if stack_header is None else stack_header.format(github_url=github_url)
+        self.stack_header = stack_header.format(github_url=github_url)
         self.stack_meta = []
         self.ignored_diffs = []
         self.stack = stack
