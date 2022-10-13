@@ -1030,8 +1030,8 @@ Since we cannot proceed, ghstack will abort now.
                         top_of_stack = x
                 assert top_of_stack is not None
 
-                print("Facebook employees can import your changes by running ")
-                print("(on a Facebook machine):")
+                print("Meta employees can import your changes by running ")
+                print("(on a Meta machine):")
                 print()
                 print("    ghimport -s {}".format(format_url(top_of_stack)))
                 print()
