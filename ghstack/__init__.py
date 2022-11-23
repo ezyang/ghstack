@@ -7,4 +7,4 @@ if sys.version_info >= (3, 8):
 else:
     import importlib_metadata
 
-__version__ = importlib_metadata.version("ghstack")
+__version__ = importlib_metadata.version("ghstack")  # type: ignore[no-untyped-call]
