@@ -19,7 +19,7 @@ ghstack = "ghstack.__main__:main"
 [tool.poetry.dependencies]
 aiohttp = "^3"
 dataclasses = { version = "^0.8", python = "<3.7" }
-importlib-metadata = "^3"
+importlib-metadata = { version = ">=1.4", python = "<3.8" }
 python = "^3.6"
 requests = "^2"
 typing-extensions = ">=3 <5"
