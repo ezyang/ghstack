@@ -1061,8 +1061,12 @@ Since we cannot proceed, ghstack will abort now.
 def run_pre_ghstack_hook(sh: ghstack.shell.Shell, base_commit: str, top_commit: str) -> None:
     """If a `pre-ghstack` git hook is configured, run it."""
     default_hooks_path = os.path.join(sh.git("rev-parse", "--show-toplevel"), ".git/hooks")
-    hooks_path = sh.git("config", "--default", default_hooks_path, "--get", "core.hooksPath")
-    hook_file = os.path.join(hooks_path, "pre-ghstack")
+    try:
+        hooks_path = sh.git("config", "--default", default_hooks_path, "--get", "core.hooksPath")
+        hook_file = os.path.join(hooks_path, "pre-ghstack")
+    except Exception as e:
+        logging.warning(f"Pre ghstack hook failed: {e}")
+        return
 
     if not os.path.isfile(hook_file) or not os.access(hook_file, os.X_OK):
         return
