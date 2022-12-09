@@ -19,7 +19,7 @@ _should_sign = None
 
 
 def gpg_args_if_necessary(
-    shell: ghstack.shell.Shell = ghstack.shell.Shell()
+    shell: ghstack.shell.Shell = ghstack.shell.Shell(),
 ) -> Union[Tuple[str], Tuple[()]]:
     global _should_sign
     # cache the config result
@@ -28,7 +28,12 @@ def gpg_args_if_necessary(
         try:
             # Why the complicated compare
             # https://git-scm.com/docs/git-config#Documentation/git-config.txt-boolean
-            _should_sign = shell.git("config", "--get", "commit.gpgsign") in ("yes", "on", "true", "1")
+            _should_sign = shell.git("config", "--get", "commit.gpgsign") in (
+                "yes",
+                "on",
+                "true",
+                "1",
+            )
         except:
             _should_sign = False
 

@@ -38,19 +38,20 @@ def captured_output() -> Iterator[Tuple[io.StringIO, io.StringIO]]:
 # faster.  Need to work on OSX.
 
 
-GH_KEEP_TMP = os.getenv('GH_KEEP_TMP')
+GH_KEEP_TMP = os.getenv("GH_KEEP_TMP")
 
 
-SubstituteRev = NewType('SubstituteRev', str)
+SubstituteRev = NewType("SubstituteRev", str)
 
 
 def strip_trailing_whitespace(text: str) -> str:
-    return re.sub(r' +$', '', text, flags=re.MULTILINE)
+    return re.sub(r" +$", "", text, flags=re.MULTILINE)
 
 
 def indent(text: str, prefix: str) -> str:
-    return ''.join(prefix + line if line.strip() else line
-                   for line in text.splitlines(True))
+    return "".join(
+        prefix + line if line.strip() else line for line in text.splitlines(True)
+    )
 
 
 class TestGh(expecttest.TestCase):
@@ -63,7 +64,9 @@ class TestGh(expecttest.TestCase):
         # Set up a "parent" repository with an empty initial commit that we'll operate on
         upstream_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:
-            self.addCleanup(lambda: print("upstream_dir preserved at: {}".format(upstream_dir)))
+            self.addCleanup(
+                lambda: print("upstream_dir preserved at: {}".format(upstream_dir))
+            )
         else:
             self.addCleanup(lambda: shutil.rmtree(upstream_dir))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
@@ -71,7 +74,9 @@ class TestGh(expecttest.TestCase):
 
         local_dir = tempfile.mkdtemp()
         if GH_KEEP_TMP:
-            self.addCleanup(lambda: print("local_dir preserved at: {}".format(local_dir)))
+            self.addCleanup(
+                lambda: print("local_dir preserved at: {}".format(local_dir))
+            )
         else:
             self.addCleanup(lambda: shutil.rmtree(local_dir))
         self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
@@ -96,27 +101,31 @@ class TestGh(expecttest.TestCase):
         self.substituteExpected(h, substitute)
 
     # NB: returns earliest first
-    def gh(self, msg: str = 'Update',
-           update_fields: bool = False,
-           short: bool = False,
-           no_skip: bool = False) -> List[Optional[ghstack.submit.DiffMeta]]:
+    def gh(
+        self,
+        msg: str = "Update",
+        update_fields: bool = False,
+        short: bool = False,
+        no_skip: bool = False,
+    ) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
-            username='ezyang',
+            username="ezyang",
             github=self.github,
             sh=self.sh,
             update_fields=update_fields,
-            stack_header='Stack',
-            repo_owner='pytorch',
-            repo_name='pytorch',
+            stack_header="Stack",
+            repo_owner="pytorch",
+            repo_name="pytorch",
             short=short,
             no_skip=no_skip,
-            github_url='github.com',
-            remote_name='origin')
+            github_url="github.com",
+            remote_name="origin",
+        )
 
     def gh_land(self, pull_request: str) -> None:
         return ghstack.land.main(
-            remote_name='origin',
+            remote_name="origin",
             pull_request=pull_request,
             github=self.github,
             sh=self.sh,
@@ -127,14 +136,15 @@ class TestGh(expecttest.TestCase):
         ghstack.unlink.main(
             github=self.github,
             sh=self.sh,
-            repo_owner='pytorch',
-            repo_name='pytorch',
-            github_url='github.com',
-            remote_name='origin',
+            repo_owner="pytorch",
+            repo_name="pytorch",
+            github_url="github.com",
+            remote_name="origin",
         )
 
     def dump_github(self) -> str:
-        r = self.github.graphql("""
+        r = self.github.graphql(
+            """
           query {
             repository(name: "pytorch", owner: "pytorch") {
               pullRequests {
@@ -148,23 +158,38 @@ class TestGh(expecttest.TestCase):
               }
             }
           }
-        """)
+        """
+        )
         prs = []
         refs = ""
-        for pr in r['data']['repository']['pullRequests']['nodes']:
-            pr['body'] = indent(pr['body'].replace('\r', ''), '    ')
-            pr['commits'] = self.upstream_sh.git("log", "--reverse", "--pretty=format:%h %s", pr["baseRefName"] + ".." + pr["headRefName"])
-            pr['commits'] = indent(pr['commits'], '     * ')
-            prs.append("#{number} {title} ({headRefName} -> {baseRefName})\n\n"
-                       "{body}\n\n{commits}\n\n".format(**pr))
+        for pr in r["data"]["repository"]["pullRequests"]["nodes"]:
+            pr["body"] = indent(pr["body"].replace("\r", ""), "    ")
+            pr["commits"] = self.upstream_sh.git(
+                "log",
+                "--reverse",
+                "--pretty=format:%h %s",
+                pr["baseRefName"] + ".." + pr["headRefName"],
+            )
+            pr["commits"] = indent(pr["commits"], "     * ")
+            prs.append(
+                "#{number} {title} ({headRefName} -> {baseRefName})\n\n"
+                "{body}\n\n{commits}\n\n".format(**pr)
+            )
             # TODO: Use of git --graph here is a bit of a loaded
             # footgun, because git doesn't really give any guarantees
             # about what the graph should look like.  So there isn't
             # really any assurance that this will output the same thing
             # on multiple test runs.  We'll have to reimplement this
             # ourselves to do it right.
-            refs = self.upstream_sh.git("log", "--graph", "--oneline", "--branches=gh/*/*/head", "--decorate")
-        return "".join(prs) + "Repository state:\n\n" + indent(strip_trailing_whitespace(refs), '    ') + "\n\n"
+            refs = self.upstream_sh.git(
+                "log", "--graph", "--oneline", "--branches=gh/*/*/head", "--decorate"
+            )
+        return (
+            "".join(prs)
+            + "Repository state:\n\n"
+            + indent(strip_trailing_whitespace(refs), "    ")
+            + "\n\n"
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -172,56 +197,63 @@ class TestGh(expecttest.TestCase):
         self.sh.git("remote", "add", "normal", "git@github.com:ezyang/ghstack.git")
         self.assertEqual(
             ghstack.github_utils.get_github_repo_name_with_owner(
-                sh=self.sh,
-                github_url="github.com",
-                remote_name="normal"
+                sh=self.sh, github_url="github.com", remote_name="normal"
             ),
-            {"owner": "ezyang", "name": "ghstack"}
+            {"owner": "ezyang", "name": "ghstack"},
         )
-        self.sh.git("remote", "add", "with-dot", "git@github.com:ezyang/ghstack.dotted.git")
+        self.sh.git(
+            "remote", "add", "with-dot", "git@github.com:ezyang/ghstack.dotted.git"
+        )
         self.assertEqual(
             ghstack.github_utils.get_github_repo_name_with_owner(
-                sh=self.sh,
-                github_url="github.com",
-                remote_name="with-dot"
+                sh=self.sh, github_url="github.com", remote_name="with-dot"
             ),
-            {"owner": "ezyang", "name": "ghstack.dotted"}
+            {"owner": "ezyang", "name": "ghstack.dotted"},
         )
         self.sh.git("remote", "add", "https", "https://github.com/ezyang/ghstack")
         self.assertEqual(
             ghstack.github_utils.get_github_repo_name_with_owner(
-                sh=self.sh,
-                github_url="github.com",
-                remote_name="https"
+                sh=self.sh, github_url="github.com", remote_name="https"
             ),
-            {"owner": "ezyang", "name": "ghstack"}
+            {"owner": "ezyang", "name": "ghstack"},
         )
-        self.sh.git("remote", "add", "https-with-dotgit", "https://github.com/ezyang/ghstack.git")
+        self.sh.git(
+            "remote",
+            "add",
+            "https-with-dotgit",
+            "https://github.com/ezyang/ghstack.git",
+        )
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh, github_url="github.com", remote_name="https-with-dotgit"
+            ),
+            {"owner": "ezyang", "name": "ghstack"},
+        )
+        self.sh.git(
+            "remote",
+            "add",
+            "https-with-dot",
+            "https://github.com/ezyang/ghstack.dotted",
+        )
+        self.assertEqual(
+            ghstack.github_utils.get_github_repo_name_with_owner(
+                sh=self.sh, github_url="github.com", remote_name="https-with-dot"
+            ),
+            {"owner": "ezyang", "name": "ghstack.dotted"},
+        )
+        self.sh.git(
+            "remote",
+            "add",
+            "https-with-dot-with-dotgit",
+            "https://github.com/ezyang/ghstack.dotted.git",
+        )
         self.assertEqual(
             ghstack.github_utils.get_github_repo_name_with_owner(
                 sh=self.sh,
                 github_url="github.com",
-                remote_name="https-with-dotgit"
+                remote_name="https-with-dot-with-dotgit",
             ),
-            {"owner": "ezyang", "name": "ghstack"}
-        )
-        self.sh.git("remote", "add", "https-with-dot", "https://github.com/ezyang/ghstack.dotted")
-        self.assertEqual(
-            ghstack.github_utils.get_github_repo_name_with_owner(
-                sh=self.sh,
-                github_url="github.com",
-                remote_name="https-with-dot"
-            ),
-            {"owner": "ezyang", "name": "ghstack.dotted"}
-        )
-        self.sh.git("remote", "add", "https-with-dot-with-dotgit", "https://github.com/ezyang/ghstack.dotted.git")
-        self.assertEqual(
-            ghstack.github_utils.get_github_repo_name_with_owner(
-                sh=self.sh,
-                github_url="github.com",
-                remote_name="https-with-dot-with-dotgit"
-            ),
-            {"owner": "ezyang", "name": "ghstack.dotted"}
+            {"owner": "ezyang", "name": "ghstack.dotted"},
         )
 
     def test_simple(self) -> None:
@@ -233,10 +265,12 @@ class TestGh(expecttest.TestCase):
         self.writeFileAndAdd("a", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -251,7 +285,8 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         # Just to test what happens if we use those branches
         self.sh.git("checkout", "gh/ezyang/1/orig")
@@ -261,10 +296,12 @@ Repository state:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -291,7 +328,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -312,10 +350,12 @@ Repository state:
         self.writeFileAndAdd("a", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -330,16 +370,19 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
         print("###")
         print("### Second commit")
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -366,7 +409,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -376,15 +420,19 @@ Repository state:
         print("###")
 
         print("### Empty commit")
-        self.sh.git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.git(
+            "commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit"
+        )
         self.writeFileAndAdd("bar", "baz")
         self.sh.git("commit", "-m", "Commit 2")
 
         self.sh.test_tick()
-        self.gh('Initial')
+        self.gh("Initial")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 2 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -399,45 +447,56 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 2
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
     def test_strip_mentions(self) -> None:
         self.writeFileAndAdd("bar", "baz")
-        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit, hello @foobar @Ivan")
+        self.sh.git(
+            "commit", "-m", "Commit 1\n\nThis is my first commit, hello @foobar @Ivan"
+        )
 
         self.sh.test_tick()
-        self.gh('Initial')
+        self.gh("Initial")
 
-        self.github.patch("repos/pytorch/pytorch/pulls/500",
-                          body="""\
+        self.github.patch(
+            "repos/pytorch/pytorch/pulls/500",
+            body="""\
 Stack:
 * **#500 Commit 1**
 
 cc @foobar @Ivan""",
-                          title="This is my first commit")
+            title="This is my first commit",
+        )
 
         self.sh.test_tick()
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "--amend")
-        self.gh('Update 1')
+        self.gh("Update 1")
 
         # Ensure no mentions in the log
-        self.assertExpectedInline(self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"), '''\
+        self.assertExpectedInline(
+            self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"),
+            """\
 Update 1 on "This is my first commit"
 
 
 cc foobar Ivan
 
-[ghstack-poisoned]''')
-        self.assertExpectedInline(self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), '''\
+[ghstack-poisoned]""",
+        )
+        self.assertExpectedInline(
+            self.sh.git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"),
+            """\
 Commit 1
 
 This is my first commit, hello foobar Ivan
 
 ghstack-source-id: 36c3df70a403234bbd5005985399205a8109950b
-Pull Request resolved: https://github.com/pytorch/pytorch/pull/500''')
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -450,10 +509,12 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500''')
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
 
         self.sh.test_tick()
-        self.gh('Initial')
+        self.gh("Initial")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -468,13 +529,16 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
-        self.sh.git('rm', 'bar')
+        self.sh.git("rm", "bar")
         self.sh.git("commit", "--amend", "--allow-empty")
         self.sh.test_tick()
-        self.gh('Update')
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.gh("Update")
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -489,7 +553,8 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -501,11 +566,13 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -520,7 +587,8 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
         print("###")
         print("### Amend the commit")
         self.writeFileAndAdd("file1.txt", "ABBA")
@@ -528,9 +596,11 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
-        self.gh('Update A')
+        self.gh("Update A")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -547,7 +617,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -559,11 +630,13 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -578,16 +651,25 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
         print("###")
         print("### Amend the commit")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("filter-branch", "-f", "--msg-filter", "cat && echo 'blargle'", "HEAD~..HEAD")
+        self.sh.git(
+            "filter-branch",
+            "-f",
+            "--msg-filter",
+            "cat && echo 'blargle'",
+            "HEAD~..HEAD",
+        )
         self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
-        self.gh('Update A', no_skip=True)
+        self.gh("Update A", no_skip=True)
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -604,7 +686,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -616,7 +699,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         old_head = self.sh.git("rev-parse", "HEAD")
 
         print("###")
@@ -625,7 +708,7 @@ Repository state:
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
-        self.gh('Update A')
+        self.gh("Update A")
 
         # Reset to the old version
         self.sh.git("reset", "--hard", old_head)
@@ -633,7 +716,7 @@ Repository state:
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
-        self.assertRaises(RuntimeError, lambda: self.gh('Update B'))
+        self.assertRaises(RuntimeError, lambda: self.gh("Update B"))
 
     # ------------------------------------------------------------------------- #
 
@@ -651,13 +734,15 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
 
-        self.gh('Initial 1 and 2')
+        self.gh("Initial 1 and 2")
         self.substituteRev("HEAD~", "rCOM1")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -684,7 +769,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -696,7 +782,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
@@ -705,11 +791,13 @@ Repository state:
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -736,7 +824,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
         print("###")
         print("### Amend the top commit")
         self.writeFileAndAdd("file2.txt", "BAAB")
@@ -744,9 +833,11 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM2A")
         self.sh.test_tick()
-        self.gh('Update A')
+        self.gh("Update A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -775,7 +866,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -787,7 +879,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
@@ -796,11 +888,13 @@ Repository state:
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -827,7 +921,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Amend the bottom commit")
@@ -837,9 +932,11 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM1A")
         self.sh.test_tick()
-        self.gh('Update A')
+        self.gh("Update A")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -868,17 +965,20 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Restack the top commit")
         self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
         self.sh.test_tick()
-        self.gh('Update B')
+        self.gh("Update B")
         self.substituteRev("HEAD", "rCOM2A")
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -913,7 +1013,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -925,7 +1026,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
@@ -934,11 +1035,13 @@ Repository state:
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -965,7 +1068,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Amend the commits")
@@ -980,12 +1084,14 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
         self.sh.test_tick()
 
-        self.gh('Update A')
+        self.gh("Update A")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1021,7 +1127,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1036,7 +1143,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
@@ -1045,11 +1152,13 @@ Repository state:
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1076,7 +1185,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Push master forward")
@@ -1095,13 +1205,15 @@ Repository state:
         self.substituteRev("HEAD", "rCOM2A")
         self.substituteRev("HEAD~", "rCOM1A")
 
-        self.gh('Rebase')
+        self.gh("Rebase")
         self.substituteRev("origin/gh/ezyang/1/base", "rINI1A")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1145,7 +1257,8 @@ Repository state:
     |/
     * rINI0 Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1160,7 +1273,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
@@ -1169,11 +1282,13 @@ Repository state:
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1200,7 +1315,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Push master forward")
@@ -1217,11 +1333,13 @@ Repository state:
 
         self.substituteRev("HEAD", "rCOM2A")
 
-        self.gh('Cherry pick')
+        self.gh("Cherry pick")
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1255,25 +1373,28 @@ Repository state:
     |/
     * rINI0 (gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
     def test_reorder(self) -> None:
-        self.writeFileAndAdd('file1.txt', 'A')
-        self.sh.git('commit', '-m', 'Commit 1\n\nA commit with an A')
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
 
-        self.writeFileAndAdd('file2.txt', 'B')
-        self.sh.git('commit', '-m', 'Commit 2\n\nA commit with an B')
+        self.writeFileAndAdd("file2.txt", "B")
+        self.sh.git("commit", "-m", "Commit 2\n\nA commit with an B")
         self.sh.test_tick()
 
-        self.gh('Initial')
+        self.gh("Initial")
         self.sh.test_tick()
-        self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1')
-        self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2')
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1300,22 +1421,25 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         # https://stackoverflow.com/a/16205257
-        self.sh.git('rebase', '--onto', 'HEAD~2', 'HEAD~', 'HEAD')
+        self.sh.git("rebase", "--onto", "HEAD~2", "HEAD~", "HEAD")
         self.sh.test_tick()
-        self.sh.git('cherry-pick', 'master~')
+        self.sh.git("cherry-pick", "master~")
         self.sh.test_tick()
 
-        self.gh('Reorder')
+        self.gh("Reorder")
         self.sh.test_tick()
-        self.substituteRev('origin/gh/ezyang/1/base', 'rINI1A')
-        self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1A')
-        self.substituteRev('origin/gh/ezyang/2/base', 'rINI2A')
-        self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2A')
+        self.substituteRev("origin/gh/ezyang/1/base", "rINI1A")
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
+        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1355,7 +1479,8 @@ Repository state:
     |/
     * rINI0 (HEAD -> master) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1367,12 +1492,14 @@ Repository state:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1387,19 +1514,24 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Amend the PR")
-        self.github.patch("repos/pytorch/pytorch/pulls/500",
-                          body="""\
+        self.github.patch(
+            "repos/pytorch/pytorch/pulls/500",
+            body="""\
 Stack:
 * **#500 Commit 1**
 
 Directly updated message body""",
-                          title="Directly updated title")
+            title="Directly updated title",
+        )
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1414,19 +1546,22 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Submit an update")
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
-        self.gh('Update 1')
+        self.gh("Update 1")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1443,7 +1578,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1456,12 +1592,14 @@ Repository state:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1476,29 +1614,36 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Amend the PR")
-        self.github.patch("repos/pytorch/pytorch/pulls/500",
-                          body="""\
+        self.github.patch(
+            "repos/pytorch/pytorch/pulls/500",
+            body="""\
 Stack:
 * **#500 Commit 1**
 
-Directly updated message body""".replace('\n', '\r\n'),
-                          title="Directly updated title")
+Directly updated message body""".replace(
+                "\n", "\r\n"
+            ),
+            title="Directly updated title",
+        )
 
         print("###")
         print("### Submit a new commit")
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 2")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1525,7 +1670,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1533,7 +1679,7 @@ Repository state:
         self.writeFileAndAdd("a", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
 
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
@@ -1544,7 +1690,7 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
 
-        self.assertRaises(RuntimeError, lambda: self.gh('Initial 2'))
+        self.assertRaises(RuntimeError, lambda: self.gh("Initial 2"))
 
     # ------------------------------------------------------------------------- #
 
@@ -1556,12 +1702,14 @@ Repository state:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1576,15 +1724,20 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Amend the PR")
-        self.github.patch("repos/pytorch/pytorch/pulls/500",
-                          body="Directly updated message body",
-                          title="Directly updated title")
+        self.github.patch(
+            "repos/pytorch/pytorch/pulls/500",
+            body="Directly updated message body",
+            title="Directly updated title",
+        )
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Directly updated message body
@@ -1596,14 +1749,17 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Force update fields")
-        self.gh('Update 1', update_fields=True)
+        self.gh("Update 1", update_fields=True)
         self.sh.test_tick()
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1620,7 +1776,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1632,12 +1789,14 @@ Repository state:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1652,15 +1811,20 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Amend the commit")
-        self.sh.git('filter-branch', '--msg-filter', 'echo Amended && cat', 'HEAD~..HEAD')
-        self.gh('Update 1', update_fields=True)
+        self.sh.git(
+            "filter-branch", "--msg-filter", "echo Amended && cat", "HEAD~..HEAD"
+        )
+        self.gh("Update 1", update_fields=True)
         self.sh.test_tick()
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Amended (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1679,9 +1843,12 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
-        self.assertRegex(self.sh.git('log', '--format=%B', '-n', '1', 'HEAD'), 'Amended')
+        self.assertRegex(
+            self.sh.git("log", "--format=%B", "-n", "1", "HEAD"), "Amended"
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1692,12 +1859,14 @@ Repository state:
         self.writeFileAndAdd("b", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nOriginal message")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.sh.test_tick()
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1712,7 +1881,8 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         logging.info("### Amend the PR")
         body = """\n
@@ -1720,11 +1890,13 @@ Directly updated message body
 
 Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 """
-        self.github.patch("repos/pytorch/pytorch/pulls/500",
-                          body=body,
-                          title="Directly updated title")
+        self.github.patch(
+            "repos/pytorch/pytorch/pulls/500", body=body, title="Directly updated title"
+        )
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
 
@@ -1741,13 +1913,16 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         logging.info("### Force update fields")
-        self.gh('Update 1', update_fields=True)
+        self.gh("Update 1", update_fields=True)
         self.sh.test_tick()
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1766,7 +1941,8 @@ Repository state:
     * rMRG1 Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1781,7 +1957,7 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
@@ -1790,11 +1966,13 @@ Repository state:
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
         self.sh.test_tick()
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1821,7 +1999,8 @@ Repository state:
     * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         print("###")
         print("### Delete first commit")
@@ -1833,11 +2012,13 @@ Repository state:
 
         self.substituteRev("HEAD", "rCOM2A")
 
-        self.gh('Cherry pick')
+        self.gh("Cherry pick")
         self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -1868,7 +2049,8 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1877,8 +2059,10 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         with captured_output() as (out, err):
-            self.gh('Initial', short=True)
-        self.assertEqual(out.getvalue(), "https://github.com/pytorch/pytorch/pull/500\n")
+            self.gh("Initial", short=True)
+        self.assertEqual(
+            out.getvalue(), "https://github.com/pytorch/pytorch/pull/500\n"
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -1886,16 +2070,19 @@ Repository state:
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        diff, = self.gh('Initial')
+        (diff,) = self.gh("Initial")
         assert diff is not None
         pr_url = diff.pr_url
         # Because this is fast forward, commit will be landed exactly as is
         self.substituteRev("HEAD", "rCOM1")
 
         self.gh_land(pr_url)
-        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
 rCOM1 Commit 1
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
     # ------------------------------------------------------------------------- #
     #
@@ -1906,7 +2093,10 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        diff1, diff2, = self.gh('Initial')
+        (
+            diff1,
+            diff2,
+        ) = self.gh("Initial")
         assert diff1 is not None
         assert diff2 is not None
         pr_url = diff2.pr_url
@@ -1915,10 +2105,13 @@ rINI0 Initial commit''')
         self.substituteRev("HEAD", "rCOM2")
 
         self.gh_land(pr_url)
-        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
 rCOM2 Commit 2
 rCOM1 Commit 1
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
     # ------------------------------------------------------------------------- #
     #
@@ -1929,7 +2122,10 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        diff1, diff2, = self.gh('Initial')
+        (
+            diff1,
+            diff2,
+        ) = self.gh("Initial")
         assert diff1 is not None
         assert diff2 is not None
         pr_url1 = diff1.pr_url
@@ -1940,10 +2136,13 @@ rINI0 Initial commit''')
 
         self.gh_land(pr_url1)
         self.gh_land(pr_url2)
-        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
 rCOM2 Commit 2
 rCOM1 Commit 1
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
     # ------------------------------------------------------------------------- #
     #
@@ -1954,7 +2153,10 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        diff1, diff2, = self.gh('Initial')
+        (
+            diff1,
+            diff2,
+        ) = self.gh("Initial")
         assert diff1 is not None
         assert diff2 is not None
         pr_url1 = diff1.pr_url
@@ -1970,11 +2172,14 @@ rINI0 Initial commit''')
         self.substituteRev("origin/master", "rCOM1")
         self.gh_land(pr_url2)
         self.substituteRev("origin/master", "rCOM2")
-        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
 rCOM2 Commit 2
 rCOM1 Commit 1
 rCOM3 Commit 3
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
     # ------------------------------------------------------------------------- #
     #
@@ -1985,7 +2190,10 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
-        diff1, diff2, = self.gh('Initial')
+        (
+            diff1,
+            diff2,
+        ) = self.gh("Initial")
         assert diff1 is not None
         assert diff2 is not None
         pr_url = diff2.pr_url
@@ -1996,11 +2204,15 @@ rINI0 Initial commit''')
         # Can't use -m here, it will clobber the metadata
         self.sh.git("commit", "--amend")
         self.substituteRev("HEAD", "rCOM1A")
-        self.gh('Update')
+        self.gh("Update")
 
         self.gh_land(pr_url)
-        self.assertExpectedInline(self.upstream_sh.git("show", "master:file1.txt"), '''ABBA''')
-        self.assertExpectedInline(self.upstream_sh.git("show", "master:file2.txt"), '''B''')
+        self.assertExpectedInline(
+            self.upstream_sh.git("show", "master:file1.txt"), """ABBA"""
+        )
+        self.assertExpectedInline(
+            self.upstream_sh.git("show", "master:file2.txt"), """B"""
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -2008,7 +2220,7 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("file1.txt", "A")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
-        diff, = self.gh('Initial')
+        (diff,) = self.gh("Initial")
         assert diff is not None
         pr_url = diff.pr_url
         self.substituteRev("HEAD", "rCOM1")
@@ -2024,10 +2236,13 @@ rINI0 Initial commit''')
 
         self.substituteRev("origin/master", "rUP2")
 
-        self.assertExpectedInline(self.upstream_sh.git("log", "--oneline", "master"), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
 rUP2 Commit 1
 rUP1 Upstream commit
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
     # ------------------------------------------------------------------------- #
 
@@ -2040,18 +2255,20 @@ rINI0 Initial commit''')
         self.writeFileAndAdd("file2.txt", "B")
         self.sh.git("commit", "-m", "Commit 1\n\nA commit with an B")
         self.sh.test_tick()
-        self.gh('Initial 1')
+        self.gh("Initial 1")
         self.substituteRev("HEAD", "rCOM1")
         self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         # Unlink
         self.gh_unlink()
 
-        self.gh('Initial 2')
+        self.gh("Initial 2")
         self.substituteRev("HEAD", "rCOM2")
         self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -2098,31 +2315,34 @@ Repository state:
     * rMRG1 (gh/ezyang/4/base, gh/ezyang/3/head, gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/3/base, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
     # ------------------------------------------------------------------------- #
 
     def test_default_branch_change(self) -> None:
         # make commit
-        self.writeFileAndAdd('file1.txt', 'A')
-        self.sh.git('commit', '-m', 'Commit 1\n\nThis is my first commit')
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         # ghstack
-        diff1, = self.gh('Initial 1')
+        (diff1,) = self.gh("Initial 1")
         assert diff1 is not None
-        self.substituteRev('origin/gh/ezyang/1/head', 'rMRG1')
+        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
 
         # make main branch
-        self.sh.git('branch', 'main', 'master')
-        self.sh.git('push', 'origin', 'main')
+        self.sh.git("branch", "main", "master")
+        self.sh.git("push", "origin", "main")
         # change default branch to main
         self.github.patch(
-            'repos/pytorch/pytorch',
-            name='pytorch',
-            default_branch='main',
+            "repos/pytorch/pytorch",
+            name="pytorch",
+            default_branch="main",
         )
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -2137,35 +2357,44 @@ Repository state:
     * rMRG1 (gh/ezyang/1/head) Commit 1
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         # land
         self.gh_land(diff1.pr_url)
-        self.substituteRev('origin/main', 'rUP1')
+        self.substituteRev("origin/main", "rUP1")
 
-        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'master'), '''\
-rINI0 Initial commit''')
-        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'main'), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
+rINI0 Initial commit""",
+        )
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "main"),
+            """\
 rUP1 Commit 1
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
         # make another commit
-        self.writeFileAndAdd('file2.txt', 'B')
-        self.sh.git('commit', '-m', 'Commit 2\n\nThis is my second commit')
+        self.writeFileAndAdd("file2.txt", "B")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         # ghstack
-        diff2, = self.gh('Initial 2')
+        (diff2,) = self.gh("Initial 2")
         assert diff2 is not None
-        self.substituteRev('origin/gh/ezyang/2/head', 'rMRG2')
+        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
 
         # change default branch back to master
         self.github.patch(
-            'repos/pytorch/pytorch',
-            name='pytorch',
-            default_branch='master',
+            "repos/pytorch/pytorch",
+            name="pytorch",
+            default_branch="master",
         )
 
-        self.assertExpectedInline(self.dump_github(), '''\
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
 #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
@@ -2192,39 +2421,59 @@ Repository state:
     |/
     * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
 
-''')
+""",
+        )
 
         # land again
         self.gh_land(diff2.pr_url)
-        self.substituteRev('origin/master', 'rUP3')
-        self.substituteRev('origin/master~', 'rUP2')
+        self.substituteRev("origin/master", "rUP3")
+        self.substituteRev("origin/master~", "rUP2")
 
-        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'master'), '''\
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "master"),
+            """\
 rUP3 Commit 2
 rUP2 Commit 1
-rINI0 Initial commit''')
-        self.assertExpectedInline(self.upstream_sh.git('log', '--oneline', 'main'), '''\
+rINI0 Initial commit""",
+        )
+        self.assertExpectedInline(
+            self.upstream_sh.git("log", "--oneline", "main"),
+            """\
 rUP1 Commit 1
-rINI0 Initial commit''')
+rINI0 Initial commit""",
+        )
 
     # ------------------------------------------------------------------------- #
 
     def test_preserve_authorship(self) -> None:
         # make a commit with non-standard author
-        self.writeFileAndAdd('file1.txt', 'A')
-        self.sh.git('commit', '-m', 'Commit 1\n\nThis is my first commit', env={
-            'GIT_AUTHOR_NAME': 'Ben Bitdiddle',
-            'GIT_AUTHOR_EMAIL': 'benbitdiddle@example.com'
-        })
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git(
+            "commit",
+            "-m",
+            "Commit 1\n\nThis is my first commit",
+            env={
+                "GIT_AUTHOR_NAME": "Ben Bitdiddle",
+                "GIT_AUTHOR_EMAIL": "benbitdiddle@example.com",
+            },
+        )
         self.sh.test_tick()
         # ghstack
-        diff1, = self.gh('Initial 1')
+        (diff1,) = self.gh("Initial 1")
         assert diff1 is not None
-        self.assertExpectedInline(self.sh.git("log", "--format=Author: %an <%ae>\nCommitter: %cn <%ce>", "-n1", "origin/gh/ezyang/1/orig"), '''\
+        self.assertExpectedInline(
+            self.sh.git(
+                "log",
+                "--format=Author: %an <%ae>\nCommitter: %cn <%ce>",
+                "-n1",
+                "origin/gh/ezyang/1/orig",
+            ),
+            """\
 Author: Ben Bitdiddle <benbitdiddle@example.com>
-Committer: C O Mitter <committer@example.com>''')
+Committer: C O Mitter <committer@example.com>""",
+        )
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG, format="%(message)s")
     unittest.main()

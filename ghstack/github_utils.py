@@ -9,10 +9,13 @@ import ghstack.github
 import ghstack.shell
 from ghstack.types import GitHubRepositoryId
 
-GitHubRepoNameWithOwner = TypedDict('GitHubRepoNameWithOwner', {
-    'owner': str,
-    'name': str,
-})
+GitHubRepoNameWithOwner = TypedDict(
+    "GitHubRepoNameWithOwner",
+    {
+        "owner": str,
+        "name": str,
+    },
+)
 
 
 def get_github_repo_name_with_owner(
@@ -24,7 +27,7 @@ def get_github_repo_name_with_owner(
     # Grovel in remotes to figure it out
     remote_url = sh.git("remote", "get-url", remote_name)
     while True:
-        match = r'^git@{github_url}:([^/]+)/(.+?)(?:\.git)?$'.format(
+        match = r"^git@{github_url}:([^/]+)/(.+?)(?:\.git)?$".format(
             github_url=github_url
         )
         m = re.match(match, remote_url)
@@ -32,26 +35,27 @@ def get_github_repo_name_with_owner(
             owner = m.group(1)
             name = m.group(2)
             break
-        search = r'{github_url}/([^/]+)/(.+?)(?:\.git)?$'.format(
-            github_url=github_url
-        )
+        search = r"{github_url}/([^/]+)/(.+?)(?:\.git)?$".format(github_url=github_url)
         m = re.search(search, remote_url)
         if m:
             owner = m.group(1)
             name = m.group(2)
             break
         raise RuntimeError(
-            "Couldn't determine repo owner and name from url: {}"
-            .format(remote_url))
-    return {'owner': owner, 'name': name}
+            "Couldn't determine repo owner and name from url: {}".format(remote_url)
+        )
+    return {"owner": owner, "name": name}
 
 
-GitHubRepoInfo = TypedDict('GitHubRepoInfo', {
-    'name_with_owner': GitHubRepoNameWithOwner,
-    'id': GitHubRepositoryId,
-    'is_fork': bool,
-    'default_branch': str,
-})
+GitHubRepoInfo = TypedDict(
+    "GitHubRepoInfo",
+    {
+        "name_with_owner": GitHubRepoNameWithOwner,
+        "id": GitHubRepositoryId,
+        "is_fork": bool,
+        "default_branch": str,
+    },
+)
 
 
 def get_github_repo_info(
@@ -85,7 +89,8 @@ def get_github_repo_info(
             }
         }""",
         owner=name_with_owner["owner"],
-        name=name_with_owner["name"])["data"]["repository"]
+        name=name_with_owner["name"],
+    )["data"]["repository"]
 
     return {
         "name_with_owner": name_with_owner,
@@ -96,14 +101,18 @@ def get_github_repo_info(
 
 
 RE_PR_URL = re.compile(
-    r'^https://(?P<github_url>[^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$')
+    r"^https://(?P<github_url>[^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$"
+)
 
-GitHubPullRequestParams = TypedDict('GitHubPullRequestParams', {
-    'github_url': str,
-    'owner': str,
-    'name': str,
-    'number': int,
-})
+GitHubPullRequestParams = TypedDict(
+    "GitHubPullRequestParams",
+    {
+        "github_url": str,
+        "owner": str,
+        "name": str,
+        "number": int,
+    },
+)
 
 
 def parse_pull_request(pull_request: str) -> GitHubPullRequestParams:
@@ -115,4 +124,4 @@ def parse_pull_request(pull_request: str) -> GitHubPullRequestParams:
     owner = m.group("owner")
     name = m.group("name")
     number = int(m.group("number"))
-    return {'github_url': github_url, 'owner': owner, 'name': name, 'number': number}
+    return {"github_url": github_url, "owner": owner, "name": name, "number": number}

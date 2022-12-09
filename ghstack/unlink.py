@@ -13,17 +13,19 @@ import ghstack.gpg_sign
 import ghstack.shell
 from ghstack.types import GitCommitHash
 
-RE_GHSTACK_SOURCE_ID = re.compile(r'^ghstack-source-id: (.+)\n?', re.MULTILINE)
+RE_GHSTACK_SOURCE_ID = re.compile(r"^ghstack-source-id: (.+)\n?", re.MULTILINE)
 
 
-def main(*,
-         commits: Optional[List[str]] = None,
-         github: ghstack.github.GitHubEndpoint,
-         sh: Optional[ghstack.shell.Shell] = None,
-         repo_owner: Optional[str] = None,
-         repo_name: Optional[str] = None,
-         github_url: str,
-         remote_name: str) -> GitCommitHash:
+def main(
+    *,
+    commits: Optional[List[str]] = None,
+    github: ghstack.github.GitHubEndpoint,
+    sh: Optional[ghstack.shell.Shell] = None,
+    repo_owner: Optional[str] = None,
+    repo_name: Optional[str] = None,
+    github_url: str,
+    remote_name: str,
+) -> GitCommitHash:
     # If commits is empty, we unlink the entire stack
     #
     # For now, we only process commits on our current
@@ -50,12 +52,15 @@ def main(*,
         for c in commits:
             parsed_commits.add(GitCommitHash(sh.git("rev-parse", c)))
 
-    base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD"))
+    base = GitCommitHash(
+        sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD")
+    )
 
     # compute the stack of commits in chronological order (does not
     # include base)
     stack = ghstack.git.split_header(
-        sh.git("rev-list", "--reverse", "--header", "^" + base, "HEAD"))
+        sh.git("rev-list", "--reverse", "--header", "^" + base, "HEAD")
+    )
 
     # sanity check the parsed_commits
     if parsed_commits is not None:
@@ -66,8 +71,10 @@ def main(*,
         if invalid_commits:
             raise RuntimeError(
                 "unlink can only process commits which are on the "
-                "current stack; these commits are not:\n{}"
-                .format("\n".join(invalid_commits)))
+                "current stack; these commits are not:\n{}".format(
+                    "\n".join(invalid_commits)
+                )
+            )
 
     # Run the interactive rebase.  Don't start rewriting until we
     # hit the first commit that needs it.
@@ -84,29 +91,40 @@ def main(*,
 
         rewriting = True
         commit_msg = s.commit_msg()
-        logging.debug("-- commit_msg:\n{}".format(textwrap.indent(commit_msg, '   ')))
+        logging.debug("-- commit_msg:\n{}".format(textwrap.indent(commit_msg, "   ")))
         if should_unlink:
             commit_msg = RE_GHSTACK_SOURCE_ID.sub(
-                '',
-                ghstack.diff.re_pull_request_resolved_w_sp(github_url).sub('', commit_msg)
+                "",
+                ghstack.diff.re_pull_request_resolved_w_sp(github_url).sub(
+                    "", commit_msg
+                ),
             )
-            logging.debug("-- edited commit_msg:\n{}".format(
-                textwrap.indent(commit_msg, '   ')))
-        head = GitCommitHash(sh.git(
-            "commit-tree",
-            *ghstack.gpg_sign.gpg_args_if_necessary(sh),
-            s.tree(),
-            "-p", head,
-            input=commit_msg))
+            logging.debug(
+                "-- edited commit_msg:\n{}".format(textwrap.indent(commit_msg, "   "))
+            )
+        head = GitCommitHash(
+            sh.git(
+                "commit-tree",
+                *ghstack.gpg_sign.gpg_args_if_necessary(sh),
+                s.tree(),
+                "-p",
+                head,
+                input=commit_msg,
+            )
+        )
 
-    sh.git('reset', '--soft', head)
+    sh.git("reset", "--soft", head)
 
-    logging.info("""
+    logging.info(
+        """
 Diffs successfully unlinked!
 
 To undo this operation, run:
 
     git reset --soft {}
-""".format(s.commit_id()))
+""".format(
+            s.commit_id()
+        )
+    )
 
     return head

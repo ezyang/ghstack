@@ -8,14 +8,16 @@ import ghstack.github_utils
 import ghstack.shell
 
 
-def main(pull_request: str,
-         github: ghstack.github.GitHubEndpoint,
-         sh: Optional[ghstack.shell.Shell] = None,
-         close: bool = False,
-         ) -> None:
+def main(
+    pull_request: str,
+    github: ghstack.github.GitHubEndpoint,
+    sh: Optional[ghstack.shell.Shell] = None,
+    close: bool = False,
+) -> None:
 
     params = ghstack.github_utils.parse_pull_request(pull_request)
-    pr_result = github.graphql("""
+    pr_result = github.graphql(
+        """
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
                 pullRequest(number: $number) {
@@ -23,15 +25,20 @@ def main(pull_request: str,
                 }
             }
         }
-    """, **params)
+    """,
+        **params
+    )
     pr_id = pr_result["data"]["repository"]["pullRequest"]["id"]
 
     if close:
         logging.info("Closing {owner}/{name}#{number}".format(**params))
-        github.graphql("""
+        github.graphql(
+            """
             mutation ($input: ClosePullRequestInput!) {
                 closePullRequest(input: $input) {
                     clientMutationId
                 }
             }
-        """, input={"pullRequestId": pr_id, "clientMutationId": "A"})
+        """,
+            input={"pullRequestId": pr_id, "clientMutationId": "A"},
+        )

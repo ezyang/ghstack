@@ -12,59 +12,72 @@ import ghstack.diff
 import ghstack.github
 import ghstack.shell
 
-GraphQLId = NewType('GraphQLId', str)
-GitHubNumber = NewType('GitHubNumber', int)
-GitObjectID = NewType('GitObjectID', str)
+GraphQLId = NewType("GraphQLId", str)
+GitHubNumber = NewType("GitHubNumber", int)
+GitObjectID = NewType("GitObjectID", str)
 
 # https://stackoverflow.com/a/55250601
-SetDefaultBranchInput = TypedDict('SetDefaultBranchInput', {
-    'name': str,
-    'default_branch': str,
-})
+SetDefaultBranchInput = TypedDict(
+    "SetDefaultBranchInput",
+    {
+        "name": str,
+        "default_branch": str,
+    },
+)
 
-UpdatePullRequestInput = TypedDict('UpdatePullRequestInput', {
-    'base': Optional[str],
-    'title': Optional[str],
-    'body': Optional[str],
-})
+UpdatePullRequestInput = TypedDict(
+    "UpdatePullRequestInput",
+    {
+        "base": Optional[str],
+        "title": Optional[str],
+        "body": Optional[str],
+    },
+)
 
-CreatePullRequestInput = TypedDict('CreatePullRequestInput', {
-    'base': str,
-    'head': str,
-    'title': str,
-    'body': str,
-    'maintainer_can_modify': bool,
-})
+CreatePullRequestInput = TypedDict(
+    "CreatePullRequestInput",
+    {
+        "base": str,
+        "head": str,
+        "title": str,
+        "body": str,
+        "maintainer_can_modify": bool,
+    },
+)
 
-CreatePullRequestPayload = TypedDict('CreatePullRequestPayload', {
-    'number': int,
-})
+CreatePullRequestPayload = TypedDict(
+    "CreatePullRequestPayload",
+    {
+        "number": int,
+    },
+)
 
 
 # The "database" for our mock instance
 class GitHubState:
-    repositories: Dict[GraphQLId, 'Repository']
-    pull_requests: Dict[GraphQLId, 'PullRequest']
+    repositories: Dict[GraphQLId, "Repository"]
+    pull_requests: Dict[GraphQLId, "PullRequest"]
     _next_id: int
     _next_pull_request_number: Dict[GraphQLId, int]
-    root: 'Root'
+    root: "Root"
     upstream_sh: Optional[ghstack.shell.Shell]
 
-    def repository(self, owner: str, name: str) -> 'Repository':
+    def repository(self, owner: str, name: str) -> "Repository":
         nameWithOwner = "{}/{}".format(owner, name)
         for r in self.repositories.values():
             if r.nameWithOwner == nameWithOwner:
                 return r
         raise RuntimeError("unknown repository {}".format(nameWithOwner))
 
-    def pull_request(self, repo: 'Repository', number: GitHubNumber
-                     ) -> 'PullRequest':
+    def pull_request(self, repo: "Repository", number: GitHubNumber) -> "PullRequest":
         for pr in self.pull_requests.values():
             if repo.id == pr._repository and pr.number == number:
                 return pr
         raise RuntimeError(
-            "unrecognized pull request #{} in repository {}"
-            .format(number, repo.nameWithOwner))
+            "unrecognized pull request #{} in repository {}".format(
+                number, repo.nameWithOwner
+            )
+        )
 
     def next_id(self) -> GraphQLId:
         r = GraphQLId(str(self._next_id))
@@ -119,10 +132,7 @@ class GitHubState:
             # we need this information
             self.upstream_sh.git("init", "--bare", "-b", "master")
             tree = self.upstream_sh.git("write-tree")
-            commit = self.upstream_sh.git(
-                "commit-tree",
-                tree,
-                input="Initial commit")
+            commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
             self.upstream_sh.git("branch", "-f", "master", commit)
 
             # We only update this when a PATCH changes the default
@@ -151,22 +161,26 @@ class Repository(Node):
     name: str
     nameWithOwner: str
     isFork: bool
-    defaultBranchRef: Optional['Ref']
+    defaultBranchRef: Optional["Ref"]
 
-    def pullRequest(self,
-                    info: GraphQLResolveInfo,
-                    number: GitHubNumber) -> 'PullRequest':
+    def pullRequest(
+        self, info: GraphQLResolveInfo, number: GitHubNumber
+    ) -> "PullRequest":
         return github_state(info).pull_request(self, number)
 
-    def pullRequests(self, info: GraphQLResolveInfo
-                     ) -> 'PullRequestConnection':
-        return PullRequestConnection(nodes=list(filter(
-            lambda pr: self == pr.repository(info),
-            github_state(info).pull_requests.values())))
+    def pullRequests(self, info: GraphQLResolveInfo) -> "PullRequestConnection":
+        return PullRequestConnection(
+            nodes=list(
+                filter(
+                    lambda pr: self == pr.repository(info),
+                    github_state(info).pull_requests.values(),
+                )
+            )
+        )
 
     # TODO: This should take which repository the ref is in
     # This only works if you have upstream_sh
-    def _make_ref(self, state: GitHubState, refName: str) -> 'Ref':
+    def _make_ref(self, state: GitHubState, refName: str) -> "Ref":
         # TODO: Probably should preserve object identity here when
         # you call this with refName/oid that are the same
         assert state.upstream_sh
@@ -174,7 +188,7 @@ class Repository(Node):
             id=state.next_id(),
             # TODO: this upstream_sh hardcode wrong, but ok for now
             # because we only have one repo
-            oid=GitObjectID(state.upstream_sh.git('rev-parse', refName)),
+            oid=GitObjectID(state.upstream_sh.git("rev-parse", refName)),
             _repository=self.id,
         )
         ref = Ref(
@@ -231,8 +245,7 @@ class PullRequestConnection:
 
 
 class Root:
-    def repository(self, info: GraphQLResolveInfo, owner: str,
-                   name: str) -> Repository:
+    def repository(self, info: GraphQLResolveInfo, owner: str, name: str) -> Repository:
         return github_state(info).repository(owner, name)
 
     def node(self, info: GraphQLResolveInfo, id: GraphQLId) -> Node:
@@ -244,8 +257,9 @@ class Root:
             raise RuntimeError("unknown id {}".format(id))
 
 
-with open(os.path.join(os.path.dirname(__file__),
-          'github_schema.graphql'), encoding='utf-8') as f:
+with open(
+    os.path.join(os.path.dirname(__file__), "github_schema.graphql"), encoding="utf-8"
+) as f:
     GITHUB_SCHEMA = graphql.build_schema(f.read())
 
 
@@ -261,16 +275,14 @@ def set_is_type_of(name: str, cls: Any) -> None:
     o.is_type_of = lambda obj, info: isinstance(obj, cls)
 
 
-set_is_type_of('Repository', Repository)
-set_is_type_of('PullRequest', PullRequest)
+set_is_type_of("Repository", Repository)
+set_is_type_of("PullRequest", PullRequest)
 
 
 class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     state: GitHubState
 
-    def __init__(self,
-                 upstream_sh: Optional[ghstack.shell.Shell] = None
-                 ) -> None:
+    def __init__(self, upstream_sh: Optional[ghstack.shell.Shell] = None) -> None:
         self.state = GitHubState(upstream_sh)
 
     def graphql(self, query: str, **kwargs: Any) -> Any:
@@ -279,17 +291,21 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             source=query,
             root_value=self.state.root,
             context_value=self.state,
-            variable_values=kwargs)
+            variable_values=kwargs,
+        )
         if r.errors:
             # The GraphQL implementation loses all the stack traces!!!
             # D:  You can 'recover' them by deleting the
             # 'except Exception as error' from GraphQL-core-next; need
             # to file a bug report
-            raise RuntimeError("GraphQL query failed with errors:\n\n{}"
-                               .format("\n".join(str(e) for e in r.errors)))
+            raise RuntimeError(
+                "GraphQL query failed with errors:\n\n{}".format(
+                    "\n".join(str(e) for e in r.errors)
+                )
+            )
         # The top-level object isn't indexable by strings, but
         # everything underneath is, oddly enough
-        return {'data': r.data}
+        return {"data": r.data}
 
     def push_hook(self, refNames: Sequence[str]) -> None:
         self.state.push_hook(refNames)
@@ -297,8 +313,9 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         self.state.notify_merged(pr_resolved)
 
-    def _create_pull(self, owner: str, name: str,
-                     input: CreatePullRequestInput) -> CreatePullRequestPayload:
+    def _create_pull(
+        self, owner: str, name: str, input: CreatePullRequestInput
+    ) -> CreatePullRequestPayload:
         state = self.state
         id = state.next_id()
         repo = state.repository(owner, name)
@@ -308,80 +325,84 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         # TODO: When we support forks, this needs rewriting to stop
         # hard coded the repo we opened the pull request on
         if state.upstream_sh:
-            baseRef = repo._make_ref(state, input['base'])
-            headRef = repo._make_ref(state, input['head'])
+            baseRef = repo._make_ref(state, input["base"])
+            headRef = repo._make_ref(state, input["head"])
         pr = PullRequest(
             id=id,
             _repository=repo.id,
             number=number,
             closed=False,
-            url="https://github.com/{}/pull/{}"
-                .format(repo.nameWithOwner, number),
+            url="https://github.com/{}/pull/{}".format(repo.nameWithOwner, number),
             baseRef=baseRef,
-            baseRefName=input['base'],
+            baseRefName=input["base"],
             headRef=headRef,
-            headRefName=input['head'],
-            title=input['title'],
-            body=input['body'],
+            headRefName=input["head"],
+            title=input["title"],
+            body=input["body"],
         )
         # TODO: compute files changed
         state.pull_requests[id] = pr
         # This is only a subset of what the actual REST endpoint
         # returns.
         return {
-            'number': number,
+            "number": number,
         }
 
     # NB: This technically does have a payload, but we don't
     # use it so I didn't bother constructing it.
-    def _update_pull(self, owner: str, name: str, number: GitHubNumber,
-                     input: UpdatePullRequestInput) -> None:
+    def _update_pull(
+        self, owner: str, name: str, number: GitHubNumber, input: UpdatePullRequestInput
+    ) -> None:
         state = self.state
         repo = state.repository(owner, name)
         pr = state.pull_request(repo, number)
         # If I say input.get('title') is not None, mypy
         # is unable to infer input['title'] is not None
-        if 'title' in input and input['title'] is not None:
-            pr.title = input['title']
-        if 'base' in input and input['base'] is not None:
-            pr.baseRefName = input['base']
+        if "title" in input and input["title"] is not None:
+            pr.title = input["title"]
+        if "base" in input and input["base"] is not None:
+            pr.baseRefName = input["base"]
             pr.baseRef = repo._make_ref(state, pr.baseRefName)
-        if 'body' in input and input['body'] is not None:
-            pr.body = input['body']
+        if "body" in input and input["body"] is not None:
+            pr.body = input["body"]
 
     # NB: This may have a payload, but we don't
     # use it so I didn't bother constructing it.
-    def _set_default_branch(self, owner: str, name: str,
-                            input: SetDefaultBranchInput) -> None:
+    def _set_default_branch(
+        self, owner: str, name: str, input: SetDefaultBranchInput
+    ) -> None:
         state = self.state
         repo = state.repository(owner, name)
-        repo.defaultBranchRef = repo._make_ref(state, input['default_branch'])
+        repo.defaultBranchRef = repo._make_ref(state, input["default_branch"])
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        if method == 'get':
-            m = re.match(r'^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection', path)
+        if method == "get":
+            m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
             if m:
                 # For now, pretend all branches are not protected
                 raise ghstack.github.NotFoundError()
 
-        elif method == 'post':
-            m = re.match(r'^repos/([^/]+)/([^/]+)/pulls$', path)
+        elif method == "post":
+            m = re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path)
             if m:
-                return self._create_pull(m.group(1), m.group(2),
-                                         cast(CreatePullRequestInput, kwargs))
-        elif method == 'patch':
-            m = re.match(r'^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$', path)
+                return self._create_pull(
+                    m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
+                )
+        elif method == "patch":
+            m = re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path)
             if m:
                 owner, name, number = m.groups()
                 if number is not None:
                     return self._update_pull(
-                        owner, name, GitHubNumber(int(number)),
-                        cast(UpdatePullRequestInput, kwargs))
-                elif 'default_branch' in kwargs:
+                        owner,
+                        name,
+                        GitHubNumber(int(number)),
+                        cast(UpdatePullRequestInput, kwargs),
+                    )
+                elif "default_branch" in kwargs:
                     return self._set_default_branch(
-                        owner, name,
-                        cast(SetDefaultBranchInput, kwargs))
+                        owner, name, cast(SetDefaultBranchInput, kwargs)
+                    )
         raise NotImplementedError(
-            "FakeGitHubEndpoint REST {} {} not implemented"
-            .format(method.upper(), path)
+            "FakeGitHubEndpoint REST {} {} not implemented".format(method.upper(), path)
         )

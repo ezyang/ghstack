@@ -14,7 +14,8 @@ from ghstack.types import GitCommitHash
 def lookup_pr_to_orig_ref_and_closed(
     github: ghstack.github.GitHubEndpoint, *, owner: str, name: str, number: int
 ) -> Tuple[str, bool]:
-    pr_result = github.graphql("""
+    pr_result = github.graphql(
+        """
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
                 pullRequest(number: $number) {
@@ -23,24 +24,32 @@ def lookup_pr_to_orig_ref_and_closed(
                 }
             }
         }
-    """, owner=owner, name=name, number=number)
+    """,
+        owner=owner,
+        name=name,
+        number=number,
+    )
     pr = pr_result["data"]["repository"]["pullRequest"]
     head_ref = pr["headRefName"]
     closed = pr["closed"]
     assert isinstance(head_ref, str)
-    orig_ref = re.sub(r'/head$', '/orig', head_ref)
+    orig_ref = re.sub(r"/head$", "/orig", head_ref)
     if orig_ref == head_ref:
-        raise RuntimeError("The ref {} doesn't look like a ghstack reference".format(head_ref))
+        raise RuntimeError(
+            "The ref {} doesn't look like a ghstack reference".format(head_ref)
+        )
     return orig_ref, closed
 
 
-def main(pull_request: str,
-         remote_name: str,
-         github: ghstack.github.GitHubEndpoint,
-         sh: ghstack.shell.Shell,
-         github_url: str,
-         *,
-         force: bool = False) -> None:
+def main(
+    pull_request: str,
+    remote_name: str,
+    github: ghstack.github.GitHubEndpoint,
+    sh: ghstack.shell.Shell,
+    github_url: str,
+    *,
+    force: bool = False,
+) -> None:
 
     # We land the entire stack pointed to by a URL.
     # Local state is ignored; PR is source of truth
@@ -59,15 +68,19 @@ def main(pull_request: str,
 
     needs_force = False
     try:
-        protection = github.get(f"repos/{params['owner']}/{params['name']}/branches/{default_branch}/protection")
+        protection = github.get(
+            f"repos/{params['owner']}/{params['name']}/branches/{default_branch}/protection"
+        )
         if not protection["allow_force_pushes"]["enabled"]:
-            raise RuntimeError("""\
+            raise RuntimeError(
+                """\
 Default branch {default_branch} is protected, and doesn't allow force pushes.
 ghstack land does not work.  You will not be able to land your ghstack; please
 resubmit your PRs using the normal pull request flow.
 
 See https://github.com/ezyang/ghstack/issues/50 for more details, or
-to complain to the ghstack authors.""")
+to complain to the ghstack authors."""
+            )
         else:
             needs_force = True
     except ghstack.github.NotFoundError:
@@ -87,7 +100,9 @@ to complain to the ghstack authors.""")
     # Get up-to-date
     sh.git("fetch", "--prune", remote_name)
     remote_orig_ref = remote_name + "/" + orig_ref
-    base = GitCommitHash(sh.git("merge-base", f"{remote_name}/{default_branch}", remote_orig_ref))
+    base = GitCommitHash(
+        sh.git("merge-base", f"{remote_name}/{default_branch}", remote_orig_ref)
+    )
 
     # compute the stack of commits in chronological order (does not
     # include base)
@@ -117,7 +132,8 @@ to complain to the ghstack authors.""")
                 github,
                 owner=pr_resolved.owner,
                 name=pr_resolved.repo,
-                number=pr_resolved.number)
+                number=pr_resolved.number,
+            )
             if closed and not force:
                 continue
             stack_orig_refs.append((ref, pr_resolved))
@@ -144,8 +160,8 @@ to complain to the ghstack authors.""")
 
         for orig_ref, pr_resolved in stack_orig_refs:
             # TODO: regex here so janky
-            base_ref = re.sub(r'/orig$', '/base', orig_ref)
-            head_ref = re.sub(r'/orig$', '/head', orig_ref)
+            base_ref = re.sub(r"/orig$", "/base", orig_ref)
+            head_ref = re.sub(r"/orig$", "/head", orig_ref)
             sh.git("push", remote_name, f"{remote_name}/{head_ref}:{base_ref}")
             github.notify_merged(pr_resolved)
 
@@ -153,13 +169,15 @@ to complain to the ghstack authors.""")
         maybe_force_arg = []
         if needs_force:
             maybe_force_arg = ["--force-with-lease"]
-        sh.git("push", *maybe_force_arg, remote_name, f"HEAD:refs/heads/{default_branch}")
+        sh.git(
+            "push", *maybe_force_arg, remote_name, f"HEAD:refs/heads/{default_branch}"
+        )
 
         # Delete the branches
         for orig_ref, _ in stack_orig_refs:
             # TODO: regex here so janky
-            base_ref = re.sub(r'/orig$', '/base', orig_ref)
-            head_ref = re.sub(r'/orig$', '/head', orig_ref)
+            base_ref = re.sub(r"/orig$", "/base", orig_ref)
+            head_ref = re.sub(r"/orig$", "/head", orig_ref)
             sh.git("push", remote_name, "--delete", orig_ref, base_ref, head_ref)
 
     finally:

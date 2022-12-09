@@ -10,11 +10,11 @@ import aiohttp
 import ghstack.cache
 import ghstack.circleci
 
-RE_BUILD_PATH = re.compile(r'^project/github/[^/]+/[^/]+/[0-9]+$')
+RE_BUILD_PATH = re.compile(r"^project/github/[^/]+/[^/]+/[0-9]+$")
 
 
 class RealCircleCIEndpoint(ghstack.circleci.CircleCIEndpoint):
-    rest_endpoint: str = 'https://circleci.com/api/v1.1'
+    rest_endpoint: str = "https://circleci.com/api/v1.1"
 
     # The API token to authenticate to CircleCI with
     # https://circleci.com/account/api
@@ -24,43 +24,42 @@ class RealCircleCIEndpoint(ghstack.circleci.CircleCIEndpoint):
     # Facebook users, this is typically 'http://fwdproxy:8080')
     proxy: Optional[str]
 
-    def __init__(self,
-                 *,
-                 circle_token: Optional[str] = None,
-                 proxy: Optional[str] = None):
+    def __init__(
+        self, *, circle_token: Optional[str] = None, proxy: Optional[str] = None
+    ):
         self.circle_token = circle_token
         self.proxy = proxy
 
     async def rest(self, method: str, path: str, **kwargs: Any) -> Any:
         headers = {
-            'Content-Type': 'application/json',
-            'User-Agent': 'ghstack',
+            "Content-Type": "application/json",
+            "User-Agent": "ghstack",
         }
 
-        url = self.rest_endpoint + '/' + path
+        url = self.rest_endpoint + "/" + path
         logging.debug("# {} {}".format(method, url))
         logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
         params = {}
         if self.circle_token:
-            params['circle-token'] = self.circle_token
+            params["circle-token"] = self.circle_token
 
-        is_get_build = method == 'get' and RE_BUILD_PATH.match(path)
+        is_get_build = method == "get" and RE_BUILD_PATH.match(path)
 
         if is_get_build:
             # consult cache
-            cache_result = ghstack.cache.get('circleci', path)
+            cache_result = ghstack.cache.get("circleci", path)
             if cache_result is not None:
                 logging.debug("Retrieved result from cache")
                 return json.loads(cache_result)
 
         async with aiohttp.request(
-                method.upper(),
-                url,
-                params=params,
-                json=kwargs,
-                headers=headers,
-                proxy=self.proxy,
+            method.upper(),
+            url,
+            params=params,
+            json=kwargs,
+            headers=headers,
+            proxy=self.proxy,
         ) as resp:
             logging.debug("Response status: {}".format(resp.status))
 
@@ -83,6 +82,6 @@ class RealCircleCIEndpoint(ghstack.circleci.CircleCIEndpoint):
             # NB: Don't save to cache if it's still running
             if is_get_build and r["outcome"] is not None:
                 logging.debug("Saving result to cache")
-                ghstack.cache.put('circleci', path, r_text)
+                ghstack.cache.put("circleci", path, r_text)
 
             return r
