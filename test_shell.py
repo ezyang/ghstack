@@ -36,53 +36,56 @@ class TestShell(expecttest.TestCase):
         self.sh = ghstack.shell.Shell()
 
     def emit(self, *payload: ConsoleMsg, **kwargs: Any) -> ghstack.shell._SHELL_RET:
-        args: List[str] = [sys.executable, 'emitter.py']
+        args: List[str] = [sys.executable, "emitter.py"]
         for p in payload:
             if isinstance(p, out):
-                args.extend(('o', p.msg))
+                args.extend(("o", p.msg))
             elif isinstance(p, err):
-                args.extend(('e', p.msg))
+                args.extend(("e", p.msg))
             elif isinstance(p, big_dump):
-                args.extend(('r', '-'))
+                args.extend(("r", "-"))
         return self.sh.sh(*args, **kwargs)
 
-    def flog(self, cm: 'unittest._AssertLogsContext') -> str:  # type: ignore[name-defined]
+    def flog(self, cm: "unittest._AssertLogsContext") -> str:  # type: ignore[name-defined]
         def redact(s: str) -> str:
-            s = s.replace(sys.executable, 'python')
+            s = s.replace(sys.executable, "python")
             return s
-        return '\n'.join(redact(r.getMessage()) for r in cm.records)
+
+        return "\n".join(redact(r.getMessage()) for r in cm.records)
 
     def test_stdout(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(
-                out("arf\n")
-            )
-        self.assertExpectedInline(self.flog(cm), '''\
+            self.emit(out("arf\n"))
+        self.assertExpectedInline(
+            self.flog(cm),
+            """\
 $ python emitter.py o 'arf\n'
 arf
-''')
+""",
+        )
 
     def test_stderr(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(
-                err("arf\n")
-            )
-        self.assertExpectedInline(self.flog(cm), '''\
+            self.emit(err("arf\n"))
+        self.assertExpectedInline(
+            self.flog(cm),
+            """\
 $ python emitter.py e 'arf\n'
 # stderr:
 arf
-''')
+""",
+        )
 
     def test_stdout_passthru(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(
-                out("arf\n"),
-                stdout=None
-            )
-        self.assertExpectedInline(self.flog(cm), '''\
+            self.emit(out("arf\n"), stdout=None)
+        self.assertExpectedInline(
+            self.flog(cm),
+            """\
 $ python emitter.py o 'arf\n'
 arf
-''')
+""",
+        )
 
     def test_stdout_with_stderr_prefix(self) -> None:
         # What most commands should look like
@@ -92,9 +95,11 @@ arf
                 err("Step 2...\n"),
                 err("Step 3...\n"),
                 out("out\n"),
-                stdout=None
+                stdout=None,
             )
-        self.assertExpectedInline(self.flog(cm), '''\
+        self.assertExpectedInline(
+            self.flog(cm),
+            """\
 $ python emitter.py e 'Step 1...\n' e 'Step 2...\n' e 'Step 3...\n' o 'out\n'
 # stderr:
 Step 1...
@@ -103,19 +108,16 @@ Step 3...
 
 # stdout:
 out
-''')
+""",
+        )
 
     def test_interleaved_stdout_stderr_passthru(self) -> None:
         # NB: stdout is flushed in each of these cases
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(
-                out("A\n"),
-                err("B\n"),
-                out("C\n"),
-                err("D\n"),
-                stdout=None
-            )
-        self.assertExpectedInline(self.flog(cm), '''\
+            self.emit(out("A\n"), err("B\n"), out("C\n"), err("D\n"), stdout=None)
+        self.assertExpectedInline(
+            self.flog(cm),
+            """\
 $ python emitter.py o 'A\n' e 'B\n' o 'C\n' e 'D\n'
 # stderr:
 B
@@ -124,16 +126,15 @@ D
 # stdout:
 A
 C
-''')
+""",
+        )
 
     def test_deadlock(self) -> None:
-        self.emit(
-            big_dump()
-        )
+        self.emit(big_dump())
 
     def test_uses_raw_fd(self) -> None:
         self.emit(out("A\n"), stdout=sys.stdout)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

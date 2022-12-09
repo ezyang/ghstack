@@ -13,19 +13,21 @@ import ghstack.circleci
 import ghstack.github
 import ghstack.github_utils
 
-RE_CIRCLECI_URL = re.compile(r'^https://circleci.com/gh/pytorch/pytorch/([0-9]+)')
+RE_CIRCLECI_URL = re.compile(r"^https://circleci.com/gh/pytorch/pytorch/([0-9]+)")
 
 
 def strip_sccache(x: str) -> str:
     sccache_marker = "=================== sccache compilation log ==================="
     marker_pos = x.rfind(sccache_marker)
-    newline_before_marker_pos = x.rfind('\n', 0, marker_pos)
+    newline_before_marker_pos = x.rfind("\n", 0, marker_pos)
     return x[:newline_before_marker_pos]
 
 
-async def main(pull_request: str,
-         github: ghstack.github.GitHubEndpoint,
-         circleci: ghstack.circleci.CircleCIEndpoint) -> None:
+async def main(
+    pull_request: str,
+    github: ghstack.github.GitHubEndpoint,
+    circleci: ghstack.circleci.CircleCIEndpoint,
+) -> None:
 
     # Game plan:
     # 1. Query GitHub to find out what the current statuses are
@@ -47,7 +49,8 @@ async def main(pull_request: str,
     params = ghstack.github_utils.parse_pull_request(pull_request)
 
     # TODO: stop hard-coding number of commits
-    r = github.graphql("""
+    r = github.graphql(
+        """
     query ($name: String!, $owner: String!, $number: Int!) {
         repository(name: $name, owner: $owner) {
             pullRequest(number: $number) {
@@ -69,33 +72,39 @@ async def main(pull_request: str,
             }
         }
     }
-    """, **params)
-    nodes = r['data']['repository']['pullRequest']['commits']['nodes']
+    """,
+        **params
+    )
+    nodes = r["data"]["repository"]["pullRequest"]["commits"]["nodes"]
 
     async def process_node(n: Dict[str, Any]) -> str:
-        commit = n['commit']
-        status = commit['status']
+        commit = n["commit"]
+        status = commit["status"]
         icon = "❔"
         text = ""
         buildid_text = ""
         if status is not None:
-            contexts = status['contexts']
+            contexts = status["contexts"]
         else:
             contexts = []
         for c in contexts:
             # TODO: Stop hard-coding me
-            if c['context'] != 'ci/circleci: pytorch_linux_xenial_py3_clang5_asan_test':
+            if c["context"] != "ci/circleci: pytorch_linux_xenial_py3_clang5_asan_test":
                 continue
-            m = RE_CIRCLECI_URL.match(c['targetUrl'])
+            m = RE_CIRCLECI_URL.match(c["targetUrl"])
             if not m:
                 icon = "🍆"
                 break
-            if c['state'] == 'SUCCESS':
+            if c["state"] == "SUCCESS":
                 icon = "✅"
                 break
             buildid = m.group(1)
             buildid_text = " ({})".format(buildid)
-            r = await circleci.get("project/github/{name}/{owner}/{buildid}".format(buildid=buildid, **params))
+            r = await circleci.get(
+                "project/github/{name}/{owner}/{buildid}".format(
+                    buildid=buildid, **params
+                )
+            )
             if not r["failed"]:
                 # It was just cancelled (don't check "cancelled"; that's
                 # true even if the job failed otherwise; it just means
@@ -103,14 +112,18 @@ async def main(pull_request: str,
                 icon = "❔"
                 break
             icon = "❌"
-            async with aiohttp.request('get', r['steps'][-1]['actions'][-1]['output_url']) as resp:
+            async with aiohttp.request(
+                "get", r["steps"][-1]["actions"][-1]["output_url"]
+            ) as resp:
                 log_json = await resp.json()
                 buf = []
                 for e in log_json:
                     buf.append(e["message"])
                 text = "\n" + strip_sccache("\n".join(buf))
                 text = text[-1500:]
-        return "{} {} {}{}{}".format(icon, commit['oid'][:8], commit['messageHeadline'], buildid_text, text)
+        return "{} {} {}{}{}".format(
+            icon, commit["oid"][:8], commit["messageHeadline"], buildid_text, text
+        )
 
     for n in nodes:
         print(await process_node(n))
