@@ -2,7 +2,7 @@
 
 import os.path
 import re
-from dataclasses import dataclass  # Oof! Python 3.7 only!!
+from dataclasses import dataclass
 from typing import Any, Dict, List, NewType, Optional, Sequence, cast
 
 import graphql
