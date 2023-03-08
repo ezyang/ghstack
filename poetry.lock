@@ -104,7 +104,7 @@ unicode_backport = ["unicodedata2"]
 name = "click"
 version = "8.1.3"
 description = "Composable command line interface toolkit"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 
@@ -115,7 +115,7 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
-category = "dev"
+category = "main"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 
@@ -432,7 +432,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "f367dc89e9ae393b41a0f6afe3790f9e3cdad1e57435ca82e0629d82ab6605d3"
+content-hash = "cb8e31485a3151c9c9a332232d78815a2ddfec0d64f4176cd0c3ec0a59945ef5"
 
 [metadata.files]
 aiohttp = []
