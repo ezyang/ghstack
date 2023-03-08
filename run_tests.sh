@@ -1,7 +1,7 @@
 #!/bin/sh
 set -ex
-isort --check --diff ghstack
-black --check ghstack
+export LIBCST_PARSER_TYPE=native
+ufmt check ghstack
 flake8 ghstack
 mypy --install-types --non-interactive -m ghstack
 pytest --verbose

@@ -29,13 +29,11 @@ expecttest = "^0.1"
 flake8 = "^3"
 graphql-core = "^3"
 hypothesis = "^6"
-isort = "^5"
 mypy = "^1"
 pytest = "^6"
+usort = "^1"
+ufmt = "^2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.isort]
-profile = "black"
