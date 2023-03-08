@@ -244,27 +244,30 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "mypy"
-version = "0.800"
+version = "1.1.1"
 description = "Optional static typing for Python"
 category = "dev"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=3.7"
 
 [package.dependencies]
-mypy-extensions = ">=0.4.3,<0.5.0"
-typed-ast = ">=1.4.0,<1.5.0"
-typing-extensions = ">=3.7.4"
+mypy-extensions = ">=1.0.0"
+tomli = {version = ">=1.1.0", markers = "python_version < \"3.11\""}
+typing-extensions = ">=3.10"
 
 [package.extras]
 dmypy = ["psutil (>=4.0)"]
+install-types = ["pip"]
+python2 = ["typed-ast (>=1.4.0,<2)"]
+reports = ["lxml"]
 
 [[package]]
 name = "mypy-extensions"
-version = "0.4.3"
-description = "Experimental type system extensions for programs checked with the mypy typechecker."
+version = "1.0.0"
+description = "Type system extensions for programs checked with the mypy type checker."
 category = "dev"
 optional = false
-python-versions = "*"
+python-versions = ">=3.5"
 
 [[package]]
 name = "packaging"
@@ -394,14 +397,6 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
-name = "typed-ast"
-version = "1.4.3"
-description = "a fork of Python 2 and 3 ast modules with type comment support"
-category = "dev"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "typing-extensions"
 version = "4.4.0"
 description = "Backported and Experimental Type Hints for Python 3.7+"
@@ -437,7 +432,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d3a07d5eddaca33e2ae616cd833f046b8c28f7f8cb478e4eee96a5031678acb3"
+content-hash = "f367dc89e9ae393b41a0f6afe3790f9e3cdad1e57435ca82e0629d82ab6605d3"
 
 [metadata.files]
 aiohttp = []
@@ -475,7 +470,6 @@ requests = []
 sortedcontainers = []
 toml = []
 tomli = []
-typed-ast = []
 typing-extensions = []
 urllib3 = []
 yarl = []
