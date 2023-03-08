@@ -3,7 +3,7 @@
 import os.path
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, NewType, Optional, Sequence, cast
+from typing import Any, cast, Dict, List, NewType, Optional, Sequence
 
 import graphql
 from typing_extensions import TypedDict

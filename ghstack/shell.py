@@ -6,7 +6,7 @@ import os
 import shlex
 import subprocess
 import sys
-from typing import IO, Any, Dict, Optional, Sequence, Tuple, TypeVar, Union, overload
+from typing import Any, Dict, IO, Optional, overload, Sequence, Tuple, TypeVar, Union
 
 # Shell commands generally return str, but with exitcode=True
 # they return a bool, and if stdout is piped straight to sys.stdout
