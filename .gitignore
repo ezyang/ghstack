@@ -5,4 +5,6 @@
 dist
 build
 .mypy_cache
+.python-version
+.venv/
 .vscode
