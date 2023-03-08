@@ -16,15 +16,14 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+      - name: Install Poetry
+        run: pipx install poetry==1.1.7
       - name: Install Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Poetry
-        uses: Gr1N/setup-poetry@v4
-        with:
-          poetry-version: 1.1.7
+          cache: poetry
       - name: Install dependencies
         run: poetry install
       - name: Run tests
