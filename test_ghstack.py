@@ -473,7 +473,7 @@ cc @foobar @Ivan""",
 
         self.sh.test_tick()
         self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.gh("Update 1")
 
         # Ensure no mentions in the log
@@ -533,7 +533,7 @@ Repository state:
         )
 
         self.sh.git("rm", "bar")
-        self.sh.git("commit", "--amend", "--allow-empty")
+        self.sh.git("commit", "--amend", "--allow-empty", "--no-edit")
         self.sh.test_tick()
         self.gh("Update")
         self.assertExpectedInline(
@@ -593,7 +593,7 @@ Repository state:
         print("### Amend the commit")
         self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.substituteRev("HEAD", "rCOM2")
         self.sh.test_tick()
         self.gh("Update A")
@@ -706,7 +706,7 @@ Repository state:
         print("### Amend the commit")
         self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.sh.test_tick()
         self.gh("Update A")
 
@@ -714,7 +714,7 @@ Repository state:
         self.sh.git("reset", "--hard", old_head)
         self.writeFileAndAdd("file1.txt", "BAAB")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.sh.test_tick()
         self.assertRaises(RuntimeError, lambda: self.gh("Update B"))
 
@@ -830,7 +830,7 @@ Repository state:
         print("### Amend the top commit")
         self.writeFileAndAdd("file2.txt", "BAAB")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.substituteRev("HEAD", "rCOM2A")
         self.sh.test_tick()
         self.gh("Update A")
@@ -929,7 +929,7 @@ Repository state:
         self.sh.git("checkout", "HEAD~")
         self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.substituteRev("HEAD", "rCOM1A")
         self.sh.test_tick()
         self.gh("Update A")
@@ -1076,7 +1076,7 @@ Repository state:
         self.sh.git("checkout", "HEAD~")
         self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.substituteRev("HEAD", "rCOM1A")
         self.sh.test_tick()
 
@@ -1552,7 +1552,7 @@ Repository state:
         print("###")
         print("### Submit an update")
         self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.sh.test_tick()
         self.gh("Update 1")
         self.sh.test_tick()
@@ -2202,7 +2202,7 @@ rINI0 Initial commit""",
         self.sh.git("checkout", "HEAD~")
         self.writeFileAndAdd("file1.txt", "ABBA")
         # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend")
+        self.sh.git("commit", "--amend", "--no-edit")
         self.substituteRev("HEAD", "rCOM1A")
         self.gh("Update")
 
