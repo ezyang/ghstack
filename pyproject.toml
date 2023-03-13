@@ -31,7 +31,7 @@ graphql-core = "^3"
 hypothesis = "^6"
 isort = "^5"
 mypy = "^1"
-pytest = "^6"
+pytest = "^7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
