@@ -45,15 +45,38 @@ def cli_context(
 @click.pass_context
 @click.version_option(ghstack.__version__, "--version", "-V")
 @click.option("--debug", is_flag=True, help="Log debug information to stderr")
-def main(ctx: click.Context, debug: bool) -> None:
+# hidden arguments that we'll pass along to submit if no other command given
+@click.option("--message", "-m", default="Update", hidden=True)
+@click.option("--update-fields", "-u", is_flag=True, hidden=True)
+@click.option("--short", is_flag=True, hidden=True)
+@click.option("--force", is_flag=True, hidden=True)
+@click.option("--no-skip", is_flag=True, hidden=True)
+@click.option("--draft", is_flag=True, hidden=True)
+def main(
+    ctx: click.Context,
+    debug: bool,
+    message: str,
+    update_fields: bool,
+    short: bool,
+    force: bool,
+    no_skip: bool,
+    draft: bool,
+) -> None:
     """
     Submit stacks of diffs to Github
     """
     EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
 
     if not ctx.invoked_subcommand:
-        print("defaulting to submit")
-        return ctx.invoke(submit)
+        return ctx.invoke(
+            submit,
+            message=message,
+            update_fields=update_fields,
+            short=short,
+            force=force,
+            no_skip=no_skip,
+            draft=draft,
+        )
 
 
 @main.command("action")
