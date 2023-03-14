@@ -14,7 +14,7 @@ classifiers = [
 ]
 
 [tool.poetry.scripts]
-ghstack = "ghstack.__main__:main"
+ghstack = "ghstack.cli:main"
 
 [tool.poetry.dependencies]
 aiohttp = "^3"
@@ -22,6 +22,7 @@ importlib-metadata = { version = ">=1.4", python = "<3.8" }
 python = "^3.8"
 requests = "^2"
 typing-extensions = ">=3 <5"
+click = "^8"
 
 [tool.poetry.dev-dependencies]
 black = "^22.12.0"

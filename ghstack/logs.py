@@ -109,14 +109,6 @@ def manager(*, debug: bool = False) -> Iterator[None]:
         record_exception(e)
         sys.exit(1)
 
-    except BaseException as e:
-        # You could logging.debug here to suppress the backtrace
-        # entirely, but there is no reason to hide it from technically
-        # savvy users.
-        logging.info("", exc_info=True)
-        record_exception(e)
-        sys.exit(1)
-
 
 @functools.lru_cache()
 def base_dir() -> str:
