@@ -6,7 +6,7 @@ Conveniently submit stacks of diffs to GitHub as separate pull requests.
 pip3 install ghstack
 ```
 
-Python 3.6 and greater only.
+Python 3.8 and greater only.
 
 ## How to setup
 
