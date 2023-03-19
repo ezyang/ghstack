@@ -45,7 +45,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
     config_path = None
     current_dir = Path(os.getcwd())
 
-    while current_dir != Path("/"):
+    while current_dir != current_dir.parent:
         tentative_config_path = "/".join([str(current_dir), ".ghstackrc"])
         if os.path.exists(tentative_config_path):
             config_path = tentative_config_path
