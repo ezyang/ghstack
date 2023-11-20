@@ -98,7 +98,7 @@ poetry run python test_ghstack.py
 ```
 That runs most of the tests; you can run all tests (including lints) like this:
 ```
-poetry run ./run_tests.sh
+poetry run python run_tests.py
 ```
 
 ### Publishing
