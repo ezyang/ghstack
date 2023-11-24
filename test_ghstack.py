@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import shutil
+import stat
 import sys
 import tempfile
 import unittest
@@ -68,7 +69,11 @@ class TestGh(expecttest.TestCase):
                 lambda: print("upstream_dir preserved at: {}".format(upstream_dir))
             )
         else:
-            self.addCleanup(lambda: shutil.rmtree(upstream_dir))
+            self.addCleanup(
+                lambda: shutil.rmtree(
+                    upstream_dir,
+                    onerror=self.handle_remove_read_only,
+                ))
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
         self.github = ghstack.github_fake.FakeGitHubEndpoint(self.upstream_sh)
 
@@ -78,12 +83,34 @@ class TestGh(expecttest.TestCase):
                 lambda: print("local_dir preserved at: {}".format(local_dir))
             )
         else:
-            self.addCleanup(lambda: shutil.rmtree(local_dir))
+            self.addCleanup(
+                lambda: shutil.rmtree(
+                    local_dir,
+                    onerror=self.handle_remove_read_only,
+                ))
         self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
 
         self.rev_map = {}
         self.substituteRev(GitCommitHash("HEAD"), SubstituteRev("rINI0"))
+
+    def handle_remove_read_only(self, func, path, exc_info) -> None:
+        """
+        Error handler for ``shutil.rmtree``.
+
+        If the error is due to an access error (read only file),
+        it attempts to add write permission and then retries.
+
+        If the error is for another reason, it re-raises the error.
+
+        Usage : ``shutil.rmtree(path, onerror=onerror)``
+        """
+
+        if not os.access(path, os.W_OK):
+            os.chmod(path, stat.S_IWUSR)
+            func(path)
+        else:
+            raise
 
     def writeFileAndAdd(self, filename: str, contents: str) -> None:
         with self.sh.open(filename, "w") as f:
