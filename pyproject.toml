@@ -19,7 +19,7 @@ ghstack = "ghstack.cli:main"
 [tool.poetry.dependencies]
 aiohttp = "^3"
 importlib-metadata = { version = ">=1.4", python = "<3.8" }
-python = "^3.8"
+python = "^3.8.1"
 requests = "^2"
 typing-extensions = ">=3 <5"
 click = "^8"
@@ -27,7 +27,7 @@ click = "^8"
 [tool.poetry.dev-dependencies]
 black = "^22.12.0"
 expecttest = "^0.1"
-flake8 = "^3"
+flake8 = "^6"
 graphql-core = "^3"
 hypothesis = "^6"
 mypy = "^1"
