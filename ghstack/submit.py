@@ -584,6 +584,27 @@ to disassociate the commit with the pull request, and then try again.
             self.sh.git("rev-parse", self.base_orig + "^{tree}")
         )
 
+    def git_push(self, branches, force=False):
+        assert branches, "empty branches would push master, probably bad!"
+        try:
+            self.sh.git(
+                "push",
+                self.remote_name,
+                *(["--force"] if force else []),
+                *branches,
+            )
+        except RuntimeError as e:
+            remote_url = self.sh.git("remote", "get-url", "--push", self.remote_name)
+            if remote_url.startswith("https://"):
+                raise RuntimeError(
+                    "[E001] git push failed, probably because it asked for password "
+                    "(scroll up to see original error).  "
+                    "Change your git URL to use SSH instead of HTTPS to enable passwordless push.  "
+                    "See https://github.com/ezyang/ghstack/wiki/E001 for more details."
+                ) from e
+            raise
+        self.github.push_hook(branches)
+
     def process_new_commit(self, commit: ghstack.diff.Diff) -> None:
         """
         Process a diff that has never been pushed to GitHub before.
@@ -655,12 +676,7 @@ Since we cannot proceed, ghstack will abort now.
             push_spec(new_pull, branch_head(self.username, ghnum)),
             push_spec(self.base_commit, branch_base(self.username, ghnum)),
         )
-        self.sh.git(
-            "push",
-            self.remote_name,
-            *new_branches,
-        )
-        self.github.push_hook(new_branches)
+        self.git_push(new_branches)
 
         # Time to open the PR
         # NB: GraphQL API does not support opening PRs
@@ -1089,14 +1105,11 @@ Since we cannot proceed, ghstack will abort now.
         # Careful!  Don't push master.
         # TODO: These pushes need to be atomic (somehow)
         if base_push_branches:
-            self.sh.git("push", self.remote_name, *base_push_branches)
-            self.github.push_hook(base_push_branches)
+            self.git_push(base_push_branches)
         if push_branches:
-            self.sh.git("push", self.remote_name, *push_branches)
-            self.github.push_hook(push_branches)
+            self.git_push(push_branches)
         if force_push_branches:
-            self.sh.git("push", self.remote_name, "--force", *force_push_branches)
-            self.github.push_hook(force_push_branches)
+            self.git_push(force_push_branches, force=True)
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
