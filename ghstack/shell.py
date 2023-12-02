@@ -255,6 +255,10 @@ class Shell(object):
         env = kwargs.setdefault("env", {})
         # For git hooks to detect execution inside ghstack
         env.setdefault("GHSTACK", "1")
+        # For dealing with https://github.com/ezyang/ghstack/issues/174
+        env.setdefault(
+            "GIT_TERMINAL_PROMPT", os.environ.get("GIT_TERMINAL_PROMPT", "0")
+        )
         # Some envvars to make things a little more script mode nice
         if self.testing:
             env.setdefault("EDITOR", ":")
