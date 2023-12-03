@@ -18,6 +18,10 @@ def grouper(n: int, iterable: Sequence[T]) -> Iterator[Tuple[T, ...]]:
 
 if __name__ == "__main__":
     for mode, payload in grouper(2, sys.argv[1:]):
+        # NB: this is \n and not linesep because we are going to send
+        # payload to a text mode stream (stderr/stdout) which will
+        # automatically translate to native layout as needed
+        payload = payload.replace(r"\n", "\n")
         if mode == "e":
             print(payload, end="", file=sys.stderr)
             sys.stderr.flush()
