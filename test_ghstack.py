@@ -181,6 +181,7 @@ class TestGh(expecttest.TestCase):
                   headRefName
                   title
                   body
+                  closed
                 }
               }
             }
@@ -191,15 +192,19 @@ class TestGh(expecttest.TestCase):
         refs = ""
         for pr in r["data"]["repository"]["pullRequests"]["nodes"]:
             pr["body"] = indent(pr["body"].replace("\r", ""), "    ")
-            pr["commits"] = self.upstream_sh.git(
-                "log",
-                "--reverse",
-                "--pretty=format:%h %s",
-                pr["baseRefName"] + ".." + pr["headRefName"],
-            )
-            pr["commits"] = indent(pr["commits"], "     * ")
+            if not pr["closed"]:
+                pr["commits"] = self.upstream_sh.git(
+                    "log",
+                    "--reverse",
+                    "--pretty=format:%h %s",
+                    pr["baseRefName"] + ".." + pr["headRefName"],
+                )
+                pr["commits"] = indent(pr["commits"], "     * ")
+            else:
+                pr["commits"] = "      (omitted)"
+            pr["status"] = "[X]" if pr["closed"] else "[O]"
             prs.append(
-                "#{number} {title} ({headRefName} -> {baseRefName})\n\n"
+                "{status} #{number} {title} ({headRefName} -> {baseRefName})\n\n"
                 "{body}\n\n{commits}\n\n".format(**pr)
             )
             # TODO: Use of git --graph here is a bit of a loaded
@@ -298,7 +303,7 @@ class TestGh(expecttest.TestCase):
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -329,7 +334,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -339,7 +344,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -383,7 +388,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -410,7 +415,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -420,7 +425,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -460,7 +465,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 2 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 2 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -542,7 +547,7 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -566,7 +571,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -600,7 +605,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -628,7 +633,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -664,7 +669,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -697,7 +702,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -770,7 +775,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -780,7 +785,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -825,7 +830,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -835,7 +840,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -865,7 +870,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -875,7 +880,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -922,7 +927,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -932,7 +937,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -964,7 +969,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -974,7 +979,7 @@ Repository state:
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1006,7 +1011,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1017,7 +1022,7 @@ Repository state:
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1069,7 +1074,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1079,7 +1084,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1119,7 +1124,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1130,7 +1135,7 @@ Repository state:
      * rMRG1 Commit 1
      * rMRG1A Update A on "Commit 1"
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1186,7 +1191,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1196,7 +1201,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1241,7 +1246,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1252,7 +1257,7 @@ Repository state:
      * rMRG1 Commit 1
      * rMRG1A Rebase on "Commit 1"
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1316,7 +1321,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1326,7 +1331,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1367,7 +1372,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1377,7 +1382,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1422,7 +1427,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1432,7 +1437,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1467,7 +1472,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1478,7 +1483,7 @@ Repository state:
      * rMRG1 Commit 1
      * rMRG1A Reorder on "Commit 1"
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * #500
@@ -1527,7 +1532,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1559,7 +1564,7 @@ Directly updated message body""",
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * **#500 Commit 1**
@@ -1589,7 +1594,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1627,7 +1632,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1671,7 +1676,7 @@ Directly updated message body""".replace(
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -1681,7 +1686,7 @@ Directly updated message body""".replace(
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -1737,7 +1742,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1765,7 +1770,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Directly updated message body
 
@@ -1787,7 +1792,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1824,7 +1829,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1852,7 +1857,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Amended (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Amended (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1894,7 +1899,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -1924,7 +1929,7 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
 
 
@@ -1950,7 +1955,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -2000,7 +2005,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -2010,7 +2015,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -2046,7 +2051,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -2056,7 +2061,7 @@ Repository state:
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -2296,7 +2301,7 @@ rINI0 Initial commit""",
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -2306,7 +2311,7 @@ rINI0 Initial commit""",
 
      * rMRG1 Commit 1
 
-#501 Commit 1 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 1 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -2316,7 +2321,7 @@ rINI0 Initial commit""",
 
      * rMRG2 Commit 1
 
-#502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
+[O] #502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
 
     Stack:
     * #503
@@ -2326,7 +2331,7 @@ rINI0 Initial commit""",
 
      * rMRG1 Commit 1
 
-#503 Commit 1 (gh/ezyang/4/head -> gh/ezyang/4/base)
+[O] #503 Commit 1 (gh/ezyang/4/head -> gh/ezyang/4/base)
 
     Stack:
     * __->__ #503
@@ -2370,7 +2375,7 @@ Repository state:
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -2422,7 +2427,7 @@ rINI0 Initial commit""",
         self.assertExpectedInline(
             self.dump_github(),
             """\
-#500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
@@ -2431,7 +2436,7 @@ rINI0 Initial commit""",
 
      * rMRG1 Commit 1
 
-#501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
@@ -2469,6 +2474,89 @@ rINI0 Initial commit""",
 rUP1 Commit 1
 rINI0 Initial commit""",
         )
+
+    # ------------------------------------------------------------------------- #
+
+    def test_update_after_land(self) -> None:
+        # make stack of two
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        (diff1, diff2) = self.gh("Initial 1")
+        self.substituteRev("origin/gh/ezyang/1/head", "rSELF1")
+        self.substituteRev("origin/gh/ezyang/2/head", "rSELF2A")
+
+        # setup an upstream commit, so the land isn't just trivial
+        self.sh.git("reset", "--hard", "origin/master")
+        self.writeFileAndAdd("file0.txt", "B")
+        self.sh.git("commit", "-m", "Upstream commit")
+        self.substituteRev("HEAD", "rUP1")
+        self.sh.git("push")
+
+        # land first pr
+        self.gh_land(diff1.pr_url)
+        self.substituteRev("origin/master", "rSELF1")
+
+        # go back to stack
+        self.sh.git("checkout", "gh/ezyang/2/orig")
+
+        # update second pr
+        self.writeFileAndAdd("file3.txt", "A")
+        self.sh.git("commit", "--amend")
+        self.sh.test_tick()
+
+        # try to push
+        self.assertRaisesRegex(RuntimeError, 'git rebase', lambda: self.gh("Run 2"))
+
+        # show the remediation works
+        self.sh.git("rebase", "origin/master")
+        self.gh("Run 3")
+        self.substituteRev("origin/gh/ezyang/2/base", "rBASE2B")
+        self.substituteRev("origin/gh/ezyang/2/head", "rSELF2B")
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[X] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501
+    * __->__ #500
+
+    This is my first commit
+
+      (omitted)
+
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+
+    This is my second commit
+
+     * rSELF2A Commit 2
+     * rSELF2B Run 3 on "Commit 2"
+
+Repository state:
+
+    *   rSELF2B (gh/ezyang/2/head) Run 3 on "Commit 2"
+    |\\
+    | *   rBASE2B (gh/ezyang/2/base) Update base for Run 3 on "Commit 2"
+    | |\\
+    | | * rSELF1 (HEAD -> master) Commit 1
+    | | * rUP1 Upstream commit
+    * | | rSELF2A Commit 2
+    |/ /
+    * / rSELF1 Commit 1
+    |/
+    * rINI0 Initial commit
+
+"""
+        )
+
 
     # ------------------------------------------------------------------------- #
 

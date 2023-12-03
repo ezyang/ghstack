@@ -521,14 +521,22 @@ to disassociate the commit with the pull request, and then try again.
 
         # TODO: remote summary should be done earlier so we can use
         # it to test if updates are necessary
-        remote_summary = ghstack.git.split_header(
-            self.sh.git(
+
+        try:
+            rev_list = self.sh.git(
                 "rev-list",
                 "--max-count=1",
                 "--header",
                 self.remote_name + "/" + branch_orig(username, gh_number),
             )
-        )[0]
+        except RuntimeError as e:
+            if r["closed"]:
+                raise RuntimeError(
+                    f"Cannot ghstack past already landed PR #{number}.  "
+                    "Run `git rebase` and try again."
+                ) from e
+            raise
+        remote_summary = ghstack.git.split_header(rev_list)[0]
         m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
         remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
 
