@@ -2771,10 +2771,14 @@ Repository state:
 
     def test_bullet_divider(self) -> None:
         self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", """This is my commit
+        self.sh.git(
+            "commit",
+            "-m",
+            """This is my commit
 
 * It starts with a fabulous
-* Bullet list""")
+* Bullet list""",
+        )
         self.sh.test_tick()
         self.gh("Initial")
         self.substituteRev("origin/gh/ezyang/1/head", "rHEAD")

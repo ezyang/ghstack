@@ -117,7 +117,7 @@ def starts_with_bullet(body: str) -> bool:
     Returns True if the string in question begins with a Markdown
     bullet list
     """
-    return bool(re.match(r'^[\s\t]*[*\-+][\s\t]+', body))
+    return bool(re.match(r"^[\s\t]*[*\-+][\s\t]+", body))
 
 
 @dataclass
