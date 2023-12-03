@@ -197,14 +197,18 @@ class Shell(object):
         loop = asyncio.get_event_loop()
         returncode, out, err = loop.run_until_complete(run())
 
+        def decode(b):
+            return (
+                b.decode(errors="backslashreplace")
+                .replace("\0", "\\0")
+                .replace("\r\n", "\n")
+            )
+
         # NB: Not debug; we always want to show this to user.
         if err:
-            logging.debug("# stderr:\n" + err.decode(errors="backslashreplace"))
+            logging.debug("# stderr:\n" + decode(err))
         if out:
-            logging.debug(
-                ("# stdout:\n" if err else "")
-                + out.decode(errors="backslashreplace").replace("\0", "\\0")
-            )
+            logging.debug(("# stdout:\n" if err else "") + decode(out))
 
         if exitcode:
             logging.debug("Exit code: {}".format(returncode))
