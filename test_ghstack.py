@@ -2560,6 +2560,24 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+
+    def test_minimal_fetch(self) -> None:
+        # Narrow down the fetch on origin
+        self.sh.git("config", "remote.origin.fetch", "+refs/heads/master:refs/remotes/origin/master")
+
+        self.writeFileAndAdd("a", "asdf")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        self.gh("Initial 1")
+
+        self.writeFileAndAdd("a", "asdfb")
+        self.sh.git("commit", "--amend")
+        self.sh.test_tick()
+        self.gh("Update 2")
+
+
+    # ------------------------------------------------------------------------- #
+
     def test_preserve_authorship(self) -> None:
         # make a commit with non-standard author
         self.writeFileAndAdd("file1.txt", "A")
