@@ -2658,6 +2658,65 @@ Committer: C O Mitter <committer@example.com>""",
 
         self.assertRaisesRegex(RuntimeError, "throttle", lambda: self.gh("Initial"))
 
+    # ------------------------------------------------------------------------- #
+
+    def test_land_and_invalid_resubmit(self) -> None:
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        (diff,) = self.gh("Initial")
+        assert diff is not None
+        pr_url = diff.pr_url
+
+        self.gh_land(pr_url)
+
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "--amend")
+        self.assertRaisesRegex(RuntimeError, "closed", lambda: self.gh("Update"))
+
+        # Do the remediation
+        self.gh_unlink()
+        self.sh.git("rebase", "origin/master")
+        self.gh("New PR")
+        self.substituteRev("origin/gh/ezyang/1/base", "rBASE")
+        self.substituteRev("origin/gh/ezyang/1/head", "rHEAD")
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[X] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #500
+
+    This is my first commit
+
+      (omitted)
+
+[O] #501 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #501
+
+    This is my first commit
+
+     * rHEAD Commit 1
+
+Repository state:
+
+    * rHEAD (gh/ezyang/1/head) Commit 1
+    * rBASE (HEAD -> master, gh/ezyang/1/base) Commit 1
+    * rINI0 Initial commit
+
+""",
+        )
+
+        # only the amend shows up now
+        self.assertExpectedInline(
+            self.sh.git("show", "--pretty=", "--name-only", "origin/gh/ezyang/1/orig"),
+            """file2.txt""",
+        )
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, format="%(message)s")
