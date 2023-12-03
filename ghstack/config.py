@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import NamedTuple, Optional
 
+import requests
+
 import ghstack.logs
 
 Config = NamedTuple(
@@ -93,11 +95,29 @@ def read_config(
     if github_oauth is None and config.has_option("ghstack", "github_oauth"):
         github_oauth = config.get("ghstack", "github_oauth")
     if github_oauth is None and request_github_token:
-        github_oauth = getpass.getpass(
-            "GitHub OAuth token (make one at "
-            "https://{github_url}/settings/tokens -- "
-            "we need public_repo permissions): ".format(github_url=github_url)
-        ).strip()
+        print("Generating GitHub access token...")
+        CLIENT_ID = "89cc88ca50efbe86907a"
+        res = requests.post(
+            f"https://{github_url}/login/device/code",
+            headers={"Accept": "application/json"},
+            data={"client_id": CLIENT_ID, "scope": "public_repo"},
+        )
+        data = res.json()
+        print(f"User verification code: {data['user_code']}")
+        print("Go to https://github.com/login/device and enter the code.")
+        print("Once you've authorized ghstack, press any key to continue...")
+        input()
+
+        res = requests.post(
+            f"https://{github_url}/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            data={
+                "client_id": CLIENT_ID,
+                "device_code": data["device_code"],
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            },
+        )
+        github_oauth = res.json()["access_token"]
         config.set("ghstack", "github_oauth", github_oauth)
         write_back = True
     if github_oauth is not None:
@@ -119,6 +139,18 @@ def read_config(
     github_username = None
     if config.has_option("ghstack", "github_username"):
         github_username = config.get("ghstack", "github_username")
+    if github_username is None and github_oauth is not None:
+        res = requests.get(
+            f"https://api.{github_url}/user",
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {github_oauth}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        github_username = res.json()["login"]
+        config.set("ghstack", "github_username", github_username)
+        write_back = True
     if github_username is None:
         github_username = input("GitHub username: ")
         if not re.match(
