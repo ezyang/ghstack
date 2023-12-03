@@ -49,6 +49,7 @@ class TestShell(expecttest.TestCase):
     def flog(self, cm: "unittest._AssertLogsContext") -> str:  # type: ignore[name-defined]
         def redact(s: str) -> str:
             s = s.replace(sys.executable, "python")
+            s = s.replace("'python'", "python")
             return s
 
         return "\n".join(redact(r.getMessage()) for r in cm.records)
