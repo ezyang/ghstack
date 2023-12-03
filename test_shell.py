@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import os
 import sys
 import unittest
 from dataclasses import dataclass
@@ -9,6 +10,9 @@ from typing import Any, List
 import expecttest
 
 import ghstack.shell
+
+
+N = os.linesep
 
 
 @dataclass
@@ -51,28 +55,28 @@ class TestShell(expecttest.TestCase):
             s = s.replace(sys.executable, "python")
             return s
 
-        # NB: not \n so that it works on Windows
-        return """
-""".join(redact(r.getMessage()) for r in cm.records)
+        return N.join(redact(r.getMessage()) for r in cm.records)
 
     def test_stdout(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(out("arf\n"))
+            self.emit(out("arf" + N))
         self.assertExpectedInline(
             self.flog(cm),
             """\
-$ python emitter.py o 'arf\n'
+$ python emitter.py o 'arf
+'
 arf
 """,
         )
 
     def test_stderr(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(err("arf\n"))
+            self.emit(err("arf" + N))
         self.assertExpectedInline(
             self.flog(cm),
             """\
-$ python emitter.py e 'arf\n'
+$ python emitter.py e 'arf
+'
 # stderr:
 arf
 """,
@@ -80,11 +84,12 @@ arf
 
     def test_stdout_passthru(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(out("arf\n"), stdout=None)
+            self.emit(out("arf" + N), stdout=None)
         self.assertExpectedInline(
             self.flog(cm),
             """\
-$ python emitter.py o 'arf\n'
+$ python emitter.py o 'arf
+'
 arf
 """,
         )
@@ -93,16 +98,20 @@ arf
         # What most commands should look like
         with self.assertLogs(level=logging.DEBUG) as cm:
             self.emit(
-                err("Step 1...\n"),
-                err("Step 2...\n"),
-                err("Step 3...\n"),
-                out("out\n"),
+                err("Step 1..." + N),
+                err("Step 2..." + N),
+                err("Step 3..." + N),
+                out("out" + N),
                 stdout=None,
             )
         self.assertExpectedInline(
             self.flog(cm),
             """\
-$ python emitter.py e 'Step 1...\n' e 'Step 2...\n' e 'Step 3...\n' o 'out\n'
+$ python emitter.py e 'Step 1...
+' e 'Step 2...
+' e 'Step 3...
+' o 'out
+'
 # stderr:
 Step 1...
 Step 2...
@@ -116,11 +125,17 @@ out
     def test_interleaved_stdout_stderr_passthru(self) -> None:
         # NB: stdout is flushed in each of these cases
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(out("A\n"), err("B\n"), out("C\n"), err("D\n"), stdout=None)
+            self.emit(
+                out("A" + N), err("B" + N), out("C" + N), err("D" + N), stdout=None
+            )
         self.assertExpectedInline(
             self.flog(cm),
             """\
-$ python emitter.py o 'A\n' e 'B\n' o 'C\n' e 'D\n'
+$ python emitter.py o 'A
+' e 'B
+' o 'C
+' e 'D
+'
 # stderr:
 B
 D
@@ -135,7 +150,7 @@ C
         self.emit(big_dump())
 
     def test_uses_raw_fd(self) -> None:
-        self.emit(out("A\n"), stdout=sys.stdout)
+        self.emit(out("A" + N), stdout=sys.stdout)
 
 
 if __name__ == "__main__":
