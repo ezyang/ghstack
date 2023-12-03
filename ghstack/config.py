@@ -71,9 +71,13 @@ def read_config(
     if config.has_option("ghstack", "github_url"):
         github_url = config.get("ghstack", "github_url")
     else:
-        github_url = input("GitHub url [github.com]: ")
+        github_url = input("GitHub enterprise domain (leave blank for OSS GitHub): ")
         if not github_url:
             github_url = "github.com"
+        if not re.match(r"[\w\.-]+\.\w+$", github_url):
+            raise RuntimeError(
+                f"{github_url} is not a valid domain name (do not include http:// scheme)"
+            )
         config.set("ghstack", "github_url", github_url)
         write_back = True
 
