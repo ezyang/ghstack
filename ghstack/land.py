@@ -86,12 +86,15 @@ to complain to the ghstack authors."""
     except ghstack.github.NotFoundError:
         pass
 
-    orig_ref, _ = lookup_pr_to_orig_ref_and_closed(
+    orig_ref, closed = lookup_pr_to_orig_ref_and_closed(
         github,
         owner=params["owner"],
         name=params["name"],
         number=params["number"],
     )
+
+    if closed:
+        raise RuntimeError("PR is already closed, cannot land it!")
 
     if sh is None:
         # Use CWD

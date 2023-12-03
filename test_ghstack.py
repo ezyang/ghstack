@@ -2573,6 +2573,34 @@ Repository state:
 
     # ------------------------------------------------------------------------- #
 
+    def test_reuse_branch_refuse_land(self) -> None:
+        # make a stack
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
+        self.sh.test_tick()
+        (diff1,) = self.gh("Initial 1")
+        assert diff1 is not None
+
+        # land first pr
+        self.gh_land(diff1.pr_url)
+
+        # make another stack
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
+        self.sh.test_tick()
+        (diff2,) = self.gh("Second 2")
+        assert diff2 is not None
+
+        # check the head number was reused
+        self.assertEqual(diff1.ghnum, diff2.ghnum)
+
+        # refuse to reland first pr
+        self.assertRaisesRegex(
+            RuntimeError, r"already closed", lambda: self.gh_land(diff1.pr_url)
+        )
+
+    # ------------------------------------------------------------------------- #
+
     def test_minimal_fetch(self) -> None:
         # Narrow down the fetch on origin
         self.sh.git(
