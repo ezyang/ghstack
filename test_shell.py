@@ -51,7 +51,9 @@ class TestShell(expecttest.TestCase):
             s = s.replace(sys.executable, "python")
             return s
 
-        return "\n".join(redact(r.getMessage()) for r in cm.records)
+        # NB: not \n so that it works on Windows
+        return """
+""".join(redact(r.getMessage()) for r in cm.records)
 
     def test_stdout(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
