@@ -2769,6 +2769,39 @@ Repository state:
 """,
         )
 
+    def test_bullet_divider(self) -> None:
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", """This is my commit
+
+* It starts with a fabulous
+* Bullet list""")
+        self.sh.test_tick()
+        self.gh("Initial")
+        self.substituteRev("origin/gh/ezyang/1/head", "rHEAD")
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 This is my commit (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #500
+
+    ----
+
+    * It starts with a fabulous
+    * Bullet list
+
+     * rHEAD This is my commit
+
+Repository state:
+
+    * rHEAD (gh/ezyang/1/head) This is my commit
+    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+
+""",
+        )
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, format="%(message)s")
