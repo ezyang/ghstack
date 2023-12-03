@@ -2806,6 +2806,20 @@ Repository state:
 """,
         )
 
+    def test_fail_same_source_id(self) -> None:
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1")
+        self.sh.test_tick()
+        self.gh("Initial")
+
+        # botch it up
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "-C", "HEAD")
+        self.sh.test_tick()
+        self.assertRaisesRegex(
+            RuntimeError, "occurs twice", lambda: self.gh("Should fail")
+        )
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, format="%(message)s")
