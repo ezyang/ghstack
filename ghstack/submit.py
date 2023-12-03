@@ -112,6 +112,14 @@ STACK_HEADER = (
 )
 
 
+def starts_with_bullet(body: str) -> bool:
+    """
+    Returns True if the string in question begins with a Markdown
+    bullet list
+    """
+    return bool(re.match(r"^[\s\t]*[*\-+][\s\t]+", body))
+
+
 @dataclass
 class DiffWithGitHubMetadata:
     diff: ghstack.diff.Diff
@@ -427,6 +435,8 @@ class Submitter(object):
         commit_body = ghstack.diff.re_pull_request_resolved_w_sp(self.github_url).sub(
             "", commit_body
         )
+        if starts_with_bullet(commit_body):
+            commit_body = f"----\n\n{commit_body}"
         pr_body = "{}:\n* (to be filled)\n\n{}{}".format(
             self.stack_header, commit_body, extra
         )
