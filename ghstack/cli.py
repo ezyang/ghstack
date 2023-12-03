@@ -214,6 +214,7 @@ def submit(
     force: bool,
     no_skip: bool,
     draft: bool,
+    base: Optional[str],
 ) -> None:
     """
     Submit or update a PR stack
@@ -231,6 +232,7 @@ def submit(
             draft=draft,
             github_url=config.github_url,
             remote_name=config.remote_name,
+            base=base,
         )
 
 
