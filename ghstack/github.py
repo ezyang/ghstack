@@ -28,7 +28,7 @@ class GitHubEndpoint(metaclass=ABCMeta):
         GraphQL query but if we're hitting a real GitHub endpoint
         we'll do a regular HTTP request to avoid rate limit.
         """
-        self.graphql(
+        pr_result = self.graphql(
             """
             query ($owner: String!, $name: String!, $number: Int!) {
                 repository(name: $name, owner: $owner) {
