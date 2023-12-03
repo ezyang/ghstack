@@ -2649,6 +2649,15 @@ Author: Ben Bitdiddle <benbitdiddle@example.com>
 Committer: C O Mitter <committer@example.com>""",
         )
 
+    # ------------------------------------------------------------------------- #
+
+    def test_throttle(self) -> None:
+        for i in range(10):
+            self.writeFileAndAdd(f"file{i}.txt", "A")
+            self.sh.git("commit", "-m", f"Commit {i}")
+
+        self.assertRaisesRegex(RuntimeError, "throttle", lambda: self.gh("Initial"))
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, format="%(message)s")

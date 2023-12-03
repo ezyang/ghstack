@@ -196,6 +196,13 @@ def main(
 
     assert len(stack) > 0
 
+    if len(stack) > 8 and not force:
+        raise RuntimeError(
+            "Cowardly refusing to handle a stack with more than eight PRs.  "
+            "You are likely to get rate limited by GitHub if you try to create or "
+            "manipulate this many PRs.  You can bypass this throttle using --force"
+        )
+
     run_pre_ghstack_hook(sh, base, stack[0].oid)
 
     ghstack.logs.record_status('{} "{}"'.format(stack[0].oid[:9], stack[0].title))
