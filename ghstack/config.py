@@ -16,7 +16,7 @@ Config = NamedTuple(
         # Proxy to use when making connections to GitHub
         ("proxy", Optional[str]),
         # OAuth token to authenticate to GitHub with
-        ("github_oauth", str),
+        ("github_oauth", Optional[str]),
         # GitHub username; used to namespace branches we create
         ("github_username", str),
         # Token to authenticate to CircleCI with
@@ -39,7 +39,11 @@ Config = NamedTuple(
 )
 
 
-def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
+def read_config(
+    *,
+    request_circle_token: bool = False,
+    request_github_token: bool = True,
+) -> Config:  # noqa: C901
     config = configparser.ConfigParser()
 
     config_path = None
@@ -84,7 +88,7 @@ def read_config(*, request_circle_token: bool = False) -> Config:  # noqa: C901
         )
     if github_oauth is None and config.has_option("ghstack", "github_oauth"):
         github_oauth = config.get("ghstack", "github_oauth")
-    if github_oauth is None:
+    if github_oauth is None and request_github_token:
         github_oauth = getpass.getpass(
             "GitHub OAuth token (make one at "
             "https://{github_url}/settings/tokens -- "

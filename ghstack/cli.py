@@ -28,11 +28,16 @@ GhstackContext = Tuple[
 
 @contextlib.contextmanager
 def cli_context(
+    *,
     request_circle_token: bool = False,
+    request_github_token: bool = True,
 ) -> Generator[GhstackContext, None, None]:
     with EXIT_STACK:
         shell = ghstack.shell.Shell()
-        config = ghstack.config.read_config(request_circle_token=request_circle_token)
+        config = ghstack.config.read_config(
+            request_circle_token=request_circle_token,
+            request_github_token=request_github_token,
+        )
         github = ghstack.github_real.RealGitHubEndpoint(
             oauth_token=config.github_oauth,
             proxy=config.proxy,
@@ -101,7 +106,7 @@ def checkout(pull_request: str) -> None:
     """
     Checkout a PR
     """
-    with cli_context() as (shell, config, github):
+    with cli_context(request_github_token=False) as (shell, config, github):
         ghstack.checkout.main(
             pull_request=pull_request,
             github=github,
@@ -135,7 +140,7 @@ def land(force: bool, pull_request: str) -> None:
     help="Select the last command (not including rage commands) to report",
 )
 def rage(latest: bool) -> None:
-    with cli_context():
+    with cli_context(request_github_token=False):
         ghstack.rage.main(latest)
 
 

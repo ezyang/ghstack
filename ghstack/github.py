@@ -22,6 +22,26 @@ class GitHubEndpoint(metaclass=ABCMeta):
         """
         pass
 
+    def get_head_ref(self, **params):
+        """
+        Fetch the headRefName associated with a PR.  Defaults to a
+        GraphQL query but if we're hitting a real GitHub endpoint
+        we'll do a regular HTTP request to avoid rate limit.
+        """
+        self.graphql(
+            """
+            query ($owner: String!, $name: String!, $number: Int!) {
+                repository(name: $name, owner: $owner) {
+                    pullRequest(number: $number) {
+                        headRefName
+                    }
+                }
+            }
+        """,
+            **params
+        )
+        return pr_result["data"]["repository"]["pullRequest"]["headRefName"]
+
     # This hook function should be invoked when a 'git push' to GitHub
     # occurs.  This is used by testing to simulate actions GitHub
     # takes upon branch push, more conveniently than setting up
