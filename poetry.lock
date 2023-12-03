@@ -534,6 +534,19 @@ typing-inspect = ">=0.4.0"
 dev = ["Sphinx (>=5.1.1)", "black (==23.9.1)", "build (>=0.10.0)", "coverage (>=4.5.4)", "fixit (==2.0.0.post1)", "flake8 (>=3.7.8,<5)", "hypothesis (>=4.36.0)", "hypothesmith (>=0.0.4)", "jinja2 (==3.1.2)", "jupyter (>=1.0.0)", "maturin (>=0.8.3,<0.16)", "nbsphinx (>=0.4.2)", "prompt-toolkit (>=2.0.9)", "pyre-check (==0.9.18)", "setuptools-rust (>=1.5.2)", "setuptools-scm (>=6.0.1)", "slotscheck (>=0.7.1)", "sphinx-rtd-theme (>=0.4.3)", "ufmt (==2.2.0)", "usort (==1.0.7)"]
 
 [[package]]
+name = "lintrunner"
+version = "0.11.0"
+description = "A lint running tool and framework."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "lintrunner-0.11.0-py3-none-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:0cabd7e3202406d85cd96b4a0a55d01c397fb9a28ef0c0d2f632940a7837df4b"},
+    {file = "lintrunner-0.11.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6517482f7ba000a6202d49c947de8f6df774ea701f73d522ef160f77f12e306f"},
+    {file = "lintrunner-0.11.0-py3-none-win_amd64.whl", hash = "sha256:b516dc48e1db5a399ae46e68d88a1859f2f27b3a46988c12e7ad9795402fb4b2"},
+    {file = "lintrunner-0.11.0.tar.gz", hash = "sha256:21dbdfb4d5f59fe2554598d091cae78b81737e5ae27d7d12ac59d9a09bd0fe97"},
+]
+
+[[package]]
 name = "mccabe"
 version = "0.7.0"
 description = "McCabe checker, plugin for flake8"
@@ -953,6 +966,20 @@ dev = ["attribution (==1.6.2)", "black (==22.3.0)", "click (==8.1.3)", "coverage
 docs = ["sphinx (==6.1.3)", "sphinx-mdinclude (==0.5.3)"]
 
 [[package]]
+name = "types-requests"
+version = "2.31.0.10"
+description = "Typing stubs for requests"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "types-requests-2.31.0.10.tar.gz", hash = "sha256:dc5852a76f1eaf60eafa81a2e50aefa3d1f015c34cf0cba130930866b1b22a92"},
+    {file = "types_requests-2.31.0.10-py3-none-any.whl", hash = "sha256:b32b9a86beffa876c0c3ac99a4cd3b8b51e973fb8e3bd4e0a6bb32c7efad80fc"},
+]
+
+[package.dependencies]
+urllib3 = ">=2"
+
+[[package]]
 name = "typing-extensions"
 version = "4.8.0"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -1145,4 +1172,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8.1"
-content-hash = "39b6365588ebffa59fdb12e839fae145f4b77c7537355da87f1973ce55e8de15"
+content-hash = "87f7e40e0e59c025dfac2fd316dcdb2354ee8add926410369130c80feb19d4c3"

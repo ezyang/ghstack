@@ -10,7 +10,7 @@ import stat
 import sys
 import tempfile
 import unittest
-from typing import Dict, Iterator, List, NewType, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, NewType, Optional, Tuple
 
 import expecttest
 
@@ -96,7 +96,9 @@ class TestGh(expecttest.TestCase):
         self.rev_map = {}
         self.substituteRev(GitCommitHash("HEAD"), SubstituteRev("rINI0"))
 
-    def handle_remove_read_only(self, func, path, exc_info) -> None:
+    def handle_remove_read_only(
+        self, func: Callable[..., Any], path: str, exc_info: Any
+    ) -> None:
         """
         Error handler for ``shutil.rmtree``.
 
@@ -2496,6 +2498,8 @@ rINI0 Initial commit""",
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         (diff1, diff2) = self.gh("Initial 1")
+        assert diff1 is not None
+        assert diff2 is not None
         self.substituteRev("origin/gh/ezyang/1/head", "rSELF1")
         self.substituteRev("origin/gh/ezyang/2/head", "rSELF2A")
 
