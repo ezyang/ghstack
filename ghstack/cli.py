@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-from typing import Generator, List, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import click
 
@@ -57,6 +57,7 @@ def cli_context(
 @click.option("--force", is_flag=True, hidden=True)
 @click.option("--no-skip", is_flag=True, hidden=True)
 @click.option("--draft", is_flag=True, hidden=True)
+@click.option("--base", "-B", default=None, hidden=True)
 def main(
     ctx: click.Context,
     debug: bool,
@@ -66,6 +67,7 @@ def main(
     force: bool,
     no_skip: bool,
     draft: bool,
+    base: Optional[str],
 ) -> None:
     """
     Submit stacks of diffs to Github
@@ -81,6 +83,7 @@ def main(
             force=force,
             no_skip=no_skip,
             draft=draft,
+            base=base,
         )
 
 
@@ -196,6 +199,13 @@ def status(pull_request: str) -> None:
     "--draft",
     is_flag=True,
     help="Create the pull request in draft mode (only if it has not already been created)",
+)
+@click.option(
+    "--base",
+    "-B",
+    default=None,
+    help="Branch to base the stack off of; "
+    "defaults to the default branch of a repository",
 )
 def submit(
     message: str,

@@ -138,6 +138,7 @@ class TestGh(expecttest.TestCase):
         update_fields: bool = False,
         short: bool = False,
         no_skip: bool = False,
+        base: Optional[str] = None,
     ) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
@@ -152,6 +153,7 @@ class TestGh(expecttest.TestCase):
             no_skip=no_skip,
             github_url="github.com",
             remote_name="origin",
+            base=base,
         )
 
     def gh_land(self, pull_request: str) -> None:
@@ -2715,6 +2717,56 @@ Repository state:
         self.assertExpectedInline(
             self.sh.git("show", "--pretty=", "--name-only", "origin/gh/ezyang/1/orig"),
             """file2.txt""",
+        )
+
+    # ------------------------------------------------------------------------- #
+
+    def test_non_standard_base(self) -> None:
+        # make release branch
+        self.sh.git("branch", "release", "master")
+
+        # diverge release and regular branch
+        self.sh.git("checkout", "master")
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Master commit")
+        self.sh.test_tick()
+        self.sh.git("push", "origin", "master")
+
+        self.sh.git("checkout", "release")
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "-m", "Release commit")
+        self.sh.test_tick()
+        self.sh.git("push", "origin", "release")
+
+        # make commit on release branch
+        self.writeFileAndAdd("file3.txt", "A")
+        self.sh.git("commit", "-m", "PR on release")
+        self.sh.test_tick()
+
+        # use non-standard base
+        self.gh("Initial 1", base="release")
+        self.substituteRev("origin/gh/ezyang/1/base", "rBASE")
+        self.substituteRev("origin/gh/ezyang/1/head", "rHEAD")
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 PR on release (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #500
+
+
+
+     * rHEAD PR on release
+
+Repository state:
+
+    * rHEAD (gh/ezyang/1/head) PR on release
+    * rBASE (release, gh/ezyang/1/base) Release commit
+    * rINI0 Initial commit
+
+""",
         )
 
 
