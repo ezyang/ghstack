@@ -197,7 +197,7 @@ class Shell(object):
         loop = asyncio.get_event_loop()
         returncode, out, err = loop.run_until_complete(run())
 
-        def decode(b):
+        def decode(b: bytes) -> str:
             return (
                 b.decode(errors="backslashreplace")
                 .replace("\0", "\\0")
