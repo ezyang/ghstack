@@ -142,6 +142,7 @@ def main(
     draft: bool = False,
     github_url: str,
     remote_name: str,
+    base: Optional[str] = None,
 ) -> List[Optional[DiffMeta]]:
 
     if sh is None:
@@ -171,7 +172,10 @@ def main(
             "this line to delete the check above).".format(remote_name)
         )
     repo_id = repo["id"]
-    default_branch = repo["default_branch"]
+    if base is not None:
+        default_branch = base
+    else:
+        default_branch = repo["default_branch"]
 
     # TODO: Potentially we could narrow this refspec down to only OUR gh
     # branches.  However, this will interact poorly with cross-author
