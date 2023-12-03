@@ -544,8 +544,11 @@ to disassociate the commit with the pull request, and then try again.
         except RuntimeError as e:
             if r["closed"]:
                 raise RuntimeError(
-                    f"Cannot ghstack past already landed PR #{number}.  "
-                    "Run `git rebase` and try again."
+                    f"Cannot ghstack a stack with closed PR #{number} whose branch was deleted.  "
+                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
+                    "Otherwise, you may have been trying to update a PR that was already closed. "
+                    "To disassociate your update from the old PR and open a new PR, "
+                    "run `ghstack unlink`, `git rebase` and then try again."
                 ) from e
             raise
         remote_summary = ghstack.git.split_header(rev_list)[0]
