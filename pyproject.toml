@@ -37,6 +37,7 @@ ufmt = "^2"
 
 [tool.poetry.group.dev.dependencies]
 lintrunner = "^0.11.0"
+types-requests = "^2.31.0.10"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

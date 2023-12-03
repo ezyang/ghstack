@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import List, NamedTuple, Optional, Set, Tuple
+from typing import List, NamedTuple, Optional, Sequence, Set, Tuple
 
 import ghstack
 import ghstack.git
@@ -597,7 +597,7 @@ to disassociate the commit with the pull request, and then try again.
             self.sh.git("rev-parse", self.base_orig + "^{tree}")
         )
 
-    def git_push(self, branches, force=False):
+    def git_push(self, branches: Sequence[str], force: bool = False) -> None:
         assert branches, "empty branches would push master, probably bad!"
         try:
             self.sh.git(

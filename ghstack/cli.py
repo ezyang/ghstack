@@ -73,7 +73,7 @@ def main(
     EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
 
     if not ctx.invoked_subcommand:
-        return ctx.invoke(
+        ctx.invoke(
             submit,
             message=message,
             update_fields=update_fields,
@@ -146,7 +146,7 @@ def rage(latest: bool) -> None:
 
 @main.command("status")
 @click.argument("pull_request", metavar="PR")
-def status(pull_request: str):
+def status(pull_request: str) -> None:
     """
     Check status of a PR
     """

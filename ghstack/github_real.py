@@ -3,7 +3,7 @@
 import json
 import logging
 import re
-from typing import Any, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import requests
 
@@ -106,13 +106,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
         return r
 
-    def _proxies(self):
+    def _proxies(self) -> Dict[str, str]:
         if self.proxy:
             return {"http": self.proxy, "https": self.proxy}
         else:
             return {}
 
-    def get_head_ref(self, **params):
+    def get_head_ref(self, **params: Any) -> str:
 
         if self.oauth_token:
             return super().get_head_ref(**params)
