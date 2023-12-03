@@ -16,19 +16,7 @@ def main(
 ) -> None:
 
     params = ghstack.github_utils.parse_pull_request(pull_request)
-    pr_result = github.graphql(
-        """
-        query ($owner: String!, $name: String!, $number: Int!) {
-            repository(name: $name, owner: $owner) {
-                pullRequest(number: $number) {
-                    headRefName
-                }
-            }
-        }
-    """,
-        **params
-    )
-    head_ref = pr_result["data"]["repository"]["pullRequest"]["headRefName"]
+    head_ref = github.get_head_ref(**params)
     orig_ref = re.sub(r"/head$", "/orig", head_ref)
     if orig_ref == head_ref:
         logging.warning(

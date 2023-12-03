@@ -176,7 +176,9 @@ def main(
     # TODO: Potentially we could narrow this refspec down to only OUR gh
     # branches.  However, this will interact poorly with cross-author
     # so it needs to be thought more carefully
-    sh.git("fetch", "--prune", remote_name, f"+refs/heads/*:refs/remotes/{remote_name}/*")
+    sh.git(
+        "fetch", "--prune", remote_name, f"+refs/heads/*:refs/remotes/{remote_name}/*"
+    )
     base = GitCommitHash(
         sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD")
     )

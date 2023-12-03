@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Any, Optional, Sequence, Tuple, Union
 
 import requests
@@ -22,8 +23,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     # will be subpaths of this URL)
     rest_endpoint: str = "https://api.{github_url}"
 
-    # The string OAuth token to authenticate to the GraphQL server with
-    oauth_token: str
+    # The base URL of regular WWW website, in case we need to manually
+    # interact with the real website
+    www_endpoint: str = "https://{github_url}"
+
+    # The string OAuth token to authenticate to the GraphQL server with.
+    # May be None if we're doing public access only.
+    oauth_token: Optional[str]
 
     # The URL of a proxy to use for these connections (for
     # Facebook users, this is typically 'http://fwdproxy:8080')
@@ -39,7 +45,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
     def __init__(
         self,
-        oauth_token: str,
+        oauth_token: Optional[str],
         github_url: str,
         proxy: Optional[str] = None,
         verify: Optional[str] = None,
@@ -59,11 +65,6 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if self.oauth_token:
             headers["Authorization"] = "bearer {}".format(self.oauth_token)
 
-        if self.proxy:
-            proxies = {"http": self.proxy, "https": self.proxy}
-        else:
-            proxies = {}
-
         logging.debug(
             "# POST {}".format(self.graphql_endpoint.format(github_url=self.github_url))
         )
@@ -76,7 +77,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             self.graphql_endpoint.format(github_url=self.github_url),
             json={"query": query, "variables": kwargs},
             headers=headers,
-            proxies=proxies,
+            proxies=self._proxies(),
             verify=self.verify,
             cert=self.cert,
         )
@@ -105,12 +106,37 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
         return r
 
-    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+    def _proxies(self):
         if self.proxy:
-            proxies = {"http": self.proxy, "https": self.proxy}
+            return {"http": self.proxy, "https": self.proxy}
         else:
-            proxies = {}
+            return {}
 
+    def get_head_ref(self, **params):
+
+        if self.oauth_token:
+            return super().get_head_ref(**params)
+        else:
+            owner = params["owner"]
+            name = params["name"]
+            number = params["number"]
+            resp = requests.get(
+                f"{self.www_endpoint.format(github_url=self.github_url)}/{owner}/{name}/pull/{number}",
+                proxies=self._proxies(),
+                verify=self.verify,
+                cert=self.cert,
+            )
+            logging.debug("Response status: {}".format(resp.status_code))
+
+            r = resp.text
+            if m := re.search(r'<clipboard-copy.+?value="(gh/[^/]+/\d+/head)"', r):
+                return m.group(1)
+            else:
+                # couldn't find, fall back to regular query
+                return super().get_head_ref(**params)
+
+    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+        assert self.oauth_token
         headers = {
             "Authorization": "token " + self.oauth_token,
             "Content-Type": "application/json",
@@ -126,7 +152,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             url,
             json=kwargs,
             headers=headers,
-            proxies=proxies,
+            proxies=self._proxies(),
             verify=self.verify,
             cert=self.cert,
         )
