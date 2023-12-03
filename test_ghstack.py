@@ -73,7 +73,8 @@ class TestGh(expecttest.TestCase):
                 lambda: shutil.rmtree(
                     upstream_dir,
                     onerror=self.handle_remove_read_only,
-                ))
+                )
+            )
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
         self.github = ghstack.github_fake.FakeGitHubEndpoint(self.upstream_sh)
 
@@ -87,7 +88,8 @@ class TestGh(expecttest.TestCase):
                 lambda: shutil.rmtree(
                     local_dir,
                     onerror=self.handle_remove_read_only,
-                ))
+                )
+            )
         self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
 
@@ -487,7 +489,9 @@ Repository state:
     def test_strip_mentions(self) -> None:
         self.writeFileAndAdd("bar", "baz")
         self.sh.git(
-            "commit", "-m", "Commit 1\n\nThis is my first commit, hello @foobar @Ivan\n\nSigned-off-by: foo@gmail.com"
+            "commit",
+            "-m",
+            "Commit 1\n\nThis is my first commit, hello @foobar @Ivan\n\nSigned-off-by: foo@gmail.com",
         )
 
         self.sh.test_tick()
@@ -2515,7 +2519,7 @@ rINI0 Initial commit""",
         self.sh.test_tick()
 
         # try to push
-        self.assertRaisesRegex(RuntimeError, 'git rebase', lambda: self.gh("Run 2"))
+        self.assertRaisesRegex(RuntimeError, "git rebase", lambda: self.gh("Run 2"))
 
         # show the remediation works
         self.sh.git("rebase", "origin/master")
@@ -2560,16 +2564,18 @@ Repository state:
     |/
     * rINI0 Initial commit
 
-"""
+""",
         )
-
 
     # ------------------------------------------------------------------------- #
 
-
     def test_minimal_fetch(self) -> None:
         # Narrow down the fetch on origin
-        self.sh.git("config", "remote.origin.fetch", "+refs/heads/master:refs/remotes/origin/master")
+        self.sh.git(
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/master:refs/remotes/origin/master",
+        )
 
         self.writeFileAndAdd("a", "asdf")
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
@@ -2580,7 +2586,6 @@ Repository state:
         self.sh.git("commit", "--amend")
         self.sh.test_tick()
         self.gh("Update 2")
-
 
     # ------------------------------------------------------------------------- #
 
