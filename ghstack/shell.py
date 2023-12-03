@@ -17,9 +17,6 @@ _SHELL_RET = Union[bool, str, None]
 _HANDLE = Union[None, int, IO[Any]]
 
 
-N = os.linesep
-
-
 def log_command(args: Sequence[str]) -> None:
     """
     Given a command, print it in a both machine and human readable way.
@@ -202,10 +199,10 @@ class Shell(object):
 
         # NB: Not debug; we always want to show this to user.
         if err:
-            logging.debug("# stderr:" + N + err.decode(errors="backslashreplace"))
+            logging.debug("# stderr:\n" + err.decode(errors="backslashreplace"))
         if out:
             logging.debug(
-                ("# stdout:" + N if err else "")
+                ("# stdout:\n" if err else "")
                 + out.decode(errors="backslashreplace").replace("\0", "\\0")
             )
 
