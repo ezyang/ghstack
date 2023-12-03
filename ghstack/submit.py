@@ -592,6 +592,9 @@ to disassociate the commit with the pull request, and then try again.
         ghnum = commit.ghnum
         username = commit.username
 
+        assert ghnum not in self.seen_ghnums
+        self.seen_ghnums.add(ghnum)
+
         self.stack_meta.append(
             DiffMeta(
                 title=commit.title,
