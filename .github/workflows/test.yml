@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Run lint
-        script: |
+        run: |
           RC=0
           # Run lintrunner on all files
           if ! poetry run lintrunner --force-color --all-files --tee-json=lint.json 2> /dev/null; then

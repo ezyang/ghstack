@@ -22,7 +22,7 @@ class GitHubEndpoint(metaclass=ABCMeta):
         """
         pass
 
-    def get_head_ref(self, **params):
+    def get_head_ref(self, **params: Any) -> str:
         """
         Fetch the headRefName associated with a PR.  Defaults to a
         GraphQL query but if we're hitting a real GitHub endpoint
@@ -40,7 +40,9 @@ class GitHubEndpoint(metaclass=ABCMeta):
         """,
             **params
         )
-        return pr_result["data"]["repository"]["pullRequest"]["headRefName"]
+        r = pr_result["data"]["repository"]["pullRequest"]["headRefName"]
+        assert isinstance(r, str), type(r)
+        return r
 
     # This hook function should be invoked when a 'git push' to GitHub
     # occurs.  This is used by testing to simulate actions GitHub
