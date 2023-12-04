@@ -686,7 +686,7 @@ Since we cannot proceed, ghstack will abort now.
         ghnum = GhNumber(str(max_ref_num + 1))
 
         # Create the incremental pull request diff
-        tree = commit.patch.apply(self.sh, self.base_tree)
+        tree = commit.tree
 
         # Actually, if there's no change in the tree, stop processing
         if tree == self.base_tree:
@@ -954,7 +954,7 @@ Since we cannot proceed, ghstack will abort now.
         # Blast our current tree as the newest commit, merging
         # against the previous pull entry, and the newest base.
 
-        tree = commit.patch.apply(self.sh, self.base_tree)
+        tree = commit.tree
 
         # Nothing to do, just ignore the diff
         if tree == self.base_tree:

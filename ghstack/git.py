@@ -66,20 +66,6 @@ def split_header(s: str) -> List[CommitHeader]:
     return list(map(CommitHeader, s.split("\0")[:-1]))
 
 
-class GitPatch(ghstack.diff.Patch):
-    h: CommitHeader
-
-    def __init__(self, h: CommitHeader):
-        self.h = h
-
-    def apply(self, sh: ghstack.shell.Shell, base_tree: GitTreeHash) -> GitTreeHash:
-        expected_tree = sh.git("rev-parse", self.h.commit_id() + "~^{tree}")
-        assert expected_tree == base_tree, "expected_tree = {}, base_tree = {}".format(
-            expected_tree, base_tree
-        )
-        return self.h.tree()
-
-
 def parse_header(s: str, github_url: str) -> List[ghstack.diff.Diff]:
     def convert(h: CommitHeader) -> ghstack.diff.Diff:
         parents = h.parents()
@@ -98,7 +84,7 @@ def parse_header(s: str, github_url: str) -> List[ghstack.diff.Diff]:
             pull_request_resolved=ghstack.diff.PullRequestResolved.search(
                 h.raw_header, github_url
             ),
-            patch=GitPatch(h),
+            tree=h.tree(),
             author_name=h.author_name(),
             author_email=h.author_email(),
         )
