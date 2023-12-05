@@ -66,7 +66,7 @@ def main(
     if parsed_commits is not None:
         stack_commits = set()
         for s in stack:
-            stack_commits.add(s.commit_id())
+            stack_commits.add(s.commit_id)
         invalid_commits = parsed_commits - stack_commits
         if invalid_commits:
             raise RuntimeError(
@@ -82,7 +82,7 @@ def main(
     rewriting = False
 
     for s in stack:
-        commit_id = s.commit_id()
+        commit_id = s.commit_id
         should_unlink = parsed_commits is None or commit_id in parsed_commits
         if not rewriting and not should_unlink:
             # Advance HEAD without reconstructing commit
@@ -90,7 +90,7 @@ def main(
             continue
 
         rewriting = True
-        commit_msg = s.commit_msg()
+        commit_msg = s.commit_msg
         logging.debug("-- commit_msg:\n{}".format(textwrap.indent(commit_msg, "   ")))
         if should_unlink:
             commit_msg = RE_GHSTACK_SOURCE_ID.sub(
@@ -106,7 +106,7 @@ def main(
             sh.git(
                 "commit-tree",
                 *ghstack.gpg_sign.gpg_args_if_necessary(sh),
-                s.tree(),
+                s.tree,
                 "-p",
                 head,
                 input=commit_msg,
@@ -123,7 +123,7 @@ To undo this operation, run:
 
     git reset --soft {}
 """.format(
-            s.commit_id()
+            s.commit_id
         )
     )
 
