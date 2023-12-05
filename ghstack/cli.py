@@ -207,6 +207,7 @@ def status(pull_request: str) -> None:
     help="Branch to base the stack off of; "
     "defaults to the default branch of a repository",
 )
+@click.argument("revs", nargs=-1, metavar="REVS")
 def submit(
     message: str,
     update_fields: bool,
@@ -215,6 +216,7 @@ def submit(
     no_skip: bool,
     draft: bool,
     base: Optional[str],
+    revs: List[str],
 ) -> None:
     """
     Submit or update a PR stack
@@ -233,6 +235,7 @@ def submit(
             github_url=config.github_url,
             remote_name=config.remote_name,
             base=base,
+            revs=revs,
         )
 
 

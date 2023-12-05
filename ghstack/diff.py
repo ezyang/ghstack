@@ -81,6 +81,13 @@ class Diff:
     # a valid identifier would be the tree hash of the commit (rather
     # than the commit hash itself); in Phabricator it could be the
     # version of the diff.
+    #
+    # It is OK for this source id to wobble even if the tree stays the
+    # same.  This simply means we will think there are changes even
+    # if there aren't any, which should be safe (but just generate
+    # annoying updates).  What we would like is for the id to quiesce:
+    # if you didn't rebase your hg rev, the source id is guaranteed to
+    # be the same.
     source_id: str
 
     # The contents of 'Pull Request resolved'.  This is None for
@@ -101,3 +108,7 @@ class Diff:
     # authorship information when constructing a rebased commit
     author_name: Optional[str]
     author_email: Optional[str]
+
+    # If this isn't actually a diff; it's a boundary commit (not part
+    # of the stack) that we've parsed for administrative purposes
+    boundary: bool

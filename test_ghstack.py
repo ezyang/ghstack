@@ -202,8 +202,8 @@ class TestGh(expecttest.TestCase):
                 pr["commits"] = self.upstream_sh.git(
                     "log",
                     "--reverse",
-                    "--pretty=format:%h %s",
-                    pr["baseRefName"] + ".." + pr["headRefName"],
+                    "--pretty=format:%h %s %d",
+                    pr["headRefName"],
                 )
                 pr["commits"] = indent(pr["commits"], "     * ")
             else:
@@ -219,14 +219,18 @@ class TestGh(expecttest.TestCase):
             # really any assurance that this will output the same thing
             # on multiple test runs.  We'll have to reimplement this
             # ourselves to do it right.
-            refs = self.upstream_sh.git(
-                "log", "--graph", "--oneline", "--branches=gh/*/*/head", "--decorate"
-            )
+            # TODO: I've turned this off because the graphs in the new world
+            # order are pretty uninformative.  This might be useful for
+            # ghstack v2 though re https://github.com/ezyang/ghstack/issues/122
+            # refs = self.upstream_sh.git(
+            #     "log", "--graph", "--oneline", "--branches=gh/*/*/head",
+            #     "--pretty=format:%h %d%n%w(0,3,3)%s"
+            # )
         return (
             "".join(prs)
-            + "Repository state:\n\n"
-            + indent(strip_trailing_whitespace(refs), "    ")
-            + "\n\n"
+            # + "Repository state:\n\n"
+            # + indent(strip_trailing_whitespace(refs), "    ")
+            # + "\n\n"
         )
 
     # ------------------------------------------------------------------------- #
@@ -304,8 +308,6 @@ class TestGh(expecttest.TestCase):
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
         self.assertExpectedInline(
             self.dump_github(),
             """\
@@ -316,12 +318,8 @@ class TestGh(expecttest.TestCase):
 
     This is my first commit
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+     * c6ab36c Update base for Initial 1 on "Commit 1"  (gh/ezyang/1/base)
+     * 7aa1826 Commit 1  (gh/ezyang/1/head)
 
 """,
         )
@@ -335,8 +333,6 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
         self.assertExpectedInline(
             self.dump_github(),
             """\
@@ -348,7 +344,8 @@ Repository state:
 
     This is my first commit
 
-     * rMRG1 Commit 1
+     * c6ab36c Update base for Initial 1 on "Commit 1"  (gh/ezyang/1/base)
+     * 7aa1826 Commit 1  (gh/ezyang/1/head)
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -358,13 +355,8 @@ Repository state:
 
     This is my second commit
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+     * fe1c83e Update base for Initial 2 on "Commit 2"  (gh/ezyang/2/base)
+     * dbf2b1f Commit 2  (gh/ezyang/2/head)
 
 """,
         )
