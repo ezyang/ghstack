@@ -1,0 +1,43 @@
+name: Lint
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  lint:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Poetry
+        run: pipx install poetry==1.7.1
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Run lint
+        run: |
+          RC=0
+          # Run lintrunner on all files
+          if ! poetry run lintrunner --force-color --all-files --tee-json=lint.json 2> /dev/null; then
+            echo ""
+            echo -e "\e[1m\e[36mYou can reproduce these results locally by using \`lintrunner\`. (If you don't get the same results, run \'lintrunner init\' to update your local linter)\e[0m"
+            RC=1
+          fi
+
+          # Use jq to massage the JSON lint output into GitHub Actions workflow commands.
+          jq --raw-output \
+            '"::\(if .severity == "advice" or .severity == "disabled" then "warning" else .severity end) file=\(.path),line=\(.line),col=\(.char),title=\(.code) \(.name)::" + (.description | gsub("\\n"; "%0A"))' \
+            lint.json || true
+
+          exit $RC
