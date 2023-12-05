@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import re
-from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Pattern
 
-import ghstack.shell
 from ghstack.types import GitHubNumber, GitTreeHash
 
 RE_GH_METADATA = re.compile(
@@ -59,22 +57,12 @@ class PullRequestResolved:
         return None
 
 
-class Patch(metaclass=ABCMeta):
-    """
-    Abstract representation of a patch, i.e., some actual
-    change between two trees.
-    """
-
-    @abstractmethod
-    def apply(self, sh: ghstack.shell.Shell, h: GitTreeHash) -> GitTreeHash:
-        pass
-
-
 @dataclass
 class Diff:
     """
-    An abstract representation of a diff.  Diffs can come from
-    git or hg.
+    An abstract representation of a diff.  Typically represents git commits,
+    but we may also virtually be importing diffs from other VCSes, hence
+    the agnosticism.
     """
 
     # Title of the diff
@@ -100,24 +88,14 @@ class Diff:
     # this also accepts gh-metadata.
     pull_request_resolved: Optional[PullRequestResolved]
 
-    # Function which applies this diff to the input tree, producing a
-    # new tree.  There will only be two implementations of this:
+    # A git tree hash that represents the contents of this diff, if it
+    # were applied in Git.
     #
-    #   - Git: A no-op function, which asserts that GitTreeHash is some
-    #     known tree and then returns a fixed GitTreeHash (since we
-    #     already know exactly what tree we want.)
-    #
-    #   - Hg: A function which applies some patch to the git tree
-    #     giving you the result.
-    #
-    # This function is provided a shell whose cwd is the Git repository
-    # that the tree hashes live in.
-    #
-    # NB: I could have alternately represented this as
-    # Optional[GitTreeHash] + Optional[UnifiedDiff] but that would
-    # require me to read out diff into memory and I don't really want
-    # to do that if I don't have to.
-    patch: Patch
+    # TODO: Constructing these tree hashes if they're not already in Git
+    # is a somewhat involved process, as you have to actually construct
+    # the git tree object (it's not guaranteed to exist already).  I'm
+    # offloading this work onto the ghimport/ghexport tools.
+    tree: GitTreeHash
 
     # The name and email of the author, used so we can preserve
     # authorship information when constructing a rebased commit
