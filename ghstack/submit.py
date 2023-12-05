@@ -284,7 +284,8 @@ def main(
         if h.commit_id in diff_meta_index
     ]
     submitter.push_updates(diffs_to_submit)
-    sh.git("reset", "--soft", rebase_index[GitCommitHash(sh.git("rev-parse", "HEAD"))])
+    if new_head := rebase_index.get(GitCommitHash(sh.git("rev-parse", "HEAD"))):
+        sh.git("reset", "--soft", new_head)
 
     # NB: earliest first
     return list(reversed(diffs_to_submit))
@@ -618,7 +619,9 @@ to disassociate the commit with the pull request, and then try again.
         Process a diff that has never been pushed to GitHub before.
         """
 
-        logging.debug("process_new_commit(base=%s, commit=%s)", base.commit_id, commit.oid)
+        logging.debug(
+            "process_new_commit(base=%s, commit=%s)", base.commit_id, commit.oid
+        )
 
         if "[ghstack-poisoned]" in commit.summary:
             raise RuntimeError(
