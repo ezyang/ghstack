@@ -227,7 +227,7 @@ def main(
         repo_name=repo_name_nonopt,
         repo_id=repo_id,
         base_commit=base,
-        base_tree=base_obj.tree(),
+        base_tree=base_obj.tree,
         stack_base=base,
         stack_header=stack_header,
         update_fields=update_fields,
@@ -566,7 +566,7 @@ to disassociate the commit with the pull request, and then try again.
                 ) from e
             raise
         remote_summary = ghstack.git.split_header(rev_list)[0]
-        m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg())
+        m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
         remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
 
         return DiffWithGitHubMetadata(
