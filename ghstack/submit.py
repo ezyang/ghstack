@@ -144,7 +144,8 @@ def main(
     github_url: str,
     remote_name: str,
     base: Optional[str] = None,
-    revs: Optional[List[str]] = None,
+    revs: Sequence[str] = (),
+    stack: bool = True,
 ) -> List[Optional[DiffMeta]]:
 
     if sh is None:
@@ -188,9 +189,52 @@ def main(
 
     base_ref = f"{remote_name}/{default_branch}"
 
-    # Default is stack, but this is configurable
+    # There are two distinct usage patterns:
+    #
+    #   1. You may want to submit only HEAD, but not everything below it,
+    #      because you only did minor changes to the commits below and
+    #      you want to let the CI finish without those changes.
+    #      See https://github.com/ezyang/ghstack/issues/165
+    #
+    #   2. I want to submit a prefix of the stack, because I'm still working
+    #      on the top of the stack and don't want to spam people with
+    #      useless changes.  See https://github.com/ezyang/ghstack/issues/101
+    #
+    # If we use standard git log/rev-list style parsing, you get (2) by
+    # default because a single commit implies a reachability constraint.
+    # Specifying (1) is a bit inconvenient; you have to say something
+    # like `ghstack submit HEAD~..`.  In particular, both (1) and (2) would like
+    # the meaning of `ghstack submit HEAD` to do different things (1 wants a single
+    # commit, whereas 2 wants everything reachable from the commit.)
+    #
+    # To resolve the ambiguity, we introduce a new command line argument
+    # --no-stack (analogous to the --stack argument on jf) which disables
+    # "stacky" behavior.  With --no-stack, we only submit HEAD by default
+    # and you can also specify a specific commit to submit if you like
+    # (if this commit is not reachable from HEAD, we will tell you how
+    # to checkout the updated commit.)  If you specify multiple commits,
+    # we will process each of them in turn.  Ranges are not supported; use
+    # git rev-list to preprocess them into single commits first (in principle
+    # we could support this, but it would require determining if a REV was
+    # a range versus a commit, as different handling would be necessary
+    # in each case.)
+    #
+    # Without --no-stack, we use standard git rev-list semantics.  Some of the
+    # more advanced spellings can be counterintuitive, but `ghstack submit X`
+    # is equivalent to checking out X and then performing ghstack (and then
+    # restacking HEAD on top, if necessary), and you can say `X..Y`
+    # (exclusive-inclusive) to specify a specific range of commits (oddly,
+    # `X..` will do what you expect, but `..Y` will almost always be empty.)
+    # But I expect this to be fairly niche.
+    #
+    # In both cases, we support submitting multiple commits, because the set
+    # of commits you specify affects what rebasing we do, which is sometimes
+    # not conveniently done by calling ghstack multiple times.
+
+    # Interestingly, the default is the same whether it is --stack or
+    # --no-stack
     if not revs:
-        revs = ["HEAD"]
+        revs = ("HEAD",)
 
     # In jf, we determine whether or not we should consider a diff by checking
     # if it is draft or not (only draft commits can be posted).  Git doesn't
@@ -201,11 +245,45 @@ def main(
     # it's possible the draft commits were pushed to the remote repo for
     # unrelated reasons, and we don't want to treat them as non-draft if
     # this happens!
-    commits_to_submit_and_boundary = ghstack.git.split_header(
-        sh.git(
-            "rev-list", "--header", "--topo-order", "--boundary", *revs, f"^{base_ref}"
-        ),
-    )
+
+    commits_to_submit_and_boundary = []
+    if stack:
+        # Easy case, make rev-list do the hard work
+        commits_to_submit_and_boundary.extend(
+            ghstack.git.split_header(
+                sh.git(
+                    "rev-list",
+                    "--header",
+                    "--topo-order",
+                    "--boundary",
+                    *revs,
+                    f"^{base_ref}",
+                ),
+            )
+        )
+    else:
+        # Hard case, need to query rev-list repeatedly
+        for rev in revs:
+            # We still do rev-list as it gets us the parent commits
+            r = ghstack.git.split_header(
+                sh.git(
+                    "rev-list",
+                    "--header",
+                    "--topo-order",
+                    "--boundary",
+                    f"{rev}~..{rev}",
+                    f"^{base_ref}",
+                ),
+            )
+            if not r:
+                raise RuntimeError(
+                    f"{r} doesn't seem to be a commit that can be submitted!"
+                )
+            # NB: There may be duplicate commits that are
+            # boundary/not-boundary, but once we generate commits_to_submit
+            # there should not be any dupes if rev was not duped
+            # TODO: check no dupe revs, though actually it's harmless
+            commits_to_submit_and_boundary.extend(r)
 
     commits_to_submit = [d for d in commits_to_submit_and_boundary if not d.boundary]
 
@@ -286,6 +364,8 @@ def main(
     submitter.push_updates(diffs_to_submit)
     if new_head := rebase_index.get(GitCommitHash(sh.git("rev-parse", "HEAD"))):
         sh.git("reset", "--soft", new_head)
+    # TODO: print out commit hashes for things we rebased but not accessible
+    # from HEAD
 
     # NB: earliest first
     return list(reversed(diffs_to_submit))

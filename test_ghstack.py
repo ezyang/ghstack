@@ -10,7 +10,17 @@ import stat
 import sys
 import tempfile
 import unittest
-from typing import Any, Callable, Dict, Iterator, List, NewType, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    NewType,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import expecttest
 
@@ -139,6 +149,8 @@ class TestGh(expecttest.TestCase):
         short: bool = False,
         no_skip: bool = False,
         base: Optional[str] = None,
+        revs: Sequence[str] = (),
+        stack: bool = True,
     ) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
@@ -154,6 +166,8 @@ class TestGh(expecttest.TestCase):
             github_url="github.com",
             remote_name="origin",
             base=base,
+            revs=revs,
+            stack=stack,
         )
 
     def gh_land(self, pull_request: str) -> None:
@@ -2720,6 +2734,116 @@ Committer: C O Mitter <committer@example.com>""",
         self.sh.test_tick()
         self.assertRaisesRegex(
             RuntimeError, "occurs twice", lambda: self.gh("Should fail")
+        )
+
+    def test_submit_prefix_only_no_stack(self) -> None:
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1")
+        self.sh.test_tick()
+
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "-m", "Commit 2")
+        self.sh.test_tick()
+        self.substituteRev("HEAD", "rCOM2")
+
+        self.gh("Initial")
+
+        self.sh.git("checkout", "HEAD~")
+        self.writeFileAndAdd("file1.txt", "ABBA")
+        self.sh.git("commit", "--amend", "--no-edit")
+        self.sh.test_tick()
+
+        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
+        self.sh.test_tick()
+
+        self.gh("Update base only", revs=["HEAD~"], stack=False)
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #500
+
+
+
+    * eb2eae4 (gh/ezyang/1/head)
+    |    Update base only on "Commit 1"
+    * 9820f4b
+    |    Commit 1
+    * 9f734b6 (gh/ezyang/1/base)
+         Update base for Initial on "Commit 1"
+
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+    * #500
+
+
+
+    * b7e67b6 (gh/ezyang/2/head)
+    |    Commit 2
+    * ae5961f (gh/ezyang/2/base)
+         Update base for Initial on "Commit 2"
+
+""",
+        )
+
+    def test_submit_suffix_only_no_stack(self) -> None:
+        self.writeFileAndAdd("file1.txt", "A")
+        self.sh.git("commit", "-m", "Commit 1")
+        self.sh.test_tick()
+
+        self.writeFileAndAdd("file2.txt", "A")
+        self.sh.git("commit", "-m", "Commit 2")
+        self.sh.test_tick()
+
+        self.gh("Initial")
+        self.substituteRev("HEAD", "rCOM2")
+
+        self.sh.git("checkout", "HEAD~")
+        self.writeFileAndAdd("file1.txt", "ABBA")
+        self.sh.git("commit", "--amend", "--no-edit")
+        self.sh.test_tick()
+
+        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
+        self.sh.test_tick()
+
+        self.gh("Update head only", revs=["HEAD"], stack=False)
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501
+    * __->__ #500
+
+
+
+    * 9820f4b (gh/ezyang/1/head)
+    |    Commit 1
+    * 9f734b6 (gh/ezyang/1/base)
+         Update base for Initial on "Commit 1"
+
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+
+
+
+    *   0887253 (gh/ezyang/2/head)
+    |\\     Update head only on "Commit 2"
+    | * cb34299 (gh/ezyang/2/base)
+    | |    Update base for Update head only on "Commit 2"
+    * | b7e67b6
+    |/     Commit 2
+    * ae5961f
+         Update base for Initial on "Commit 2"
+
+""",
         )
 
 

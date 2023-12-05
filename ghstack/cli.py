@@ -58,6 +58,7 @@ def cli_context(
 @click.option("--no-skip", is_flag=True, hidden=True)
 @click.option("--draft", is_flag=True, hidden=True)
 @click.option("--base", "-B", default=None, hidden=True)
+@click.option("--stack/--no-stack", "-s/-S", is_flag=True, hidden=True)
 def main(
     ctx: click.Context,
     debug: bool,
@@ -68,6 +69,7 @@ def main(
     no_skip: bool,
     draft: bool,
     base: Optional[str],
+    stack: bool,
 ) -> None:
     """
     Submit stacks of diffs to Github
@@ -84,6 +86,7 @@ def main(
             no_skip=no_skip,
             draft=draft,
             base=base,
+            stack=stack,
         )
 
 
@@ -207,7 +210,23 @@ def status(pull_request: str) -> None:
     help="Branch to base the stack off of; "
     "defaults to the default branch of a repository",
 )
-@click.argument("revs", nargs=-1, metavar="REVS")
+@click.option(
+    "--stack/--no-stack",
+    "-s/-S",
+    is_flag=True,
+    default=True,
+    help="Submit the entire of stack of commits reachable from HEAD, versus only single commits.  "
+    "This affects the meaning of REVS.  With --stack, we submit all commits that "
+    "are reachable from REVS, excluding commits already on the base branch.  Revision ranges "
+    "supported by git rev-list are also supported.  "
+    "With --no-stack, we support only non-range identifiers, and will submit each commit "
+    "listed in the command line.",
+)
+@click.argument(
+    "revs",
+    nargs=-1,
+    metavar="REVS",
+)
 def submit(
     message: str,
     update_fields: bool,
@@ -216,7 +235,8 @@ def submit(
     no_skip: bool,
     draft: bool,
     base: Optional[str],
-    revs: List[str],
+    revs: Tuple[str, ...],
+    stack: bool,
 ) -> None:
     """
     Submit or update a PR stack
@@ -236,6 +256,7 @@ def submit(
             remote_name=config.remote_name,
             base=base,
             revs=revs,
+            stack=stack,
         )
 
 
