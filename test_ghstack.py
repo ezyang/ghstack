@@ -2736,27 +2736,26 @@ Committer: C O Mitter <committer@example.com>""",
             RuntimeError, "occurs twice", lambda: self.gh("Should fail")
         )
 
+    def make_commit(self, name: str) -> None:
+        self.writeFileAndAdd(f"{name}.txt", "A")
+        self.sh.git("commit", "-m", f"Commit {name}")
+        self.sh.test_tick()
+
+    def amend_commit(self, name: str) -> None:
+        self.writeFileAndAdd(f"{name}.txt", "A")
+        self.sh.git("commit", "--amend", "--no-edit", tick=True)
+
     def test_submit_prefix_only_no_stack(self) -> None:
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1")
-        self.sh.test_tick()
-
-        self.writeFileAndAdd("file2.txt", "A")
-        self.sh.git("commit", "-m", "Commit 2")
-        self.sh.test_tick()
-        self.substituteRev("HEAD", "rCOM2")
-
+        self.make_commit("A")
+        self.make_commit("B")
         self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD")
 
         self.sh.git("checkout", "HEAD~")
-        self.writeFileAndAdd("file1.txt", "ABBA")
-        self.sh.git("commit", "--amend", "--no-edit")
-        self.sh.test_tick()
-
-        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
-        self.sh.test_tick()
-
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
         self.gh("Update base only", revs=["HEAD~"], stack=False)
+
         self.assertExpectedInline(
             self.dump_github(),
             """\
@@ -2791,30 +2790,20 @@ Committer: C O Mitter <committer@example.com>""",
         )
 
     def test_submit_suffix_only_no_stack(self) -> None:
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1")
-        self.sh.test_tick()
-
-        self.writeFileAndAdd("file2.txt", "A")
-        self.sh.git("commit", "-m", "Commit 2")
-        self.sh.test_tick()
-
+        self.make_commit("A")
+        self.make_commit("B")
         self.gh("Initial")
-        self.substituteRev("HEAD", "rCOM2")
+        B = self.sh.git("rev-parse", "HEAD")
 
         self.sh.git("checkout", "HEAD~")
-        self.writeFileAndAdd("file1.txt", "ABBA")
-        self.sh.git("commit", "--amend", "--no-edit")
-        self.sh.test_tick()
-
-        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
-        self.sh.test_tick()
-
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
         self.gh("Update head only", revs=["HEAD"], stack=False)
+
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
@@ -2822,26 +2811,179 @@ Committer: C O Mitter <committer@example.com>""",
 
 
 
-    * 9820f4b (gh/ezyang/1/head)
-    |    Commit 1
-    * 9f734b6 (gh/ezyang/1/base)
-         Update base for Initial on "Commit 1"
+    * cb3c5eb (gh/ezyang/1/head)
+    |    Commit A
+    * 9e2ff2f (gh/ezyang/1/base)
+         Update base for Initial on "Commit A"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
 
 
 
-    *   0887253 (gh/ezyang/2/head)
-    |\\     Update head only on "Commit 2"
-    | * cb34299 (gh/ezyang/2/base)
-    | |    Update base for Update head only on "Commit 2"
-    * | b7e67b6
-    |/     Commit 2
-    * ae5961f
-         Update base for Initial on "Commit 2"
+    *   b3d3bb5 (gh/ezyang/2/head)
+    |\\     Update head only on "Commit B"
+    | * 3d127c6 (gh/ezyang/2/base)
+    | |    Update base for Update head only on "Commit B"
+    * | 3cf9ec1
+    |/     Commit B
+    * 97d9a92
+         Update base for Initial on "Commit B"
+
+""",
+        )
+
+    def test_submit_prefix_only_stack(self) -> None:
+        self.make_commit("A")
+        self.make_commit("B")
+        self.make_commit("C")
+        self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD~")
+        C = self.sh.git("rev-parse", "HEAD")
+
+        self.sh.git("checkout", "HEAD~~")
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
+        self.sh.git("cherry-pick", C, tick=True)
+        self.gh("Don't update C", revs=["HEAD~"], stack=True)
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501
+    * __->__ #500
+
+
+
+    * c70b354 (gh/ezyang/1/head)
+    |    Don't update C on "Commit A"
+    * 290340a
+    |    Commit A
+    * 1fa4e09 (gh/ezyang/1/base)
+         Update base for Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+    * #500
+
+
+
+    *   ebfcd77 (gh/ezyang/2/head)
+    |\\     Don't update C on "Commit B"
+    | * 78a7d98 (gh/ezyang/2/base)
+    | |    Update base for Don't update C on "Commit B"
+    * | ff5373b
+    |/     Commit B
+    * 31b98af
+         Update base for Initial on "Commit B"
+
+[O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+    Stack:
+    * __->__ #502
+    * #501
+    * #500
+
+
+
+    * 3a7e22b (gh/ezyang/3/head)
+    |    Commit C
+    * 4f0f679 (gh/ezyang/3/base)
+         Update base for Initial on "Commit C"
+
+""",
+        )
+
+    def test_submit_range_only_stack(self) -> None:
+        self.make_commit("A")
+        self.make_commit("B")
+        self.make_commit("C")
+        self.make_commit("D")
+        self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD~~")
+        C = self.sh.git("rev-parse", "HEAD~")
+        D = self.sh.git("rev-parse", "HEAD")
+
+        self.sh.git("checkout", "HEAD~~~")
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
+        self.sh.git("cherry-pick", C, tick=True)
+        self.sh.git("cherry-pick", D, tick=True)
+        self.gh("Update B and C only", revs=["HEAD~~~..HEAD~"], stack=True)
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #503
+    * #502
+    * #501
+    * __->__ #500
+
+
+
+    * af9017a (gh/ezyang/1/head)
+    |    Commit A
+    * 65b6341 (gh/ezyang/1/base)
+         Update base for Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #502
+    * __->__ #501
+
+
+
+    *   d18dfb9 (gh/ezyang/2/head)
+    |\\     Update B and C only on "Commit B"
+    | * d876758 (gh/ezyang/2/base)
+    | |    Update base for Update B and C only on "Commit B"
+    * | aaa7211
+    |/     Commit B
+    * 48e3720
+         Update base for Initial on "Commit B"
+
+[O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+    Stack:
+    * __->__ #502
+    * #501
+
+
+
+    *   d78bd70 (gh/ezyang/3/head)
+    |\\     Update B and C only on "Commit C"
+    | * cf940ad (gh/ezyang/3/base)
+    | |    Update base for Update B and C only on "Commit C"
+    * | f38afc9
+    |/     Commit C
+    * b937b45
+         Update base for Initial on "Commit C"
+
+[O] #503 Commit D (gh/ezyang/4/head -> gh/ezyang/4/base)
+
+    Stack:
+    * __->__ #503
+    * #502
+    * #501
+    * #500
+
+
+
+    * d3f5f5e (gh/ezyang/4/head)
+    |    Commit D
+    * 3f41f25 (gh/ezyang/4/base)
+         Update base for Initial on "Commit D"
 
 """,
         )

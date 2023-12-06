@@ -187,8 +187,6 @@ def main(
         "fetch", "--prune", remote_name, f"+refs/heads/*:refs/remotes/{remote_name}/*"
     )
 
-    base_ref = f"{remote_name}/{default_branch}"
-
     # There are two distinct usage patterns:
     #
     #   1. You may want to submit only HEAD, but not everything below it,
@@ -246,6 +244,7 @@ def main(
     # unrelated reasons, and we don't want to treat them as non-draft if
     # this happens!
 
+    base_ref = f"{remote_name}/{default_branch}"
     commits_to_submit_and_boundary = []
     if stack:
         # Easy case, make rev-list do the hard work

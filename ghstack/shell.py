@@ -91,7 +91,8 @@ class Shell(object):
         input: Optional[str] = None,
         stdin: _HANDLE = None,
         stdout: _HANDLE = subprocess.PIPE,
-        exitcode: bool = False
+        exitcode: bool = False,
+        tick: bool = False
     ) -> _SHELL_RET:
         """
         Run a command specified by args, and return string representing
@@ -116,6 +117,8 @@ class Shell(object):
                 code 0.  We never raise an exception when this is True.
         """
         assert not (stdin and input)
+        if tick:
+            self.test_tick()
         if input:
             stdin = subprocess.PIPE
         if not self.quiet:
