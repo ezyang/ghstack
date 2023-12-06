@@ -8,7 +8,7 @@ import ghstack.diff
 import ghstack.shell
 from ghstack.types import GitCommitHash, GitTreeHash
 
-RE_RAW_COMMIT_ID = re.compile(r"^(?P<commit>[a-f0-9]+)$", re.MULTILINE)
+RE_RAW_COMMIT_ID = re.compile(r"^(?P<boundary>-?)(?P<commit>[a-f0-9]+)$", re.MULTILINE)
 RE_RAW_AUTHOR = re.compile(
     r"^author (?P<author>(?P<name>[^<]+?) <(?P<email>[^>]+)>)", re.MULTILINE
 )
@@ -46,6 +46,10 @@ class CommitHeader(object):
         return GitCommitHash(self._search_group(RE_RAW_COMMIT_ID, "commit"))
 
     @cached_property
+    def boundary(self) -> bool:
+        return self._search_group(RE_RAW_COMMIT_ID, "boundary") == "-"
+
+    @cached_property
     def parents(self) -> List[GitCommitHash]:
         return [
             GitCommitHash(m.group("commit"))
@@ -75,27 +79,21 @@ def split_header(s: str) -> List[CommitHeader]:
     return list(map(CommitHeader, s.split("\0")[:-1]))
 
 
-def parse_header(s: str, github_url: str) -> List[ghstack.diff.Diff]:
-    def convert(h: CommitHeader) -> ghstack.diff.Diff:
-        parents = h.parents
-        if len(parents) != 1:
-            raise RuntimeError(
-                "The commit {} has {} parents, which makes my head explode.  "
-                "`git rebase -i` your diffs into a stack, then try again.".format(
-                    h.commit_id, len(parents)
-                )
-            )
-        return ghstack.diff.Diff(
-            title=h.title,
-            summary=h.commit_msg,
-            oid=h.commit_id,
-            source_id=h.tree,
-            pull_request_resolved=ghstack.diff.PullRequestResolved.search(
-                h.raw_header, github_url
-            ),
-            tree=h.tree,
-            author_name=h.author_name,
-            author_email=h.author_email,
-        )
+def convert_header(h: CommitHeader, github_url: str) -> ghstack.diff.Diff:
+    return ghstack.diff.Diff(
+        title=h.title,
+        summary=h.commit_msg,
+        oid=h.commit_id,
+        source_id=h.tree,
+        pull_request_resolved=ghstack.diff.PullRequestResolved.search(
+            h.raw_header, github_url
+        ),
+        tree=h.tree,
+        author_name=h.author_name,
+        author_email=h.author_email,
+        boundary=h.boundary,
+    )
 
-    return list(map(convert, split_header(s)))
+
+def parse_header(s: str, github_url: str) -> List[ghstack.diff.Diff]:
+    return [convert_header(h, github_url) for h in split_header(s)]

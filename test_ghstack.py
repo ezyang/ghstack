@@ -10,7 +10,17 @@ import stat
 import sys
 import tempfile
 import unittest
-from typing import Any, Callable, Dict, Iterator, List, NewType, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    NewType,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import expecttest
 
@@ -129,7 +139,7 @@ class TestGh(expecttest.TestCase):
         h = GitCommitHash(self.sh.git("rev-parse", "--short", rev))
         self.rev_map[SubstituteRev(substitute)] = h
         print("substituteRev: {} = {}".format(substitute, h))
-        self.substituteExpected(h, substitute)
+        # self.substituteExpected(h, substitute)
 
     # NB: returns earliest first
     def gh(
@@ -139,6 +149,8 @@ class TestGh(expecttest.TestCase):
         short: bool = False,
         no_skip: bool = False,
         base: Optional[str] = None,
+        revs: Sequence[str] = (),
+        stack: bool = True,
     ) -> List[Optional[ghstack.submit.DiffMeta]]:
         return ghstack.submit.main(
             msg=msg,
@@ -154,6 +166,8 @@ class TestGh(expecttest.TestCase):
             github_url="github.com",
             remote_name="origin",
             base=base,
+            revs=revs,
+            stack=stack,
         )
 
     def gh_land(self, pull_request: str) -> None:
@@ -195,17 +209,27 @@ class TestGh(expecttest.TestCase):
         """
         )
         prs = []
-        refs = ""
         for pr in r["data"]["repository"]["pullRequests"]["nodes"]:
             pr["body"] = indent(pr["body"].replace("\r", ""), "    ")
+            # TODO: Use of git --graph here is a bit of a loaded
+            # footgun, because git doesn't really give any guarantees
+            # about what the graph should look like.  So there isn't
+            # really any assurance that this will output the same thing
+            # on multiple test runs.  We'll have to reimplement this
+            # ourselves to do it right.
+            #
+            # UPDATE: Another good reason to rewrite this is because git
+            # puts the first parent on the left, which leads to ugly
+            # graphs.  Swapping the parents would give us nice pretty graphs.
             if not pr["closed"]:
                 pr["commits"] = self.upstream_sh.git(
                     "log",
-                    "--reverse",
-                    "--pretty=format:%h %s",
-                    pr["baseRefName"] + ".." + pr["headRefName"],
+                    "--graph",
+                    "--oneline",
+                    "--pretty=format:%h%d%n%w(0,3,3)%s",
+                    pr["headRefName"],
                 )
-                pr["commits"] = indent(pr["commits"], "     * ")
+                pr["commits"] = indent(strip_trailing_whitespace(pr["commits"]), "    ")
             else:
                 pr["commits"] = "      (omitted)"
             pr["status"] = "[X]" if pr["closed"] else "[O]"
@@ -213,21 +237,7 @@ class TestGh(expecttest.TestCase):
                 "{status} #{number} {title} ({headRefName} -> {baseRefName})\n\n"
                 "{body}\n\n{commits}\n\n".format(**pr)
             )
-            # TODO: Use of git --graph here is a bit of a loaded
-            # footgun, because git doesn't really give any guarantees
-            # about what the graph should look like.  So there isn't
-            # really any assurance that this will output the same thing
-            # on multiple test runs.  We'll have to reimplement this
-            # ourselves to do it right.
-            refs = self.upstream_sh.git(
-                "log", "--graph", "--oneline", "--branches=gh/*/*/head", "--decorate"
-            )
-        return (
-            "".join(prs)
-            + "Repository state:\n\n"
-            + indent(strip_trailing_whitespace(refs), "    ")
-            + "\n\n"
-        )
+        return "".join(prs)
 
     # ------------------------------------------------------------------------- #
 
@@ -304,8 +314,6 @@ class TestGh(expecttest.TestCase):
         self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
         self.sh.test_tick()
         self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
         self.assertExpectedInline(
             self.dump_github(),
             """\
@@ -316,12 +324,10 @@ class TestGh(expecttest.TestCase):
 
     This is my first commit
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 7aa1826 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -335,8 +341,6 @@ Repository state:
         self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
         self.sh.test_tick()
         self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
         self.assertExpectedInline(
             self.dump_github(),
             """\
@@ -348,7 +352,10 @@ Repository state:
 
     This is my first commit
 
-     * rMRG1 Commit 1
+    * 7aa1826 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -358,13 +365,10 @@ Repository state:
 
     This is my second commit
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * dbf2b1f (gh/ezyang/2/head)
+    |    Commit 2
+    * fe1c83e (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -401,12 +405,10 @@ Repository state:
 
     This is my first commit
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform, gh/ezyang/1/base) Initial commit
+    * 7aa1826 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -429,7 +431,10 @@ Repository state:
 
     This is my first commit
 
-     * rMRG1 Commit 1
+    * 7aa1826 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -439,13 +444,10 @@ Repository state:
 
     This is my second commit
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform, gh/ezyang/1/base) Initial commit
+    * dbf2b1f (gh/ezyang/2/head)
+    |    Commit 2
+    * fe1c83e (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -478,12 +480,10 @@ Repository state:
 
 
 
-     * rMRG1 Commit 2
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 2
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 1e2c3cc (gh/ezyang/1/head)
+    |    Commit 2
+    * d9f4eaf (gh/ezyang/1/base)
+         Update base for Initial on "Commit 2"
 
 """,
         )
@@ -568,12 +568,10 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 
     This is my first commit
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * c4d36ed (gh/ezyang/1/head)
+    |    Commit 1
+    * 618c84d (gh/ezyang/1/base)
+         Update base for Initial on "Commit 1"
 
 """,
         )
@@ -592,12 +590,10 @@ Repository state:
 
     This is my first commit
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * c4d36ed (gh/ezyang/1/head)
+    |    Commit 1
+    * 618c84d (gh/ezyang/1/base)
+         Update base for Initial on "Commit 1"
 
 """,
         )
@@ -626,12 +622,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -654,14 +648,12 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG2 Update A on "Commit 1"
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/1/head) Update A on "Commit 1"
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 4d61fd8 (gh/ezyang/1/head)
+    |    Update A on "Commit 1"
+    * 14686d5
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -690,12 +682,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -723,14 +713,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG2 Update A on "Commit 1"
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/1/head) Update A on "Commit 1"
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -797,7 +783,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * e86f502 (gh/ezyang/1/head)
+    |    Commit 1
+    * 4acf701 (gh/ezyang/1/base)
+         Update base for Initial 1 and 2 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -807,13 +796,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 3081651 (gh/ezyang/2/head)
+    |    Commit 2
+    * 2939873 (gh/ezyang/2/base)
+         Update base for Initial 1 and 2 on "Commit 2"
 
 """,
         )
@@ -852,7 +838,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -862,13 +851,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -892,7 +878,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -902,15 +891,12 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-     * rMRG2A Update A on "Commit 2"
-
-Repository state:
-
-    * rMRG2A (gh/ezyang/2/head) Update A on "Commit 2"
-    * rMRG2 Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * af4d6a4 (gh/ezyang/2/head)
+    |    Update A on "Commit 2"
+    * e1050e2
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -949,7 +935,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -959,13 +948,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -990,8 +976,12 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG1A Update A on "Commit 1"
+    * 882dcd5 (gh/ezyang/1/head)
+    |    Update A on "Commit 1"
+    * 14686d5
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1001,15 +991,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG1A (gh/ezyang/1/head) Update A on "Commit 1"
-    | * rMRG2 (gh/ezyang/2/head) Commit 2
-    |/
-    * rMRG1 (gh/ezyang/2/base) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1033,8 +1018,12 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG1A Update A on "Commit 1"
+    * 882dcd5 (gh/ezyang/1/head)
+    |    Update A on "Commit 1"
+    * 14686d5
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1044,20 +1033,14 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-     * rMRG2A Update B on "Commit 2"
-
-Repository state:
-
-    *   rMRG2A (gh/ezyang/2/head) Update B on "Commit 2"
-    |\\
-    | * rINI2A (gh/ezyang/2/base) Update base for Update B on "Commit 2"
-    * | rMRG2 Commit 2
-    |/
-    | * rMRG1A (gh/ezyang/1/head) Update A on "Commit 1"
-    |/
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    *   5174ea8 (gh/ezyang/2/head)
+    |\\     Update B on "Commit 2"
+    | * 0cbbe2b (gh/ezyang/2/base)
+    | |    Update base for Update B on "Commit 2"
+    * | e1050e2
+    |/     Commit 2
+    * e04cdc0
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1096,7 +1079,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1106,13 +1092,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1146,8 +1129,12 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG1A Update A on "Commit 1"
+    * a90cfbb (gh/ezyang/1/head)
+    |    Update A on "Commit 1"
+    * 14686d5
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1157,21 +1144,14 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-     * rMRG2A Update A on "Commit 2"
-
-Repository state:
-
-    * rMRG1A (gh/ezyang/1/head) Update A on "Commit 1"
-    | *   rMRG2A (gh/ezyang/2/head) Update A on "Commit 2"
-    | |\\
-    | | * rINI2A (gh/ezyang/2/base) Update base for Update A on "Commit 2"
-    | |/
-    |/|
-    | * rMRG2 Commit 2
-    |/
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    *   f848251 (gh/ezyang/2/head)
+    |\\     Update A on "Commit 2"
+    | * c5e35e9 (gh/ezyang/2/base)
+    | |    Update base for Update A on "Commit 2"
+    * | e1050e2
+    |/     Commit 2
+    * e04cdc0
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1213,7 +1193,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1223,13 +1206,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1268,8 +1248,14 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG1A Rebase on "Commit 1"
+    *   827d27a (gh/ezyang/1/head)
+    |\\     Rebase on "Commit 1"
+    | * 23955ae (gh/ezyang/1/base)
+    | |    Update base for Rebase on "Commit 1"
+    * | 14686d5
+    |/     Commit 1
+    * c6ab36c
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1279,29 +1265,14 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-     * rMRG2A Rebase on "Commit 2"
-
-Repository state:
-
-    *   rMRG1A (gh/ezyang/1/head) Rebase on "Commit 1"
-    |\\
-    | *   rINI1A (gh/ezyang/1/base) Update base for Rebase on "Commit 1"
-    | |\\
-    | | | *   rMRG2A (gh/ezyang/2/head) Rebase on "Commit 2"
-    | | | |\\
-    | | | | * rINI2A (gh/ezyang/2/base) Update base for Rebase on "Commit 2"
-    | |_|_|/|
-    |/| | |/
-    | | |/|
-    | | * | rINI2 (HEAD -> master) Master commit 1
-    | |/ /
-    | | * rMRG2 Commit 2
-    | |/
-    |/|
-    * | rMRG1 Commit 1
-    |/
-    * rINI0 Initial commit
+    *   4170976 (gh/ezyang/2/head)
+    |\\     Rebase on "Commit 2"
+    | * 02a704f (gh/ezyang/2/base)
+    | |    Update base for Rebase on "Commit 2"
+    * | e1050e2
+    |/     Commit 2
+    * e04cdc0
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1343,7 +1314,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1353,13 +1327,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1394,7 +1365,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1403,21 +1377,14 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-     * rMRG2A Cherry pick on "Commit 2"
-
-Repository state:
-
-    *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
-    |\\
-    | *   rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
-    | |\\
-    | | * rINI2 (HEAD -> master) Master commit 1
-    * | | rMRG2 Commit 2
-    |/ /
-    * / rMRG1 (gh/ezyang/1/head) Commit 1
-    |/
-    * rINI0 (gh/ezyang/1/base) Initial commit
+    *   7f9f66e (gh/ezyang/2/head)
+    |\\     Cherry pick on "Commit 2"
+    | * e1f1793 (gh/ezyang/2/base)
+    | |    Update base for Cherry pick on "Commit 2"
+    * | e1050e2
+    |/     Commit 2
+    * e04cdc0
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1449,7 +1416,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 172327a (gh/ezyang/1/head)
+    |    Commit 1
+    * 9f734b6 (gh/ezyang/1/base)
+         Update base for Initial on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1459,13 +1429,10 @@ Repository state:
 
     A commit with an B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 01780cd (gh/ezyang/2/head)
+    |    Commit 2
+    * fd93c85 (gh/ezyang/2/base)
+         Update base for Initial on "Commit 2"
 
 """,
         )
@@ -1494,8 +1461,14 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
-     * rMRG1A Reorder on "Commit 1"
+    *   fc55fb8 (gh/ezyang/1/head)
+    |\\     Reorder on "Commit 1"
+    | * 3fc1547 (gh/ezyang/1/base)
+    | |    Update base for Reorder on "Commit 1"
+    * | 172327a
+    |/     Commit 1
+    * 9f734b6
+         Update base for Initial on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1505,25 +1478,14 @@ Repository state:
 
     A commit with an B
 
-     * rMRG2 Commit 2
-     * rMRG2A Reorder on "Commit 2"
-
-Repository state:
-
-    *   rMRG1A (gh/ezyang/1/head) Reorder on "Commit 1"
-    |\\
-    | * rINI1A (gh/ezyang/1/base) Update base for Reorder on "Commit 1"
-    | | *   rMRG2A (gh/ezyang/2/head) Reorder on "Commit 2"
-    | | |\\
-    | | | * rINI2A (gh/ezyang/2/base) Update base for Reorder on "Commit 2"
-    | |_|/
-    |/| |
-    | | * rMRG2 Commit 2
-    | |/
-    |/|
-    * | rMRG1 Commit 1
-    |/
-    * rINI0 (HEAD -> master) Initial commit
+    *   13de781 (gh/ezyang/2/head)
+    |\\     Reorder on "Commit 2"
+    | * 17e125b (gh/ezyang/2/base)
+    | |    Update base for Reorder on "Commit 2"
+    * | 01780cd
+    |/     Commit 2
+    * fd93c85
+         Update base for Initial on "Commit 2"
 
 """,
         )
@@ -1553,12 +1515,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1585,12 +1545,10 @@ Directly updated message body""",
 
     Directly updated message body
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1615,14 +1573,12 @@ Repository state:
 
     Directly updated message body
 
-     * rMRG1 Commit 1
-     * rMRG2 Update 1 on "Directly updated title"
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/1/head) Update 1 on "Directly updated title"
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * a1f0d88 (gh/ezyang/1/head)
+    |    Update 1 on "Directly updated title"
+    * babdde9
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1653,12 +1609,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1698,7 +1652,10 @@ Directly updated message body""".replace(
 
     Directly updated message body
 
-     * rMRG1 Commit 1
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1708,13 +1665,10 @@ Directly updated message body""".replace(
 
 
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 974a2d5 (gh/ezyang/2/head)
+    |    Commit 2
+    * 4ac20dd (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -1763,12 +1717,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1788,12 +1740,10 @@ Repository state:
 
     Directly updated message body
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1813,14 +1763,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-     * 49615a9 Update 1 on "Commit 1"
-
-Repository state:
-
-    * 49615a9 (gh/ezyang/1/head) Update 1 on "Commit 1"
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1850,12 +1796,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1880,14 +1824,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-     * 93de014 Update 1 on "Amended"
-
-Repository state:
-
-    * 93de014 (gh/ezyang/1/head) Update 1 on "Amended"
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1920,12 +1860,10 @@ Repository state:
 
     Original message
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1952,12 +1890,10 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
     Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -1978,14 +1914,10 @@ Repository state:
 
     Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
-     * rMRG1 Commit 1
-     * 0800457 Update 1 on "Commit 1"
-
-Repository state:
-
-    * 0800457 (gh/ezyang/1/head) Update 1 on "Commit 1"
-    * rMRG1 Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * babdde9 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -2027,7 +1959,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -2037,13 +1972,10 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rMRG1 (gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * e1050e2 (gh/ezyang/2/head)
+    |    Commit 2
+    * e04cdc0 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -2073,7 +2005,10 @@ Repository state:
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 14686d5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -2082,18 +2017,14 @@ Repository state:
 
     A commit with a B
 
-     * rMRG2 Commit 2
-     * rMRG2A Cherry pick on "Commit 2"
-
-Repository state:
-
-    *   rMRG2A (gh/ezyang/2/head) Cherry pick on "Commit 2"
-    |\\
-    | * rINI2A (gh/ezyang/2/base) Update base for Cherry pick on "Commit 2"
-    * | rMRG2 Commit 2
-    |/
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    *   d185442 (gh/ezyang/2/head)
+    |\\     Cherry pick on "Commit 2"
+    | * a3c6b3c (gh/ezyang/2/base)
+    | |    Update base for Cherry pick on "Commit 2"
+    * | e1050e2
+    |/     Commit 2
+    * e04cdc0
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -2126,8 +2057,8 @@ Repository state:
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
             """\
-rCOM1 Commit 1
-rINI0 Initial commit""",
+c7c1805 Commit 1
+dc8bfe4 Initial commit""",
         )
 
     # ------------------------------------------------------------------------- #
@@ -2154,9 +2085,9 @@ rINI0 Initial commit""",
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
             """\
-rCOM2 Commit 2
-rCOM1 Commit 1
-rINI0 Initial commit""",
+3600902 Commit 2
+a32aa2b Commit 1
+dc8bfe4 Initial commit""",
         )
 
     # ------------------------------------------------------------------------- #
@@ -2185,9 +2116,9 @@ rINI0 Initial commit""",
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
             """\
-rCOM2 Commit 2
-rCOM1 Commit 1
-rINI0 Initial commit""",
+3600902 Commit 2
+a32aa2b Commit 1
+dc8bfe4 Initial commit""",
         )
 
     # ------------------------------------------------------------------------- #
@@ -2221,10 +2152,10 @@ rINI0 Initial commit""",
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
             """\
-rCOM2 Commit 2
-rCOM1 Commit 1
-rCOM3 Commit 3
-rINI0 Initial commit""",
+16c0410 Commit 2
+cf230e2 Commit 1
+367e236 Commit 3
+dc8bfe4 Initial commit""",
         )
 
     # ------------------------------------------------------------------------- #
@@ -2285,9 +2216,9 @@ rINI0 Initial commit""",
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
             """\
-rUP2 Commit 1
-rUP1 Upstream commit
-rINI0 Initial commit""",
+31fb74c Commit 1
+b29d563 Upstream commit
+dc8bfe4 Initial commit""",
         )
 
     # ------------------------------------------------------------------------- #
@@ -2323,7 +2254,10 @@ rINI0 Initial commit""",
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * a73ebff (gh/ezyang/1/head)
+    |    Commit 1
+    * 5a30b61 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 1 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -2333,7 +2267,10 @@ rINI0 Initial commit""",
 
     A commit with an B
 
-     * rMRG2 Commit 1
+    * 65b4539 (gh/ezyang/2/head)
+    |    Commit 1
+    * 3a3ce62 (gh/ezyang/2/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -2343,7 +2280,10 @@ rINI0 Initial commit""",
 
     A commit with an A
 
-     * rMRG1 Commit 1
+    * 7752bcb (gh/ezyang/3/head)
+    |    Commit 1
+    * a062e4f (gh/ezyang/3/base)
+         Update base for Initial 2 on "Commit 1"
 
 [O] #503 Commit 1 (gh/ezyang/4/head -> gh/ezyang/4/base)
 
@@ -2353,13 +2293,10 @@ rINI0 Initial commit""",
 
     A commit with an B
 
-     * rMRG2 Commit 1
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/4/head, gh/ezyang/2/head) Commit 1
-    * rMRG1 (gh/ezyang/4/base, gh/ezyang/3/head, gh/ezyang/2/base, gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/3/base, gh/ezyang/1/base) Initial commit
+    * 74a9d8a (gh/ezyang/4/head)
+    |    Commit 1
+    * cca68c8 (gh/ezyang/4/base)
+         Update base for Initial 2 on "Commit 1"
 
 """,
         )
@@ -2396,12 +2333,10 @@ Repository state:
 
     This is my first commit
 
-     * rMRG1 Commit 1
-
-Repository state:
-
-    * rMRG1 (gh/ezyang/1/head) Commit 1
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * d176ee5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 """,
         )
@@ -2412,14 +2347,13 @@ Repository state:
 
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
-            """\
-rINI0 Initial commit""",
+            """dc8bfe4 Initial commit""",
         )
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "main"),
             """\
-rUP1 Commit 1
-rINI0 Initial commit""",
+c7c1805 Commit 1
+dc8bfe4 Initial commit""",
         )
 
         # make another commit
@@ -2448,7 +2382,10 @@ rINI0 Initial commit""",
 
     This is my first commit
 
-     * rMRG1 Commit 1
+    * d176ee5 (gh/ezyang/1/head)
+    |    Commit 1
+    * c6ab36c (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -2457,15 +2394,10 @@ rINI0 Initial commit""",
 
     This is my second commit
 
-     * rMRG2 Commit 2
-
-Repository state:
-
-    * rMRG2 (gh/ezyang/2/head) Commit 2
-    * rUP1 (main, gh/ezyang/2/base, gh/ezyang/1/orig) Commit 1
-    | * rMRG1 (gh/ezyang/1/head) Commit 1
-    |/
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 7a61932 (gh/ezyang/2/head)
+    |    Commit 2
+    * 530b586 (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit 2"
 
 """,
         )
@@ -2478,15 +2410,15 @@ Repository state:
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "master"),
             """\
-rUP3 Commit 2
-rUP2 Commit 1
-rINI0 Initial commit""",
+9523c9d Commit 2
+75108b9 Commit 1
+dc8bfe4 Initial commit""",
         )
         self.assertExpectedInline(
             self.upstream_sh.git("log", "--oneline", "main"),
             """\
-rUP1 Commit 1
-rINI0 Initial commit""",
+c7c1805 Commit 1
+dc8bfe4 Initial commit""",
         )
 
     # ------------------------------------------------------------------------- #
@@ -2553,22 +2485,14 @@ rINI0 Initial commit""",
 
     This is my second commit
 
-     * rSELF2A Commit 2
-     * rSELF2B Run 3 on "Commit 2"
-
-Repository state:
-
-    *   rSELF2B (gh/ezyang/2/head) Run 3 on "Commit 2"
-    |\\
-    | *   rBASE2B (gh/ezyang/2/base) Update base for Run 3 on "Commit 2"
-    | |\\
-    | | * rSELF1 (HEAD -> master) Commit 1
-    | | * rUP1 Upstream commit
-    * | | rSELF2A Commit 2
-    |/ /
-    * / rSELF1 Commit 1
-    |/
-    * rINI0 Initial commit
+    *   ba56806 (gh/ezyang/2/head)
+    |\\     Run 3 on "Commit 2"
+    | * 931fc17 (gh/ezyang/2/base)
+    | |    Update base for Run 3 on "Commit 2"
+    * | e30072e
+    |/     Commit 2
+    * fb303b0
+         Update base for Initial 1 on "Commit 2"
 
 """,
         )
@@ -2702,13 +2626,10 @@ Committer: C O Mitter <committer@example.com>""",
 
     This is my first commit
 
-     * rHEAD Commit 1
-
-Repository state:
-
-    * rHEAD (gh/ezyang/1/head) Commit 1
-    * rBASE (HEAD -> master, gh/ezyang/1/base) Commit 1
-    * rINI0 Initial commit
+    * 8295531 (gh/ezyang/1/head)
+    |    Commit 1
+    * 3278eec (gh/ezyang/1/base)
+         Update base for New PR on "Commit 1"
 
 """,
         )
@@ -2758,13 +2679,10 @@ Repository state:
 
 
 
-     * rHEAD PR on release
-
-Repository state:
-
-    * rHEAD (gh/ezyang/1/head) PR on release
-    * rBASE (release, gh/ezyang/1/base) Release commit
-    * rINI0 Initial commit
+    * 06f4a75 (gh/ezyang/1/head)
+    |    PR on release
+    * dd738db (gh/ezyang/1/base)
+         Update base for Initial 1 on "PR on release"
 
 """,
         )
@@ -2796,12 +2714,10 @@ Repository state:
     * It starts with a fabulous
     * Bullet list
 
-     * rHEAD This is my commit
-
-Repository state:
-
-    * rHEAD (gh/ezyang/1/head) This is my commit
-    * rINI0 (HEAD -> master, gh/ezyang/1/base) Initial commit
+    * 2b4bd9d (gh/ezyang/1/head)
+    |    This is my commit
+    * f145152 (gh/ezyang/1/base)
+         Update base for Initial on "This is my commit"
 
 """,
         )
@@ -2818,6 +2734,258 @@ Repository state:
         self.sh.test_tick()
         self.assertRaisesRegex(
             RuntimeError, "occurs twice", lambda: self.gh("Should fail")
+        )
+
+    def make_commit(self, name: str) -> None:
+        self.writeFileAndAdd(f"{name}.txt", "A")
+        self.sh.git("commit", "-m", f"Commit {name}")
+        self.sh.test_tick()
+
+    def amend_commit(self, name: str) -> None:
+        self.writeFileAndAdd(f"{name}.txt", "A")
+        self.sh.git("commit", "--amend", "--no-edit", tick=True)
+
+    def test_submit_prefix_only_no_stack(self) -> None:
+        self.make_commit("A")
+        self.make_commit("B")
+        self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD")
+
+        self.sh.git("checkout", "HEAD~")
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
+        self.gh("Update base only", revs=["HEAD~"], stack=False)
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #500
+
+
+
+    * eb2eae4 (gh/ezyang/1/head)
+    |    Update base only on "Commit 1"
+    * 9820f4b
+    |    Commit 1
+    * 9f734b6 (gh/ezyang/1/base)
+         Update base for Initial on "Commit 1"
+
+[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+    * #500
+
+
+
+    * b7e67b6 (gh/ezyang/2/head)
+    |    Commit 2
+    * ae5961f (gh/ezyang/2/base)
+         Update base for Initial on "Commit 2"
+
+""",
+        )
+
+    def test_submit_suffix_only_no_stack(self) -> None:
+        self.make_commit("A")
+        self.make_commit("B")
+        self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD")
+
+        self.sh.git("checkout", "HEAD~")
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
+        self.gh("Update head only", revs=["HEAD"], stack=False)
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501
+    * __->__ #500
+
+
+
+    * cb3c5eb (gh/ezyang/1/head)
+    |    Commit A
+    * 9e2ff2f (gh/ezyang/1/base)
+         Update base for Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+
+
+
+    *   b3d3bb5 (gh/ezyang/2/head)
+    |\\     Update head only on "Commit B"
+    | * 3d127c6 (gh/ezyang/2/base)
+    | |    Update base for Update head only on "Commit B"
+    * | 3cf9ec1
+    |/     Commit B
+    * 97d9a92
+         Update base for Initial on "Commit B"
+
+""",
+        )
+
+    def test_submit_prefix_only_stack(self) -> None:
+        self.make_commit("A")
+        self.make_commit("B")
+        self.make_commit("C")
+        self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD~")
+        C = self.sh.git("rev-parse", "HEAD")
+
+        self.sh.git("checkout", "HEAD~~")
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
+        self.sh.git("cherry-pick", C, tick=True)
+        self.gh("Don't update C", revs=["HEAD~"], stack=True)
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #501
+    * __->__ #500
+
+
+
+    * c70b354 (gh/ezyang/1/head)
+    |    Don't update C on "Commit A"
+    * 290340a
+    |    Commit A
+    * 1fa4e09 (gh/ezyang/1/base)
+         Update base for Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+    * #500
+
+
+
+    *   ebfcd77 (gh/ezyang/2/head)
+    |\\     Don't update C on "Commit B"
+    | * 78a7d98 (gh/ezyang/2/base)
+    | |    Update base for Don't update C on "Commit B"
+    * | ff5373b
+    |/     Commit B
+    * 31b98af
+         Update base for Initial on "Commit B"
+
+[O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+    Stack:
+    * __->__ #502
+    * #501
+    * #500
+
+
+
+    * 3a7e22b (gh/ezyang/3/head)
+    |    Commit C
+    * 4f0f679 (gh/ezyang/3/base)
+         Update base for Initial on "Commit C"
+
+""",
+        )
+
+    def test_submit_range_only_stack(self) -> None:
+        self.make_commit("A")
+        self.make_commit("B")
+        self.make_commit("C")
+        self.make_commit("D")
+        self.gh("Initial")
+        B = self.sh.git("rev-parse", "HEAD~~")
+        C = self.sh.git("rev-parse", "HEAD~")
+        D = self.sh.git("rev-parse", "HEAD")
+
+        self.sh.git("checkout", "HEAD~~~")
+        self.amend_commit("A2")
+        self.sh.git("cherry-pick", B, tick=True)
+        self.sh.git("cherry-pick", C, tick=True)
+        self.sh.git("cherry-pick", D, tick=True)
+        self.gh("Update B and C only", revs=["HEAD~~~..HEAD~"], stack=True)
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * #503
+    * #502
+    * #501
+    * __->__ #500
+
+
+
+    * af9017a (gh/ezyang/1/head)
+    |    Commit A
+    * 65b6341 (gh/ezyang/1/base)
+         Update base for Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #502
+    * __->__ #501
+
+
+
+    *   d18dfb9 (gh/ezyang/2/head)
+    |\\     Update B and C only on "Commit B"
+    | * d876758 (gh/ezyang/2/base)
+    | |    Update base for Update B and C only on "Commit B"
+    * | aaa7211
+    |/     Commit B
+    * 48e3720
+         Update base for Initial on "Commit B"
+
+[O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+    Stack:
+    * __->__ #502
+    * #501
+
+
+
+    *   d78bd70 (gh/ezyang/3/head)
+    |\\     Update B and C only on "Commit C"
+    | * cf940ad (gh/ezyang/3/base)
+    | |    Update base for Update B and C only on "Commit C"
+    * | f38afc9
+    |/     Commit C
+    * b937b45
+         Update base for Initial on "Commit C"
+
+[O] #503 Commit D (gh/ezyang/4/head -> gh/ezyang/4/base)
+
+    Stack:
+    * __->__ #503
+    * #502
+    * #501
+    * #500
+
+
+
+    * d3f5f5e (gh/ezyang/4/head)
+    |    Commit D
+    * 3f41f25 (gh/ezyang/4/base)
+         Update base for Initial on "Commit D"
+
+""",
         )
 
 
