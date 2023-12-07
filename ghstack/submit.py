@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import dataclasses
 import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple
+from functools import cached_property
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import ghstack
 import ghstack.git
@@ -19,28 +21,33 @@ from ghstack.types import GhNumber, GitCommitHash, GitHubNumber, GitHubRepositor
 # branches this diff corresponds to
 BranchKind = str
 
+
 # Metadata describing a diff we submitted to GitHub
-# TODO: Make this directly contain a DiffWithGitHubMetadata?
-DiffMeta = NamedTuple(
-    "DiffMeta",
-    [
-        ("title", str),
-        ("number", GitHubNumber),
-        # The PR body to put on GitHub
-        ("body", str),
-        # The commit message to put on the orig commit
-        ("commit_msg", str),
-        ("username", str),
-        ("ghnum", GhNumber),
-        # What Git commit hash we should push to what branch
-        ("push_branches", List[Tuple[GitCommitHash, BranchKind]]),
-        # A human-readable string like 'Created' which describes what
-        # happened to this pull request
-        ("what", str),
-        ("closed", bool),
-        ("pr_url", str),
-    ],
-)
+@dataclass
+class DiffMeta:
+    title: str
+    number: GitHubNumber
+    # The PR body to put on GitHub
+    body: str
+    # The commit message to put on the orig commit
+    commit_msg: str
+    username: str
+    ghnum: GhNumber
+    # What Git commit hash we should push to what branch.
+    # The orig branch is populated later
+    push_branches: List[Tuple[GitCommitHash, BranchKind]]
+    # A human-readable string like 'Created' which describes what
+    # happened to this pull request
+    what: str
+    closed: bool
+    pr_url: str
+
+    @cached_property
+    def orig(self) -> GitCommitHash:
+        for h, k in self.push_branches:
+            if k == "orig":
+                return h
+        raise RuntimeError("tried to access orig on DiffMeta that doesn't have it")
 
 
 # Ya, sometimes we get carriage returns.  Crazy right?
@@ -127,247 +134,14 @@ class DiffWithGitHubMetadata:
     pull_request_resolved: ghstack.diff.PullRequestResolved
 
 
-def main(
-    *,
-    msg: Optional[str],
-    username: str,
-    github: ghstack.github.GitHubEndpoint,
-    update_fields: bool = False,
-    sh: Optional[ghstack.shell.Shell] = None,
-    stack_header: str = STACK_HEADER,
-    repo_owner: Optional[str] = None,
-    repo_name: Optional[str] = None,
-    short: bool = False,
-    force: bool = False,
-    no_skip: bool = False,
-    draft: bool = False,
-    github_url: str,
-    remote_name: str,
-    base: Optional[str] = None,
-    revs: Sequence[str] = (),
-    stack: bool = True,
-) -> List[Optional[DiffMeta]]:
+def main(**kwargs: Any) -> List[DiffMeta]:
+    # Reserve the non-opt name for non-opt
+    kwargs["base_opt"] = kwargs.pop("base", None)
+    kwargs["repo_owner_opt"] = kwargs.pop("repo_owner", None)
+    kwargs["repo_name_opt"] = kwargs.pop("repo_name", None)
 
-    if sh is None:
-        # Use CWD
-        sh = ghstack.shell.Shell()
-
-    repo = ghstack.github_utils.get_github_repo_info(
-        github=github,
-        sh=sh,
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-        github_url=github_url,
-        remote_name=remote_name,
-    )
-    repo_owner_nonopt = repo["name_with_owner"]["owner"]
-    repo_name_nonopt = repo["name_with_owner"]["name"]
-
-    if repo["is_fork"]:
-        raise RuntimeError(
-            "Cowardly refusing to upload diffs to a repository that is a "
-            "fork.  ghstack expects '{}' of your Git checkout to point "
-            "to the upstream repository in question.  If your checkout does "
-            "not comply, please either adjust your remotes (by editing "
-            ".git/config) or change the 'remote_name' field in your .ghstackrc "
-            "file to point to the correct remote.  If this message is in "
-            "error, please register your complaint on GitHub issues (or edit "
-            "this line to delete the check above).".format(remote_name)
-        )
-    repo_id = repo["id"]
-    if base is not None:
-        default_branch = base
-    else:
-        default_branch = repo["default_branch"]
-
-    # TODO: Potentially we could narrow this refspec down to only OUR gh
-    # branches.  However, this will interact poorly with cross-author
-    # so it needs to be thought more carefully
-    sh.git(
-        "fetch", "--prune", remote_name, f"+refs/heads/*:refs/remotes/{remote_name}/*"
-    )
-
-    # There are two distinct usage patterns:
-    #
-    #   1. You may want to submit only HEAD, but not everything below it,
-    #      because you only did minor changes to the commits below and
-    #      you want to let the CI finish without those changes.
-    #      See https://github.com/ezyang/ghstack/issues/165
-    #
-    #   2. I want to submit a prefix of the stack, because I'm still working
-    #      on the top of the stack and don't want to spam people with
-    #      useless changes.  See https://github.com/ezyang/ghstack/issues/101
-    #
-    # If we use standard git log/rev-list style parsing, you get (2) by
-    # default because a single commit implies a reachability constraint.
-    # Specifying (1) is a bit inconvenient; you have to say something
-    # like `ghstack submit HEAD~..`.  In particular, both (1) and (2) would like
-    # the meaning of `ghstack submit HEAD` to do different things (1 wants a single
-    # commit, whereas 2 wants everything reachable from the commit.)
-    #
-    # To resolve the ambiguity, we introduce a new command line argument
-    # --no-stack (analogous to the --stack argument on jf) which disables
-    # "stacky" behavior.  With --no-stack, we only submit HEAD by default
-    # and you can also specify a specific commit to submit if you like
-    # (if this commit is not reachable from HEAD, we will tell you how
-    # to checkout the updated commit.)  If you specify multiple commits,
-    # we will process each of them in turn.  Ranges are not supported; use
-    # git rev-list to preprocess them into single commits first (in principle
-    # we could support this, but it would require determining if a REV was
-    # a range versus a commit, as different handling would be necessary
-    # in each case.)
-    #
-    # Without --no-stack, we use standard git rev-list semantics.  Some of the
-    # more advanced spellings can be counterintuitive, but `ghstack submit X`
-    # is equivalent to checking out X and then performing ghstack (and then
-    # restacking HEAD on top, if necessary), and you can say `X..Y`
-    # (exclusive-inclusive) to specify a specific range of commits (oddly,
-    # `X..` will do what you expect, but `..Y` will almost always be empty.)
-    # But I expect this to be fairly niche.
-    #
-    # In both cases, we support submitting multiple commits, because the set
-    # of commits you specify affects what rebasing we do, which is sometimes
-    # not conveniently done by calling ghstack multiple times.
-
-    # Interestingly, the default is the same whether it is --stack or
-    # --no-stack
-    if not revs:
-        revs = ("HEAD",)
-
-    # In jf, we determine whether or not we should consider a diff by checking
-    # if it is draft or not (only draft commits can be posted).  Git doesn't
-    # have a directly analogous concept, so we need some other strategy.  A
-    # simple approach is to inspect the base branch in the upstream
-    # repository, and exclude all commits which are reachable from it.
-    # We don't want to blast ALL remote branches into the list here though;
-    # it's possible the draft commits were pushed to the remote repo for
-    # unrelated reasons, and we don't want to treat them as non-draft if
-    # this happens!
-
-    base_ref = f"{remote_name}/{default_branch}"
-    commits_to_submit_and_boundary = []
-    if stack:
-        # Easy case, make rev-list do the hard work
-        commits_to_submit_and_boundary.extend(
-            ghstack.git.split_header(
-                sh.git(
-                    "rev-list",
-                    "--header",
-                    "--topo-order",
-                    "--boundary",
-                    *revs,
-                    f"^{base_ref}",
-                ),
-            )
-        )
-    else:
-        # Hard case, need to query rev-list repeatedly
-        for rev in revs:
-            # We still do rev-list as it gets us the parent commits
-            r = ghstack.git.split_header(
-                sh.git(
-                    "rev-list",
-                    "--header",
-                    "--topo-order",
-                    "--boundary",
-                    f"{rev}~..{rev}",
-                    f"^{base_ref}",
-                ),
-            )
-            if not r:
-                raise RuntimeError(
-                    f"{r} doesn't seem to be a commit that can be submitted!"
-                )
-            # NB: There may be duplicate commits that are
-            # boundary/not-boundary, but once we generate commits_to_submit
-            # there should not be any dupes if rev was not duped
-            # TODO: check no dupe revs, though actually it's harmless
-            commits_to_submit_and_boundary.extend(r)
-
-    commits_to_submit = [d for d in commits_to_submit_and_boundary if not d.boundary]
-
-    # NB: A little bit of redundant parsing here, because we will re-parse
-    # commits that we had already parsed in commits_to_submit, and we will
-    # also parse prefix even if it's not being processed, but it's at most ~10
-    # extra parses so whatever
-    commits_to_rebase = ghstack.git.split_header(
-        sh.git(
-            "rev-list",
-            "--header",
-            "--topo-order",
-            # Get all commits reachable from HEAD...
-            "HEAD",
-            # ...as well as all the commits we are going to submit...
-            *[c.commit_id for c in commits_to_submit],
-            # ...but we don't need any commits that aren't draft
-            f"^{base_ref}",
-        )
-    )
-
-    # NB: commits_to_rebase does not necessarily contain diffs_to_submit, as you
-    # can specify REVS that are not connected to HEAD.  In principle, we
-    # could also rebase them, if we identified all local branches for which
-    # the REV was reachable from--this is left for future work.
-    #
-    # NB: commits_to_submit does not necessarily contain diffs_to_rebase.  If
-    # you ask to submit only a prefix of your current stack, the suffix is
-    # not to be submitted, but it needs to be rebased (to, e.g., update the
-    # ghstack-source-id)
-
-    commit_count = len(commits_to_submit)
-
-    if commit_count == 0:
-        raise RuntimeError(
-            "There appears to be no commits to process, based on the revs you passed me.  "
-            f"I determined this by running `git rev-list {' '.join(revs)} ^{base_ref}`."
-        )
-    elif commit_count > 8 and not force:
-        raise RuntimeError(
-            "Cowardly refusing to handle a stack with more than eight PRs.  "
-            "You are likely to get rate limited by GitHub if you try to create or "
-            "manipulate this many PRs.  You can bypass this throttle using --force"
-        )
-
-    # TODO: figure this out.  BC when revs is standard; maybe multiple calls
-    # for non standard rev patterns
-    # run_pre_ghstack_hook(sh, base, top.oid)
-
-    submitter = Submitter(
-        github=github,
-        sh=sh,
-        username=username,
-        repo_owner=repo_owner_nonopt,
-        repo_name=repo_name_nonopt,
-        repo_id=repo_id,
-        stack_header=stack_header,
-        update_fields=update_fields,
-        msg=msg,
-        short=short,
-        force=force,
-        no_skip=no_skip,
-        draft=draft,
-        github_url=github_url,
-        remote_name=remote_name,
-        commit_index={d.commit_id: d for d in commits_to_submit_and_boundary},
-    )
-
-    diff_meta_index = submitter.prepare_submit(commits_to_submit)
-    # Also has side effect of updating branch updates
-    rebase_index = submitter.prepare_rebase(commits_to_rebase, diff_meta_index)
-    logging.debug("rebase_index = %s", rebase_index)
-    diffs_to_submit = [
-        diff_meta_index[h.commit_id]
-        for h in commits_to_submit
-        if h.commit_id in diff_meta_index
-    ]
-    submitter.push_updates(diffs_to_submit)
-    if new_head := rebase_index.get(GitCommitHash(sh.git("rev-parse", "HEAD"))):
-        sh.git("reset", "--soft", new_head)
-    # TODO: print out commit hashes for things we rebased but not accessible
-    # from HEAD
-
-    # NB: earliest first
-    return list(reversed(diffs_to_submit))
+    submitter = Submitter(**kwargs)
+    return submitter.run()
 
 
 def all_branches(username: str, ghnum: GhNumber) -> Tuple[str, str, str]:
@@ -382,161 +156,498 @@ def push_spec(commit: GitCommitHash, branch: str) -> str:
     return "{}:refs/heads/{}".format(commit, branch)
 
 
+@dataclass(frozen=True)
 class Submitter:
     """
     A class responsible for managing the environment associated
     with submitting PRs at GitHub.
-
-    This used to contain mutable state but now it is immutable.
     """
 
-    # Endpoint to access GitHub
-    github: ghstack.github.GitHubEndpoint
+    # ---------------------------
+    # Direct arguments to submit
 
-    # Shell inside git checkout that we are submitting
-    sh: ghstack.shell.Shell
+    # Message describing the update to the stack that was done
+    msg: Optional[str]
 
     # GitHub username who is doing the submitting
     username: str
 
+    # Endpoint to access GitHub
+    github: ghstack.github.GitHubEndpoint
+
+    # Clobber existing PR description with local commit message
+    update_fields: bool = False
+
+    # Shell inside git checkout that we are submitting
+    sh: ghstack.shell.Shell = dataclasses.field(default_factory=ghstack.shell.Shell)
+
+    # String used to describe the stack in question
+    stack_header: str = STACK_HEADER
+
     # Owner of the repository we are submitting to.  Usually 'pytorch'
-    repo_owner: str
+    # Presents as repo_owner kwarg in main
+    repo_owner_opt: Optional[str] = None
 
     # Name of the repository we are submitting to.  Usually 'pytorch'
-    repo_name: str
+    # Presents as repo_name kwarg in main
+    repo_name_opt: Optional[str] = None
+
+    # Print only PR URL to stdout
+    short: bool = False
+
+    # Force an update to GitHub, even if we think that your local copy
+    # is stale.
+    force: bool = False
+
+    # Do not skip unchanged diffs
+    no_skip: bool = False
+
+    # Create the PR in draft mode if it is going to be created (and not updated).
+    draft: bool = False
+
+    # Github url (normally github.com)
+    github_url: str = "github.com"
+
+    # Name of the upstream remote (normally origin)
+    remote_name: str = "origin"
+
+    base_opt: Optional[str] = None
+
+    revs: Sequence[str] = ()
+
+    # Controls rev parse behavior, whether or not to submit a stack
+    # of commits or only one commit individually
+    stack: bool = True
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # Computed in post init
 
     # GraphQL ID of the repository
-    repo_id: GitHubRepositoryId
+    repo_id: GitHubRepositoryId = dataclasses.field(init=False)
 
-    # Message describing the update to the stack that was done
-    msg: Optional[str]
+    repo_owner: str = dataclasses.field(init=False)
+
+    repo_name: str = dataclasses.field(init=False)
+
+    # unlike base_opt, qualified by remote name so it is a ref that correctly
+    # points at remote branch
+    base: str = dataclasses.field(init=False)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # Mutable state; TODO: remove me
 
     # List of input diffs which we ignored (i.e., treated as if they
     # did not exist on the stack at all), because they were associated
     # with a patch that contains no changes.  GhNumber may be false
     # if the diff was never associated with a PR.
-    # TODO: mutable state, move out
-    ignored_diffs: List[Tuple[ghstack.diff.Diff, Optional[GitHubNumber]]]
+    ignored_diffs: List[
+        Tuple[ghstack.diff.Diff, Optional[GitHubNumber]]
+    ] = dataclasses.field(default_factory=list)
 
     # Set of seen ghnums
-    # TODO: mutable state, move out
-    seen_ghnums: Set[GhNumber]
+    seen_ghnums: Set[GhNumber] = dataclasses.field(default_factory=set)
 
-    # String used to describe the stack in question
-    stack_header: str
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # Post initialization
 
-    # Clobber existing PR description with local commit message
-    update_fields: bool
-
-    # Print only PR URL to stdout
-    short: bool
-
-    # Force an update to GitHub, even if we think that your local copy
-    # is stale.
-    force: bool
-
-    # Do not skip unchanged diffs
-    no_skip: bool
-
-    # Create the PR in draft mode if it is going to be created (and not updated).
-    draft: bool
-
-    # Github url (normally github.com)
-    github_url: str
-
-    # Name of the upstream remote (normally origin)
-    remote_name: str
-
-    # Index for original commit hashes to the commit header we parsed out for
-    # them
-    commit_index: Dict[GitCommitHash, ghstack.git.CommitHeader]
-
-    def __init__(
-        self,
-        github: ghstack.github.GitHubEndpoint,
-        sh: ghstack.shell.Shell,
-        username: str,
-        repo_owner: str,
-        repo_name: str,
-        repo_id: GitHubRepositoryId,
-        stack_header: str,
-        update_fields: bool,
-        msg: Optional[str],
-        short: bool,
-        force: bool,
-        no_skip: bool,
-        draft: bool,
-        github_url: str,
-        remote_name: str,
-        commit_index: Dict[GitCommitHash, ghstack.git.CommitHeader],
-    ):
-        self.github = github
-        self.sh = sh
-        self.username = username
-        self.repo_owner = repo_owner
-        self.repo_name = repo_name
-        self.repo_id = repo_id
-        self.update_fields = update_fields
-        self.stack_header = stack_header.format(github_url=github_url)
-        self.msg = msg
-        self.short = short
-        self.force = force
-        self.no_skip = no_skip
-        self.draft = draft
-        self.github_url = github_url
-        self.remote_name = remote_name
-        self.commit_index = commit_index
-
-        # TODO: mutable state to remove
-        self.ignored_diffs = []
-        self.seen_ghnums = set()
-
-    def _default_title_and_body(
-        self, commit: ghstack.diff.Diff, old_pr_body: Optional[str]
-    ) -> Tuple[str, str]:
-        """
-        Compute what the default title and body of a newly opened pull
-        request would be, given the existing commit message.
-
-        If you pass in the old PR body, we also preserve "Differential
-        Revision" information in the PR body.  We only overwrite PR
-        body if you explicitly ask for it with --update-fields, but
-        it's good not to lose Phabricator diff assignment, so we special
-        case this.
-        """
-        title = commit.title
-        extra = ""
-        if old_pr_body is not None:
-            # Look for tags we should preserve, and keep them
-            m = RE_DIFF_REV.search(old_pr_body)
-            if m:
-                extra = (
-                    "\n\nDifferential Revision: "
-                    "[{phabdiff}]"
-                    "(https://our.internmc.facebook.com/intern/diff/{phabdiff})"
-                ).format(phabdiff=m.group(1))
-        commit_body = "".join(commit.summary.splitlines(True)[1:]).lstrip()
-        # Don't store ghstack-source-id in the PR body; it will become
-        # stale quickly
-        commit_body = RE_GHSTACK_SOURCE_ID.sub("", commit_body)
-        # Don't store Pull request resolved in the PR body; it's
-        # unnecessary
-        commit_body = ghstack.diff.re_pull_request_resolved_w_sp(self.github_url).sub(
-            "", commit_body
+    def __post_init__(self) -> None:
+        # Network call in the constructor, help me father, for I have sinned
+        repo = ghstack.github_utils.get_github_repo_info(
+            github=self.github,
+            sh=self.sh,
+            repo_owner=self.repo_owner_opt,
+            repo_name=self.repo_name_opt,
+            github_url=self.github_url,
+            remote_name=self.remote_name,
         )
-        if starts_with_bullet(commit_body):
-            commit_body = f"----\n\n{commit_body}"
-        pr_body = "{}:\n* (to be filled)\n\n{}{}".format(
-            self.stack_header, commit_body, extra
-        )
-        return title, pr_body
+        object.__setattr__(self, "repo_owner", repo["name_with_owner"]["owner"])
+        object.__setattr__(self, "repo_name", repo["name_with_owner"]["name"])
 
-    def _is_valid_ref(self, ref: str) -> bool:
-        splits = ref.split("/")
-        if len(splits) < 3:
-            return False
+        if repo["is_fork"]:
+            raise RuntimeError(
+                "Cowardly refusing to upload diffs to a repository that is a "
+                "fork.  ghstack expects '{}' of your Git checkout to point "
+                "to the upstream repository in question.  If your checkout does "
+                "not comply, please either adjust your remotes (by editing "
+                ".git/config) or change the 'remote_name' field in your .ghstackrc "
+                "file to point to the correct remote.  If this message is in "
+                "error, please register your complaint on GitHub issues (or edit "
+                "this line to delete the check above).".format(self.remote_name)
+            )
+        object.__setattr__(self, "repo_id", repo["id"])
+        if self.base_opt is not None:
+            default_branch = self.base_opt
         else:
-            return splits[-2].isnumeric()
+            default_branch = repo["default_branch"]
+
+        object.__setattr__(self, "base", f"{self.remote_name}/{default_branch}")
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # The main algorithm
+
+    def run(self) -> List[DiffMeta]:
+        # TODO: Potentially we could narrow this refspec down to only OUR gh
+        # branches.  However, this will interact poorly with cross-author
+        # so it needs to be thought more carefully
+        self.sh.git(
+            "fetch",
+            "--prune",
+            self.remote_name,
+            f"+refs/heads/*:refs/remotes/{self.remote_name}/*",
+        )
+
+        commits_to_submit_and_boundary = self.parse_revs()
+
+        commits_to_submit = [
+            d for d in commits_to_submit_and_boundary if not d.boundary
+        ]
+
+        # NB: A little bit of redundant parsing here, because we will re-parse
+        # commits that we had already parsed in commits_to_submit, and we will
+        # also parse prefix even if it's not being processed, but it's at most ~10
+        # extra parses so whatever
+        commits_to_rebase = ghstack.git.split_header(
+            self.sh.git(
+                "rev-list",
+                "--header",
+                "--topo-order",
+                # Get all commits reachable from HEAD...
+                "HEAD",
+                # ...as well as all the commits we are going to submit...
+                *[c.commit_id for c in commits_to_submit],
+                # ...but we don't need any commits that aren't draft
+                f"^{self.base}",
+            )
+        )
+
+        # NB: commits_to_rebase does not necessarily contain diffs_to_submit, as you
+        # can specify REVS that are not connected to HEAD.  In principle, we
+        # could also rebase them, if we identified all local branches for which
+        # the REV was reachable from--this is left for future work.
+        #
+        # NB: commits_to_submit does not necessarily contain diffs_to_rebase.  If
+        # you ask to submit only a prefix of your current stack, the suffix is
+        # not to be submitted, but it needs to be rebased (to, e.g., update the
+        # ghstack-source-id)
+
+        commit_count = len(commits_to_submit)
+
+        if commit_count == 0:
+            raise RuntimeError(
+                "There appears to be no commits to process, based on the revs you passed me."
+            )
+        elif commit_count > 8 and not self.force:
+            raise RuntimeError(
+                "Cowardly refusing to handle a stack with more than eight PRs.  "
+                "You are likely to get rate limited by GitHub if you try to create or "
+                "manipulate this many PRs.  You can bypass this throttle using --force"
+            )
+
+        # TODO: figure this out.  BC when revs is standard; maybe multiple calls
+        # for non standard rev patterns
+        # run_pre_ghstack_hook(sh, base, top.oid)
+
+        commit_index = {d.commit_id: d for d in commits_to_submit_and_boundary}
+        diff_meta_index = self.prepare_submit(commit_index, commits_to_submit)
+        # NB: Also has side effect of updating branch updates
+        rebase_index = self.prepare_rebase(commits_to_rebase, diff_meta_index)
+        logging.debug("rebase_index = %s", rebase_index)
+        diffs_to_submit = [
+            diff_meta_index[h.commit_id]
+            for h in commits_to_submit
+            if h.commit_id in diff_meta_index
+        ]
+        self.push_updates(diffs_to_submit)
+        if new_head := rebase_index.get(
+            GitCommitHash(self.sh.git("rev-parse", "HEAD"))
+        ):
+            self.sh.git("reset", "--soft", new_head)
+        # TODO: print out commit hashes for things we rebased but not accessible
+        # from HEAD
+
+        # NB: earliest first, which is the intuitive order for unit testing
+        return list(reversed(diffs_to_submit))
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # The main pieces
+
+    def parse_revs(self) -> List[ghstack.git.CommitHeader]:
+        # There are two distinct usage patterns:
+        #
+        #   1. You may want to submit only HEAD, but not everything below it,
+        #      because you only did minor changes to the commits below and
+        #      you want to let the CI finish without those changes.
+        #      See https://github.com/ezyang/ghstack/issues/165
+        #
+        #   2. I want to submit a prefix of the stack, because I'm still working
+        #      on the top of the stack and don't want to spam people with
+        #      useless changes.  See https://github.com/ezyang/ghstack/issues/101
+        #
+        # If we use standard git log/rev-list style parsing, you get (2) by
+        # default because a single commit implies a reachability constraint.
+        # Specifying (1) is a bit inconvenient; you have to say something
+        # like `ghstack submit HEAD~..`.  In particular, both (1) and (2) would like
+        # the meaning of `ghstack submit HEAD` to do different things (1 wants a single
+        # commit, whereas 2 wants everything reachable from the commit.)
+        #
+        # To resolve the ambiguity, we introduce a new command line argument
+        # --no-stack (analogous to the --stack argument on jf) which disables
+        # "stacky" behavior.  With --no-stack, we only submit HEAD by default
+        # and you can also specify a specific commit to submit if you like
+        # (if this commit is not reachable from HEAD, we will tell you how
+        # to checkout the updated commit.)  If you specify multiple commits,
+        # we will process each of them in turn.  Ranges are not supported; use
+        # git rev-list to preprocess them into single commits first (in principle
+        # we could support this, but it would require determining if a REV was
+        # a range versus a commit, as different handling would be necessary
+        # in each case.)
+        #
+        # Without --no-stack, we use standard git rev-list semantics.  Some of the
+        # more advanced spellings can be counterintuitive, but `ghstack submit X`
+        # is equivalent to checking out X and then performing ghstack (and then
+        # restacking HEAD on top, if necessary), and you can say `X..Y`
+        # (exclusive-inclusive) to specify a specific range of commits (oddly,
+        # `X..` will do what you expect, but `..Y` will almost always be empty.)
+        # But I expect this to be fairly niche.
+        #
+        # In both cases, we support submitting multiple commits, because the set
+        # of commits you specify affects what rebasing we do, which is sometimes
+        # not conveniently done by calling ghstack multiple times.
+
+        # Interestingly, the default is the same whether it is --stack or
+        # --no-stack
+        revs = ("HEAD",) if not self.revs else self.revs
+
+        # In jf, we determine whether or not we should consider a diff by checking
+        # if it is draft or not (only draft commits can be posted).  Git doesn't
+        # have a directly analogous concept, so we need some other strategy.  A
+        # simple approach is to inspect the base branch in the upstream
+        # repository, and exclude all commits which are reachable from it.
+        # We don't want to blast ALL remote branches into the list here though;
+        # it's possible the draft commits were pushed to the remote repo for
+        # unrelated reasons, and we don't want to treat them as non-draft if
+        # this happens!
+
+        commits_to_submit_and_boundary = []
+        if self.stack:
+            # Easy case, make rev-list do the hard work
+            commits_to_submit_and_boundary.extend(
+                ghstack.git.split_header(
+                    self.sh.git(
+                        "rev-list",
+                        "--header",
+                        "--topo-order",
+                        "--boundary",
+                        *revs,
+                        f"^{self.base}",
+                    ),
+                )
+            )
+        else:
+            # Hard case, need to query rev-list repeatedly
+            for rev in revs:
+                # We still do rev-list as it gets us the parent commits
+                r = ghstack.git.split_header(
+                    self.sh.git(
+                        "rev-list",
+                        "--header",
+                        "--topo-order",
+                        "--boundary",
+                        f"{rev}~..{rev}",
+                        f"^{self.base}",
+                    ),
+                )
+                if not r:
+                    raise RuntimeError(
+                        f"{r} doesn't seem to be a commit that can be submitted!"
+                    )
+                # NB: There may be duplicate commits that are
+                # boundary/not-boundary, but once we generate commits_to_submit
+                # there should not be any dupes if rev was not duped
+                # TODO: check no dupe revs, though actually it's harmless
+                commits_to_submit_and_boundary.extend(r)
+
+        return commits_to_submit_and_boundary
+
+    def prepare_submit(
+        self,
+        commit_index: Dict[GitCommitHash, ghstack.git.CommitHeader],
+        commits_to_submit: List[ghstack.git.CommitHeader],
+    ) -> Dict[GitCommitHash, DiffMeta]:
+
+        # NB: this can be done in parallel, if you like.
+        # When sequentially, reversed means we update early commits first (this
+        # doesn't really matter, but it's more intuitive for users)
+        diff_meta_index: Dict[GitCommitHash, DiffMeta] = {}
+        for commit in reversed(commits_to_submit):
+            parents = commit.parents
+            if len(parents) != 1:
+                raise RuntimeError(
+                    "The commit {} has {} parents, which makes my head explode.  "
+                    "`git rebase -i` your diffs into a stack, then try again.".format(
+                        commit.commit_id, len(parents)
+                    )
+                )
+            parent_commit = commit_index[parents[0]]
+            diff = ghstack.git.convert_header(commit, self.github_url)
+            if diff.pull_request_resolved is None:
+                diff_meta = self.process_new_commit(parent_commit, diff)
+            else:
+                diff_meta = self.process_old_commit(
+                    parent_commit, self.elaborate_diff(diff)
+                )
+            if diff_meta is not None:
+                diff_meta_index[commit.commit_id] = diff_meta
+
+        return diff_meta_index
+
+    def process_new_commit(
+        self, base: ghstack.git.CommitHeader, commit: ghstack.diff.Diff
+    ) -> Optional[DiffMeta]:
+        """
+        Process a diff that has never been pushed to GitHub before.
+        """
+
+        logging.debug(
+            "process_new_commit(base=%s, commit=%s)", base.commit_id, commit.oid
+        )
+
+        if "[ghstack-poisoned]" in commit.summary:
+            raise RuntimeError(
+                """\
+This commit is poisoned: it is from a head or base branch--ghstack
+cannot validly submit it.  The most common situation for this to
+happen is if you checked out the head branch of a pull request that was
+previously submitted with ghstack (e.g., by using hub checkout).
+Making modifications on the head branch is not supported; instead,
+you should fetch the original commits in question by running:
+
+    ghstack checkout $PR_URL
+
+Since we cannot proceed, ghstack will abort now.
+"""
+            )
+
+        title, pr_body = self._default_title_and_body(commit, None)
+
+        # Determine the next available GhNumber.  We do this by
+        # iterating through known branches and keeping track
+        # of the max.  The next available GhNumber is the next number.
+        # This is technically subject to a race, but we assume
+        # end user is not running this script concurrently on
+        # multiple machines (you bad bad)
+        refs = self.sh.git(
+            "for-each-ref",
+            # Use OUR username here, since there's none attached to the
+            # diff
+            "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
+            "--format=%(refname)",
+        ).split()
+
+        def _is_valid_ref(ref: str) -> bool:
+            splits = ref.split("/")
+            if len(splits) < 3:
+                return False
+            else:
+                return splits[-2].isnumeric()
+
+        refs = list(filter(_is_valid_ref, refs))
+        max_ref_num = max(int(ref.split("/")[-2]) for ref in refs) if refs else 0
+        ghnum = GhNumber(str(max_ref_num + 1))
+
+        # Create the incremental pull request diff
+        tree = commit.tree
+
+        # Actually, if there's no change in the tree, stop processing
+        if tree == base.tree:
+            self.ignored_diffs.append((commit, None))
+            logging.warning(
+                "Skipping {} {}, as the commit has no changes".format(commit.oid, title)
+            )
+            return None
+
+        assert ghnum not in self.seen_ghnums
+        self.seen_ghnums.add(ghnum)
+
+        new_base = GitCommitHash(
+            self.sh.git(
+                "commit-tree",
+                *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
+                # No parents!  We could hypothetically give this a parent
+                # back to the base branch, but it's not really necessary
+                base.tree,
+                input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(
+                    self.msg, commit.title, base.commit_msg
+                ),
+            )
+        )
+
+        new_pull = GitCommitHash(
+            self.sh.git(
+                "commit-tree",
+                *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
+                "-p",
+                new_base,
+                tree,
+                input=commit.summary + "\n\n[ghstack-poisoned]",
+            )
+        )
+
+        # Push the branches, so that we can create a PR for them
+        new_branches = (
+            push_spec(new_pull, branch_head(self.username, ghnum)),
+            push_spec(new_base, branch_base(self.username, ghnum)),
+        )
+        self._git_push(new_branches)
+
+        # Time to open the PR
+        # NB: GraphQL API does not support opening PRs
+        r = self.github.post(
+            "repos/{owner}/{repo}/pulls".format(
+                owner=self.repo_owner, repo=self.repo_name
+            ),
+            title=title,
+            head=branch_head(self.username, ghnum),
+            base=branch_base(self.username, ghnum),
+            body=pr_body,
+            maintainer_can_modify=True,
+            draft=self.draft,
+        )
+        number = r["number"]
+
+        logging.info("Opened PR #{}".format(number))
+
+        # Update the commit message of the local diff with metadata
+        # so we can correlate these later
+        pull_request_resolved = ghstack.diff.PullRequestResolved(
+            owner=self.repo_owner, repo=self.repo_name, number=number
+        )
+        commit_msg = (
+            "{commit_msg}\n\n"
+            "ghstack-source-id: {sourceid}\n"
+            "Pull Request resolved: "
+            "https://{github_url}/{owner}/{repo}/pull/{number}".format(
+                commit_msg=strip_mentions(commit.summary.rstrip()),
+                owner=self.repo_owner,
+                repo=self.repo_name,
+                number=number,
+                sourceid=commit.source_id,
+                github_url=self.github_url,
+            )
+        )
+
+        return DiffMeta(
+            title=title,
+            number=number,
+            body=pr_body,
+            commit_msg=commit_msg,
+            ghnum=ghnum,
+            username=self.username,
+            push_branches=[],
+            what="Created",
+            closed=False,
+            pr_url=pull_request_resolved.url(self.github_url),
+        )
 
     def elaborate_diff(
         self, commit: ghstack.diff.Diff, *, is_ghexport: bool = False
@@ -668,167 +779,6 @@ to disassociate the commit with the pull request, and then try again.
             ghnum=gh_number,
             remote_source_id=remote_source_id,
             pull_request_resolved=commit.pull_request_resolved,
-        )
-
-    def git_push(self, branches: Sequence[str], force: bool = False) -> None:
-        assert branches, "empty branches would push master, probably bad!"
-        try:
-            self.sh.git(
-                "push",
-                self.remote_name,
-                *(["--force"] if force else []),
-                *branches,
-            )
-        except RuntimeError as e:
-            remote_url = self.sh.git("remote", "get-url", "--push", self.remote_name)
-            if remote_url.startswith("https://"):
-                raise RuntimeError(
-                    "[E001] git push failed, probably because it asked for password "
-                    "(scroll up to see original error).  "
-                    "Change your git URL to use SSH instead of HTTPS to enable passwordless push.  "
-                    "See https://github.com/ezyang/ghstack/wiki/E001 for more details."
-                ) from e
-            raise
-        self.github.push_hook(branches)
-
-    def process_new_commit(
-        self, base: ghstack.git.CommitHeader, commit: ghstack.diff.Diff
-    ) -> Optional[DiffMeta]:
-        """
-        Process a diff that has never been pushed to GitHub before.
-        """
-
-        logging.debug(
-            "process_new_commit(base=%s, commit=%s)", base.commit_id, commit.oid
-        )
-
-        if "[ghstack-poisoned]" in commit.summary:
-            raise RuntimeError(
-                """\
-This commit is poisoned: it is from a head or base branch--ghstack
-cannot validly submit it.  The most common situation for this to
-happen is if you checked out the head branch of a pull request that was
-previously submitted with ghstack (e.g., by using hub checkout).
-Making modifications on the head branch is not supported; instead,
-you should fetch the original commits in question by running:
-
-    ghstack checkout $PR_URL
-
-Since we cannot proceed, ghstack will abort now.
-"""
-            )
-
-        title, pr_body = self._default_title_and_body(commit, None)
-
-        # Determine the next available GhNumber.  We do this by
-        # iterating through known branches and keeping track
-        # of the max.  The next available GhNumber is the next number.
-        # This is technically subject to a race, but we assume
-        # end user is not running this script concurrently on
-        # multiple machines (you bad bad)
-        refs = self.sh.git(
-            "for-each-ref",
-            # Use OUR username here, since there's none attached to the
-            # diff
-            "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
-            "--format=%(refname)",
-        ).split()
-        refs = list(filter(lambda r: self._is_valid_ref(r), refs))
-        max_ref_num = max(int(ref.split("/")[-2]) for ref in refs) if refs else 0
-        ghnum = GhNumber(str(max_ref_num + 1))
-
-        # Create the incremental pull request diff
-        tree = commit.tree
-
-        # Actually, if there's no change in the tree, stop processing
-        if tree == base.tree:
-            self.ignored_diffs.append((commit, None))
-            logging.warning(
-                "Skipping {} {}, as the commit has no changes".format(commit.oid, title)
-            )
-            return None
-
-        assert ghnum not in self.seen_ghnums
-        self.seen_ghnums.add(ghnum)
-
-        new_base = GitCommitHash(
-            self.sh.git(
-                "commit-tree",
-                *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                # No parents!  We could hypothetically give this a parent
-                # back to the base branch, but it's not really necessary
-                base.tree,
-                input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(
-                    self.msg, commit.title, base.commit_msg
-                ),
-            )
-        )
-
-        new_pull = GitCommitHash(
-            self.sh.git(
-                "commit-tree",
-                *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                "-p",
-                new_base,
-                tree,
-                input=commit.summary + "\n\n[ghstack-poisoned]",
-            )
-        )
-
-        # Push the branches, so that we can create a PR for them
-        new_branches = (
-            push_spec(new_pull, branch_head(self.username, ghnum)),
-            push_spec(new_base, branch_base(self.username, ghnum)),
-        )
-        self.git_push(new_branches)
-
-        # Time to open the PR
-        # NB: GraphQL API does not support opening PRs
-        r = self.github.post(
-            "repos/{owner}/{repo}/pulls".format(
-                owner=self.repo_owner, repo=self.repo_name
-            ),
-            title=title,
-            head=branch_head(self.username, ghnum),
-            base=branch_base(self.username, ghnum),
-            body=pr_body,
-            maintainer_can_modify=True,
-            draft=self.draft,
-        )
-        number = r["number"]
-
-        logging.info("Opened PR #{}".format(number))
-
-        # Update the commit message of the local diff with metadata
-        # so we can correlate these later
-        pull_request_resolved = ghstack.diff.PullRequestResolved(
-            owner=self.repo_owner, repo=self.repo_name, number=number
-        )
-        commit_msg = (
-            "{commit_msg}\n\n"
-            "ghstack-source-id: {sourceid}\n"
-            "Pull Request resolved: "
-            "https://{github_url}/{owner}/{repo}/pull/{number}".format(
-                commit_msg=strip_mentions(commit.summary.rstrip()),
-                owner=self.repo_owner,
-                repo=self.repo_name,
-                number=number,
-                sourceid=commit.source_id,
-                github_url=self.github_url,
-            )
-        )
-
-        return DiffMeta(
-            title=title,
-            number=number,
-            body=pr_body,
-            commit_msg=commit_msg,
-            ghnum=ghnum,
-            username=self.username,
-            push_branches=[],
-            what="Created",
-            closed=False,
-            pr_url=pull_request_resolved.url(self.github_url),
         )
 
     def process_old_commit(
@@ -1055,37 +1005,6 @@ Since we cannot proceed, ghstack will abort now.
             pr_url=elab_commit.pull_request_resolved.url(self.github_url),
         )
 
-    def prepare_submit(
-        self, commits_to_submit: List[ghstack.git.CommitHeader]
-    ) -> Dict[GitCommitHash, DiffMeta]:
-        commit_index = self.commit_index
-
-        # NB: this can be done in parallel, if you like.
-        # When sequentially, reversed means we update early commits first (this
-        # doesn't really matter, but it's more intuitive for users)
-        diff_meta_index: Dict[GitCommitHash, DiffMeta] = {}
-        for commit in reversed(commits_to_submit):
-            parents = commit.parents
-            if len(parents) != 1:
-                raise RuntimeError(
-                    "The commit {} has {} parents, which makes my head explode.  "
-                    "`git rebase -i` your diffs into a stack, then try again.".format(
-                        commit.commit_id, len(parents)
-                    )
-                )
-            parent_commit = commit_index[parents[0]]
-            diff = ghstack.git.convert_header(commit, self.github_url)
-            if diff.pull_request_resolved is not None:
-                diff_meta = self.process_old_commit(
-                    parent_commit, self.elaborate_diff(diff)
-                )
-            else:
-                diff_meta = self.process_new_commit(parent_commit, diff)
-            if diff_meta is not None:
-                diff_meta_index[commit.commit_id] = diff_meta
-
-        return diff_meta_index
-
     def prepare_rebase(
         self,
         commits_to_rebase: List[ghstack.git.CommitHeader],
@@ -1145,22 +1064,6 @@ Since we cannot proceed, ghstack will abort now.
 
         return rebase_index
 
-    # TODO: do the tree formatting minigame
-    # Main things:
-    # - need to express some tree structure
-    # - want "as complete" a tree as possible; this may involve
-    #   poking around the xrefs to find out all the other PRs
-    #   involved in the stack
-    def _format_stack(self, diffs_to_submit: List[DiffMeta], number: int) -> str:
-        rows = []
-        # NB: top is top of stack, opposite of update order
-        for s in diffs_to_submit:
-            if s.number == number:
-                rows.append(f"* __->__ #{s.number}")
-            else:
-                rows.append(f"* #{s.number}")
-        return self.stack_header + ":\n" + "\n".join(rows) + "\n"
-
     def push_updates(
         self, diffs_to_submit: List[DiffMeta], *, import_help: bool = True
     ) -> None:
@@ -1211,11 +1114,11 @@ Since we cannot proceed, ghstack will abort now.
         # Careful!  Don't push master.
         # TODO: These pushes need to be atomic (somehow)
         if base_push_branches:
-            self.git_push(base_push_branches)
+            self._git_push(base_push_branches)
         if push_branches:
-            self.git_push(push_branches)
+            self._git_push(push_branches)
         if force_push_branches:
-            self.git_push(force_push_branches, force=True)
+            self._git_push(force_push_branches, force=True)
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
@@ -1277,6 +1180,86 @@ Since we cannot proceed, ghstack will abort now.
                 print(
                     "I did NOT close or update PRs previously associated with these commits."
                 )
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # Small helpers
+
+    # TODO: do the tree formatting minigame
+    # Main things:
+    # - need to express some tree structure
+    # - want "as complete" a tree as possible; this may involve
+    #   poking around the xrefs to find out all the other PRs
+    #   involved in the stack
+    def _format_stack(self, diffs_to_submit: List[DiffMeta], number: int) -> str:
+        rows = []
+        # NB: top is top of stack, opposite of update order
+        for s in diffs_to_submit:
+            if s.number == number:
+                rows.append(f"* __->__ #{s.number}")
+            else:
+                rows.append(f"* #{s.number}")
+        return self.stack_header + ":\n" + "\n".join(rows) + "\n"
+
+    def _default_title_and_body(
+        self, commit: ghstack.diff.Diff, old_pr_body: Optional[str]
+    ) -> Tuple[str, str]:
+        """
+        Compute what the default title and body of a newly opened pull
+        request would be, given the existing commit message.
+
+        If you pass in the old PR body, we also preserve "Differential
+        Revision" information in the PR body.  We only overwrite PR
+        body if you explicitly ask for it with --update-fields, but
+        it's good not to lose Phabricator diff assignment, so we special
+        case this.
+        """
+        title = commit.title
+        extra = ""
+        if old_pr_body is not None:
+            # Look for tags we should preserve, and keep them
+            m = RE_DIFF_REV.search(old_pr_body)
+            if m:
+                extra = (
+                    "\n\nDifferential Revision: "
+                    "[{phabdiff}]"
+                    "(https://our.internmc.facebook.com/intern/diff/{phabdiff})"
+                ).format(phabdiff=m.group(1))
+        commit_body = "".join(commit.summary.splitlines(True)[1:]).lstrip()
+        # Don't store ghstack-source-id in the PR body; it will become
+        # stale quickly
+        commit_body = RE_GHSTACK_SOURCE_ID.sub("", commit_body)
+        # Don't store Pull request resolved in the PR body; it's
+        # unnecessary
+        commit_body = ghstack.diff.re_pull_request_resolved_w_sp(self.github_url).sub(
+            "", commit_body
+        )
+        if starts_with_bullet(commit_body):
+            commit_body = f"----\n\n{commit_body}"
+        pr_body = "{}:\n* (to be filled)\n\n{}{}".format(
+            self.stack_header, commit_body, extra
+        )
+        return title, pr_body
+
+    def _git_push(self, branches: Sequence[str], force: bool = False) -> None:
+        assert branches, "empty branches would push master, probably bad!"
+        try:
+            self.sh.git(
+                "push",
+                self.remote_name,
+                *(["--force"] if force else []),
+                *branches,
+            )
+        except RuntimeError as e:
+            remote_url = self.sh.git("remote", "get-url", "--push", self.remote_name)
+            if remote_url.startswith("https://"):
+                raise RuntimeError(
+                    "[E001] git push failed, probably because it asked for password "
+                    "(scroll up to see original error).  "
+                    "Change your git URL to use SSH instead of HTTPS to enable passwordless push.  "
+                    "See https://github.com/ezyang/ghstack/wiki/E001 for more details."
+                ) from e
+            raise
+        self.github.push_hook(branches)
 
 
 def run_pre_ghstack_hook(
