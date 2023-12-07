@@ -58,7 +58,7 @@ def cli_context(
 @click.option("--no-skip", is_flag=True, hidden=True)
 @click.option("--draft", is_flag=True, hidden=True)
 @click.option("--base", "-B", default=None, hidden=True)
-@click.option("--stack/--no-stack", "-s/-S", is_flag=True, hidden=True)
+@click.option("--stack/--no-stack", "-s/-S", is_flag=True, default=True, hidden=True)
 def main(
     ctx: click.Context,
     debug: bool,
