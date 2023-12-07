@@ -254,7 +254,7 @@ def submit(
             draft=draft,
             github_url=config.github_url,
             remote_name=config.remote_name,
-            base=base,
+            base_opt=base,
             revs=revs,
             stack=stack,
         )

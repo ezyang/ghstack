@@ -161,23 +161,26 @@ class TestGh(expecttest.TestCase):
         )
         """
 
-        return ghstack.submit.main(
+        kwargs = dict(
             msg=msg,
             username="ezyang",
             github=self.github,
             sh=self.sh,
             update_fields=update_fields,
             stack_header="Stack",
-            repo_owner="pytorch",
-            repo_name="pytorch",
+            repo_owner_opt="pytorch",
+            repo_name_opt="pytorch",
             short=short,
             no_skip=no_skip,
             github_url="github.com",
             remote_name="origin",
-            base=base,
+            base_opt=base,
             revs=revs,
             stack=stack,
+            check_invariants=True,
         )
+
+        return ghstack.submit.main(**kwargs)
 
     def gh_land(self, pull_request: str) -> None:
         return ghstack.land.main(
@@ -701,6 +704,7 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
         print("###")
         print("### Amend the commit")
         # Can't use -m here, it will clobber the metadata
+        # TODO: This is really slow smh
         self.sh.git(
             "filter-branch",
             "-f",
