@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
+import dulwich.repo
+
 import ghstack
 import ghstack.git
 import ghstack.github
@@ -239,6 +241,8 @@ class Submitter:
     # points at remote branch
     base: str = dataclasses.field(init=False)
 
+    repo: dulwich.repo.Repo = dataclasses.field(init=False)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Mutable state; TODO: remove me
 
@@ -257,6 +261,8 @@ class Submitter:
     # Post initialization
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "repo", dulwich.repo.Repo(self.sh.cwd))
+
         # Network call in the constructor, help me father, for I have sinned
         repo = ghstack.github_utils.get_github_repo_info(
             github=self.github,
@@ -355,13 +361,13 @@ class Submitter:
                     ed = self.elaborate_diff(d)
                     pre_branch_state_index[h.commit_id] = PreBranchState(
                         head_commit_id=GitCommitHash(
-                            self.sh.git(
-                                "rev-parse", f"{self.remote_name}/{ed.head_ref}"
+                            self._git_rev_parse(
+                                f"refs/remotes/{self.remote_name}/{ed.head_ref}"
                             )
                         ),
                         base_commit_id=GitCommitHash(
-                            self.sh.git(
-                                "rev-parse", f"{self.remote_name}/{ed.base_ref}"
+                            self._git_rev_parse(
+                                f"refs/remotes/{self.remote_name}/{ed.base_ref}"
                             )
                         ),
                     )
@@ -377,9 +383,7 @@ class Submitter:
             if h.commit_id in diff_meta_index
         ]
         self.push_updates(diffs_to_submit)
-        if new_head := rebase_index.get(
-            GitCommitHash(self.sh.git("rev-parse", "HEAD"))
-        ):
+        if new_head := rebase_index.get(GitCommitHash(self._git_rev_parse("HEAD"))):
             self.sh.git("reset", "--soft", new_head)
         # TODO: print out commit hashes for things we rebased but not accessible
         # from HEAD
@@ -1296,11 +1300,17 @@ to disassociate the commit with the pull request, and then try again.
         assert_eq(base_commit.tree, user_parent_commit.tree)
 
         # 6.  Orig commit was correctly pushed
-        assert_eq(orig_commit.commit_id, GitCommitHash(
-            self.sh.git(
-                "rev-parse", self.remote_name + "/" + branch_orig(self.username, elaborated_orig_diff.ghnum)
-            )
-        ))
+        assert_eq(
+            orig_commit.commit_id,
+            GitCommitHash(
+                self._git_rev_parse(
+                    "refs/remotes/"
+                    + self.remote_name
+                    + "/"
+                    + branch_orig(self.username, elaborated_orig_diff.ghnum)
+                )
+            ),
+        )
 
         # 7. Branches are either unchanged, or parent (no force pushes)
         # NB: head is always merged in as first parent
@@ -1388,6 +1398,11 @@ to disassociate the commit with the pull request, and then try again.
             self.stack_header, commit_body, extra
         )
         return title, pr_body
+
+    def _git_rev_parse(self, ref: str) -> GitCommitHash:
+        if self.repo is None:
+            return GitCommitHash(self.sh.git("rev-parse", ref))
+        return GitCommitHash(self.repo.get_peeled(ref.encode()).decode())
 
     def _git_push(self, branches: Sequence[str], force: bool = False) -> None:
         assert branches, "empty branches would push master, probably bad!"

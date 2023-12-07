@@ -23,6 +23,7 @@ python = "^3.8.1"
 requests = "^2"
 typing-extensions = ">=3 <5"
 click = "^8"
+dulwich = "^0.21.7"
 
 [tool.poetry.dev-dependencies]
 black = "^22.12.0"
