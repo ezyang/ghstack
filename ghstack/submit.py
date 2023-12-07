@@ -378,7 +378,7 @@ class Submitter:
         ]
         self.push_updates(diffs_to_submit)
         if new_head := rebase_index.get(
-            GitCommitHash(self.sh.git("rev-parse", "HEAD"))
+            old_head := GitCommitHash(self.sh.git("rev-parse", "HEAD"))
         ):
             self.sh.git("reset", "--soft", new_head)
         # TODO: print out commit hashes for things we rebased but not accessible
@@ -390,11 +390,31 @@ class Submitter:
                 # TODO: Do a separate check for this
                 if h.commit_id not in diff_meta_index:
                     continue
+                new_orig = diff_meta_index[h.commit_id].orig
                 self.check_invariants_for_diff(
                     h.commit_id,
-                    diff_meta_index[h.commit_id].orig,
+                    new_orig,
                     pre_branch_state_index.get(h.commit_id),
                 )
+                # Test that orig commits are accessible from HEAD, if the old
+                # commits were accessible.  And if the commit was not
+                # accessible, it better not be accessible now!
+                if self.sh.git(
+                    "merge-base", "--is-ancestor", h.commit_id, old_head, exitcode=True
+                ):
+                    assert new_head is not None
+                    assert self.sh.git(
+                        "merge-base", "--is-ancestor", new_orig, new_head, exitcode=True
+                    )
+                else:
+                    if new_head is not None:
+                        assert not self.sh.git(
+                            "merge-base",
+                            "--is-ancestor",
+                            new_orig,
+                            new_head,
+                            exitcode=True,
+                        )
 
         # NB: earliest first, which is the intuitive order for unit testing
         return list(reversed(diffs_to_submit))
@@ -1296,11 +1316,17 @@ to disassociate the commit with the pull request, and then try again.
         assert_eq(base_commit.tree, user_parent_commit.tree)
 
         # 6.  Orig commit was correctly pushed
-        assert_eq(orig_commit.commit_id, GitCommitHash(
-            self.sh.git(
-                "rev-parse", self.remote_name + "/" + branch_orig(self.username, elaborated_orig_diff.ghnum)
-            )
-        ))
+        assert_eq(
+            orig_commit.commit_id,
+            GitCommitHash(
+                self.sh.git(
+                    "rev-parse",
+                    self.remote_name
+                    + "/"
+                    + branch_orig(self.username, elaborated_orig_diff.ghnum),
+                )
+            ),
+        )
 
         # 7. Branches are either unchanged, or parent (no force pushes)
         # NB: head is always merged in as first parent
