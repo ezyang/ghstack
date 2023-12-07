@@ -153,15 +153,7 @@ class TestGh(expecttest.TestCase):
         revs: Sequence[str] = (),
         stack: bool = True,
     ) -> List[ghstack.submit.DiffMeta]:
-        """
-        ghstack.submit.parse_revs(
-            revs,
-            base_ref="origin/master",
-            sh=self.sh,
-        )
-        """
-
-        kwargs = dict(
+        r = ghstack.submit.main(
             msg=msg,
             username="ezyang",
             github=self.github,
@@ -179,8 +171,8 @@ class TestGh(expecttest.TestCase):
             stack=stack,
             check_invariants=True,
         )
-
-        return ghstack.submit.main(**kwargs)
+        self.check_global_github_invariants()
+        return r
 
     def gh_land(self, pull_request: str) -> None:
         return ghstack.land.main(
@@ -200,6 +192,32 @@ class TestGh(expecttest.TestCase):
             github_url="github.com",
             remote_name="origin",
         )
+
+    def check_global_github_invariants(self) -> None:
+        r = self.github.graphql(
+            """
+          query {
+            repository(name: "pytorch", owner: "pytorch") {
+              pullRequests {
+                nodes {
+                  baseRefName
+                  headRefName
+                  closed
+                }
+              }
+            }
+          }
+        """
+        )
+        # No refs may be reused for multiple open PRs
+        seen_refs = set()
+        for pr in r["data"]["repository"]["pullRequests"]["nodes"]:
+            if pr["closed"]:
+                continue
+            assert pr["baseRefName"] not in seen_refs
+            seen_refs.add(pr["baseRefName"])
+            assert pr["headRefName"] not in seen_refs
+            seen_refs.add(pr["headRefName"])
 
     def dump_github(self) -> str:
         r = self.github.graphql(
