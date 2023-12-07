@@ -181,7 +181,11 @@ to complain to the ghstack authors."""
             # TODO: regex here so janky
             base_ref = re.sub(r"/orig$", "/base", orig_ref)
             head_ref = re.sub(r"/orig$", "/head", orig_ref)
-            sh.git("push", remote_name, "--delete", orig_ref, base_ref, head_ref)
+            try:
+                sh.git("push", remote_name, "--delete", orig_ref, base_ref, head_ref)
+            except RuntimeError:
+                # Whatever, keep going
+                logging.warning("Failed to delete branch, continuing", exc_info=True)
 
     finally:
         sh.git("checkout", prev_ref)
