@@ -341,9 +341,9 @@ class Submitter:
                 "manipulate this many PRs.  You can bypass this throttle using --force"
             )
 
-        # TODO: figure this out.  BC when revs is standard; maybe multiple calls
-        # for non standard rev patterns
-        # run_pre_ghstack_hook(sh, base, top.oid)
+        # This is not really accurate if you're doing a fancy pattern;
+        # if this is a problem file us a bug.
+        run_pre_ghstack_hook(self.sh, self.base, commits_to_submit[0].commit_id)
 
         # NB: This is duplicative with prepare_submit to keep the
         # check_invariants code small, as it counts as TCB
