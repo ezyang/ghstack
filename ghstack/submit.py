@@ -50,6 +50,12 @@ class DiffMeta:
         raise RuntimeError("tried to access orig on DiffMeta that doesn't have it")
 
 
+@dataclass(frozen=True)
+class PreBranchState:
+    head_commit_id: GitCommitHash
+    base_commit_id: GitCommitHash
+
+
 # Ya, sometimes we get carriage returns.  Crazy right?
 RE_STACK = re.compile(r"Stack.*:\r?\n(\* [^\r\n]+\r?\n)+")
 
@@ -132,14 +138,11 @@ class DiffWithGitHubMetadata:
     closed: bool
     ghnum: GhNumber
     pull_request_resolved: ghstack.diff.PullRequestResolved
+    head_ref: str
+    base_ref: str
 
 
 def main(**kwargs: Any) -> List[DiffMeta]:
-    # Reserve the non-opt name for non-opt
-    kwargs["base_opt"] = kwargs.pop("base", None)
-    kwargs["repo_owner_opt"] = kwargs.pop("repo_owner", None)
-    kwargs["repo_name_opt"] = kwargs.pop("repo_name", None)
-
     submitter = Submitter(**kwargs)
     return submitter.run()
 
@@ -219,6 +222,9 @@ class Submitter:
     # of commits or only one commit individually
     stack: bool = True
 
+    # Check that invariants are upheld during execution
+    check_invariants: bool = False
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
 
@@ -286,15 +292,7 @@ class Submitter:
     # The main algorithm
 
     def run(self) -> List[DiffMeta]:
-        # TODO: Potentially we could narrow this refspec down to only OUR gh
-        # branches.  However, this will interact poorly with cross-author
-        # so it needs to be thought more carefully
-        self.sh.git(
-            "fetch",
-            "--prune",
-            self.remote_name,
-            f"+refs/heads/*:refs/remotes/{self.remote_name}/*",
-        )
+        self.fetch()
 
         commits_to_submit_and_boundary = self.parse_revs()
 
@@ -347,7 +345,28 @@ class Submitter:
         # for non standard rev patterns
         # run_pre_ghstack_hook(sh, base, top.oid)
 
-        commit_index = {d.commit_id: d for d in commits_to_submit_and_boundary}
+        # NB: This is duplicative with prepare_submit to keep the
+        # check_invariants code small, as it counts as TCB
+        pre_branch_state_index: Dict[GitCommitHash, PreBranchState] = {}
+        if self.check_invariants:
+            for h in commits_to_submit:
+                d = ghstack.git.convert_header(h, self.github_url)
+                if d.pull_request_resolved is not None:
+                    ed = self.elaborate_diff(d)
+                    pre_branch_state_index[h.commit_id] = PreBranchState(
+                        head_commit_id=GitCommitHash(
+                            self.sh.git(
+                                "rev-parse", f"{self.remote_name}/{ed.head_ref}"
+                            )
+                        ),
+                        base_commit_id=GitCommitHash(
+                            self.sh.git(
+                                "rev-parse", f"{self.remote_name}/{ed.base_ref}"
+                            )
+                        ),
+                    )
+
+        commit_index = {h.commit_id: h for h in commits_to_submit_and_boundary}
         diff_meta_index = self.prepare_submit(commit_index, commits_to_submit)
         # NB: Also has side effect of updating branch updates
         rebase_index = self.prepare_rebase(commits_to_rebase, diff_meta_index)
@@ -365,11 +384,34 @@ class Submitter:
         # TODO: print out commit hashes for things we rebased but not accessible
         # from HEAD
 
+        if self.check_invariants:
+            self.fetch()
+            for h in commits_to_submit:
+                # TODO: Do a separate check for this
+                if h.commit_id not in diff_meta_index:
+                    continue
+                self.check_invariants_for_diff(
+                    h.commit_id,
+                    diff_meta_index[h.commit_id].orig,
+                    pre_branch_state_index.get(h.commit_id),
+                )
+
         # NB: earliest first, which is the intuitive order for unit testing
         return list(reversed(diffs_to_submit))
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # The main pieces
+
+    def fetch(self) -> None:
+        # TODO: Potentially we could narrow this refspec down to only OUR gh
+        # branches.  However, this will interact poorly with cross-author
+        # so it needs to be thought more carefully
+        self.sh.git(
+            "fetch",
+            "--prune",
+            self.remote_name,
+            f"+refs/heads/*:refs/remotes/{self.remote_name}/*",
+        )
 
     def parse_revs(self) -> List[ghstack.git.CommitHeader]:
         # There are two distinct usage patterns:
@@ -674,6 +716,7 @@ Since we cannot proceed, ghstack will abort now.
                   title
                   closed
                   headRefName
+                  baseRefName
                 }
               }
             }
@@ -779,6 +822,8 @@ to disassociate the commit with the pull request, and then try again.
             ghnum=gh_number,
             remote_source_id=remote_source_id,
             pull_request_resolved=commit.pull_request_resolved,
+            head_ref=r["headRefName"],
+            base_ref=r["baseRefName"],
         )
 
     def process_old_commit(
@@ -1180,6 +1225,110 @@ to disassociate the commit with the pull request, and then try again.
                 print(
                     "I did NOT close or update PRs previously associated with these commits."
                 )
+
+    def check_invariants_for_diff(
+        self,
+        # the user diff is what the user actual sent us
+        user_commit_id: GitCommitHash,
+        orig_commit_id: GitCommitHash,
+        pre_branch_state: Optional[PreBranchState],
+    ) -> None:
+        def is_git_commit_hash(h: str) -> bool:
+            return re.match(r"[a-f0-9]{40}", h) is not None
+
+        def assert_eq(a: Any, b: Any) -> None:
+            assert a == b, f"{a} != {b}"
+
+        assert is_git_commit_hash(user_commit_id)
+        assert is_git_commit_hash(orig_commit_id)
+        if pre_branch_state:
+            assert is_git_commit_hash(pre_branch_state.head_commit_id)
+            assert is_git_commit_hash(pre_branch_state.base_commit_id)
+
+        # Fetch information about user/orig commits, do some basic sanity
+        # checks
+        user_commit, user_parent_commit = ghstack.git.split_header(
+            self.sh.git("rev-list", "--header", "--boundary", "-1", user_commit_id)
+        )
+        assert_eq(user_commit.commit_id, user_commit_id)
+        assert not user_commit.boundary
+        assert user_parent_commit.boundary
+        orig_commit, orig_parent_commit = ghstack.git.split_header(
+            self.sh.git("rev-list", "--header", "--boundary", "-1", orig_commit_id)
+        )
+        assert_eq(orig_commit.commit_id, orig_commit_id)
+        assert not orig_commit.boundary
+        assert orig_parent_commit.boundary
+
+        user_diff = ghstack.git.convert_header(user_commit, self.github_url)
+        orig_diff = ghstack.git.convert_header(orig_commit, self.github_url)
+
+        # 1. Used same PR if it exists
+        if (pr := user_diff.pull_request_resolved) is not None:
+            assert_eq(pr, orig_diff.pull_request_resolved)
+
+        # 2. Must have a PR after running
+        assert orig_diff.pull_request_resolved is not None
+
+        # 3. We didn't corrupt the diff
+        assert_eq(user_commit.tree, orig_commit.tree)
+        assert_eq(user_parent_commit.tree, orig_parent_commit.tree)
+
+        # 4. Orig diff has correct metadata
+        m = RE_GHSTACK_SOURCE_ID.search(orig_commit.commit_msg)
+        assert m is not None
+        assert_eq(m.group(1), orig_commit.tree)
+
+        elaborated_orig_diff = self.elaborate_diff(orig_diff)
+
+        # 5. GitHub branches are correct
+        head_ref = elaborated_orig_diff.head_ref
+        base_ref = elaborated_orig_diff.base_ref
+        assert_eq(head_ref, branch_head(self.username, elaborated_orig_diff.ghnum))
+        assert_eq(base_ref, branch_base(self.username, elaborated_orig_diff.ghnum))
+        (head_commit,) = ghstack.git.split_header(
+            self.sh.git("rev-list", "--header", "-1", f"{self.remote_name}/{head_ref}")
+        )
+        (base_commit,) = ghstack.git.split_header(
+            self.sh.git("rev-list", "--header", "-1", f"{self.remote_name}/{base_ref}")
+        )
+        assert_eq(head_commit.tree, user_commit.tree)
+        assert_eq(base_commit.tree, user_parent_commit.tree)
+
+        # 6.  Orig commit was correctly pushed
+        assert_eq(orig_commit.commit_id, GitCommitHash(
+            self.sh.git(
+                "rev-parse", self.remote_name + "/" + branch_orig(self.username, elaborated_orig_diff.ghnum)
+            )
+        ))
+
+        # 7. Branches are either unchanged, or parent (no force pushes)
+        # NB: head is always merged in as first parent
+        # NB: you could relax this into an ancestor check
+        if pre_branch_state:
+            assert pre_branch_state.head_commit_id in [
+                head_commit.commit_id,
+                head_commit.parents[0],
+            ]
+            assert pre_branch_state.base_commit_id in [
+                base_commit.commit_id,
+                *([base_commit.parents[0]] if base_commit.parents else []),
+            ]
+        else:
+            assert not base_commit.parents
+
+        # 8. Head branch is not malformed
+        assert self.sh.git(
+            "merge-base",
+            "--is-ancestor",
+            base_commit.commit_id,
+            head_commit.commit_id,
+            exitcode=True,
+        )
+
+        # 9. Head and base branches are correctly poisoned
+        assert "[ghstack-poisoned]" in head_commit.commit_msg
+        assert "[ghstack-poisoned]" in base_commit.commit_msg
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Small helpers
