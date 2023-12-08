@@ -2848,6 +2848,40 @@ Committer: C O Mitter <committer@example.com>""",
         self.assertEqual(B.number, B2.number)
         self.assertEqual(C.number, C2.number)
 
+    def test_do_not_revert_local_commit_msg_on_skip(self) -> None:
+        self.commit("TO_REPLACE")
+        (A,) = self.gh("Initial")
+        self.sh.git(
+            "commit", "--amend", "-m", A.commit_msg.replace("TO_REPLACE", "ARGLE")
+        )
+        (A2,) = self.gh("Skip")
+        self.assertExpectedInline(
+            self.sh.git("show", "-s", "--pretty=%B", "HEAD"),
+            """\
+Commit ARGLE
+
+ghstack-source-id: ac00f28640afe01e4299441bb5041cdf06d0b6b4
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+        )
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit TO_REPLACE (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+    Stack:
+    * __->__ #500
+
+
+
+    * 102b7be (gh/ezyang/1/head)
+    |    Commit TO_REPLACE
+    * f23ae4b (gh/ezyang/1/base)
+         Update base for Initial on "Commit TO_REPLACE"
+
+""",
+        )
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, format="%(message)s")
