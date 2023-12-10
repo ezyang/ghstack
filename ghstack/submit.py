@@ -56,6 +56,12 @@ class PreBranchState:
     base_commit_id: GitCommitHash
 
 
+@dataclass(frozen=True)
+class RemoteInfo:
+    ref: str
+    tree: str
+
+
 # Ya, sometimes we get carriage returns.  Crazy right?
 RE_STACK = re.compile(r"Stack.*:\r?\n(\* [^\r\n]+\r?\n)+")
 
@@ -247,11 +253,11 @@ class Submitter:
     # with a patch that contains no changes.  GhNumber may be false
     # if the diff was never associated with a PR.
     ignored_diffs: List[
-        Tuple[ghstack.diff.Diff, Optional[GitHubNumber]]
+        Tuple[ghstack.diff.Diff, Optional[DiffWithGitHubMetadata]]
     ] = dataclasses.field(default_factory=list)
 
     # Set of seen ghnums
-    seen_ghnums: Set[GhNumber] = dataclasses.field(default_factory=set)
+    seen_ghnums: Set[Tuple[str, GhNumber]] = dataclasses.field(default_factory=set)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Post initialization
@@ -552,164 +558,17 @@ class Submitter:
                 )
             parent_commit = commit_index[parents[0]]
             diff = ghstack.git.convert_header(commit, self.github_url)
-            if diff.pull_request_resolved is None:
-                diff_meta = self.process_new_commit(parent_commit, diff)
-            else:
-                diff_meta = self.process_old_commit(
-                    parent_commit, self.elaborate_diff(diff)
-                )
+            diff_meta = self.process_commit(
+                parent_commit,
+                diff,
+                self.elaborate_diff(diff)
+                if diff.pull_request_resolved is not None
+                else None,
+            )
             if diff_meta is not None:
                 diff_meta_index[commit.commit_id] = diff_meta
 
         return diff_meta_index
-
-    def process_new_commit(
-        self, base: ghstack.git.CommitHeader, commit: ghstack.diff.Diff
-    ) -> Optional[DiffMeta]:
-        """
-        Process a diff that has never been pushed to GitHub before.
-        """
-
-        logging.debug(
-            "process_new_commit(base=%s, commit=%s)", base.commit_id, commit.oid
-        )
-
-        if "[ghstack-poisoned]" in commit.summary:
-            raise RuntimeError(
-                """\
-This commit is poisoned: it is from a head or base branch--ghstack
-cannot validly submit it.  The most common situation for this to
-happen is if you checked out the head branch of a pull request that was
-previously submitted with ghstack (e.g., by using hub checkout).
-Making modifications on the head branch is not supported; instead,
-you should fetch the original commits in question by running:
-
-    ghstack checkout $PR_URL
-
-Since we cannot proceed, ghstack will abort now.
-"""
-            )
-
-        title, pr_body = self._default_title_and_body(commit, None)
-
-        # Determine the next available GhNumber.  We do this by
-        # iterating through known branches and keeping track
-        # of the max.  The next available GhNumber is the next number.
-        # This is technically subject to a race, but we assume
-        # end user is not running this script concurrently on
-        # multiple machines (you bad bad)
-        refs = self.sh.git(
-            "for-each-ref",
-            # Use OUR username here, since there's none attached to the
-            # diff
-            "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
-            "--format=%(refname)",
-        ).split()
-
-        def _is_valid_ref(ref: str) -> bool:
-            splits = ref.split("/")
-            if len(splits) < 3:
-                return False
-            else:
-                return splits[-2].isnumeric()
-
-        refs = list(filter(_is_valid_ref, refs))
-        max_ref_num = max(int(ref.split("/")[-2]) for ref in refs) if refs else 0
-        ghnum = GhNumber(str(max_ref_num + 1))
-
-        # Create the incremental pull request diff
-        tree = commit.tree
-
-        # Actually, if there's no change in the tree, stop processing
-        if tree == base.tree:
-            self.ignored_diffs.append((commit, None))
-            logging.warning(
-                "Skipping {} {}, as the commit has no changes".format(commit.oid, title)
-            )
-            return None
-
-        assert ghnum not in self.seen_ghnums
-        self.seen_ghnums.add(ghnum)
-
-        new_base = GitCommitHash(
-            self.sh.git(
-                "commit-tree",
-                *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                # No parents!  We could hypothetically give this a parent
-                # back to the base branch, but it's not really necessary
-                base.tree,
-                input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(
-                    self.msg, commit.title, base.commit_msg
-                ),
-            )
-        )
-
-        new_pull = GitCommitHash(
-            self.sh.git(
-                "commit-tree",
-                *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                "-p",
-                new_base,
-                tree,
-                input=commit.summary + "\n\n[ghstack-poisoned]",
-            )
-        )
-
-        # Push the branches, so that we can create a PR for them
-        new_branches = (
-            push_spec(new_pull, branch_head(self.username, ghnum)),
-            push_spec(new_base, branch_base(self.username, ghnum)),
-        )
-        self._git_push(new_branches)
-
-        # Time to open the PR
-        # NB: GraphQL API does not support opening PRs
-        r = self.github.post(
-            "repos/{owner}/{repo}/pulls".format(
-                owner=self.repo_owner, repo=self.repo_name
-            ),
-            title=title,
-            head=branch_head(self.username, ghnum),
-            base=branch_base(self.username, ghnum),
-            body=pr_body,
-            maintainer_can_modify=True,
-            draft=self.draft,
-        )
-        number = r["number"]
-
-        logging.info("Opened PR #{}".format(number))
-
-        # Update the commit message of the local diff with metadata
-        # so we can correlate these later
-        pull_request_resolved = ghstack.diff.PullRequestResolved(
-            owner=self.repo_owner, repo=self.repo_name, number=number
-        )
-        commit_msg = (
-            "{commit_msg}\n\n"
-            "ghstack-source-id: {sourceid}\n"
-            "Pull Request resolved: "
-            "https://{github_url}/{owner}/{repo}/pull/{number}".format(
-                commit_msg=strip_mentions(commit.summary.rstrip()),
-                owner=self.repo_owner,
-                repo=self.repo_name,
-                number=number,
-                sourceid=commit.source_id,
-                github_url=self.github_url,
-            )
-        )
-
-        return DiffMeta(
-            title=title,
-            number=number,
-            body=pr_body,
-            commit_msg=commit_msg,
-            ghnum=ghnum,
-            username=self.username,
-            push_branches=[],
-            what="Created",
-            closed=False,
-            pr_url=pull_request_resolved.url(self.github_url),
-        )
 
     def elaborate_diff(
         self, commit: ghstack.diff.Diff, *, is_ghexport: bool = False
@@ -846,38 +705,142 @@ to disassociate the commit with the pull request, and then try again.
             base_ref=r["baseRefName"],
         )
 
-    def process_old_commit(
-        self, base: ghstack.git.CommitHeader, elab_commit: DiffWithGitHubMetadata
+    def process_commit(
+        self,
+        base: ghstack.git.CommitHeader,
+        commit: ghstack.diff.Diff,
+        elab_commit: Optional[DiffWithGitHubMetadata],
     ) -> Optional[DiffMeta]:
-        """
-        Process a diff that has an existing upload to GitHub.
-        """
+        # Do not process poisoned commits
+        if "[ghstack-poisoned]" in commit.summary:
+            self._raise_poisoned()
 
         # Do not process closed commits
-        if elab_commit.closed:
+        if elab_commit is not None and elab_commit.closed:
             return None
 
-        commit = elab_commit.diff
-        username = elab_commit.username
-        ghnum = elab_commit.ghnum
-        number = elab_commit.number
+        # Edge case: check if the commit is empty; if so skip submitting
+        if base.tree == commit.tree:
+            self._warn_empty(commit, elab_commit)
+            return None
 
-        if ghnum in self.seen_ghnums:
+        username = elab_commit.username if elab_commit is not None else self.username
+        ghnum = elab_commit.ghnum if elab_commit is not None else self._allocate_ghnum()
+        self._sanity_check_ghnum(username, ghnum)
+
+        # Create base/head commits if needed
+        push_branches = self._create_base_and_head_if_needed(
+            base, commit, elab_commit, username, ghnum
+        )
+
+        # Create pull request, if needed
+        if elab_commit is None:
+            # Need to push branches now rather than later, so we can create PR
+            self._git_push([push_spec(p[0], branch(username, ghnum, p[1])) for p in push_branches])
+            push_branches.clear()
+            pull_request_resolved, body = self._create_pull_request(commit, ghnum)
+            what = "Created"
+        else:
+            pull_request_resolved = elab_commit.pull_request_resolved
+            body = elab_commit.body
+            if not push_branches:
+                what = "Skipped"
+            else:
+                what = "Updated"
+
+        # Prepare the rest of the metadata
+        title = elab_commit.title if elab_commit is not None else commit.title
+        closed = elab_commit.closed if elab_commit is not None else False
+        if elab_commit is not None:
+            commit_msg = self._update_source_id(commit.summary, elab_commit)
+        else:
+            commit_msg = (
+                f"{strip_mentions(commit.summary.rstrip())}\n\n"
+                f"ghstack-source-id: {commit.source_id}\n"
+                f"Pull Request resolved: {pull_request_resolved.url(self.github_url)}"
+            )
+
+        return DiffMeta(
+            title=title,
+            number=pull_request_resolved.number,
+            body=body,
+            commit_msg=commit_msg,
+            ghnum=ghnum,
+            username=username,
+            push_branches=push_branches,
+            what=what,
+            closed=closed,
+            pr_url=pull_request_resolved.url(self.github_url),
+        )
+
+    def _raise_poisoned(self) -> None:
+        raise RuntimeError(
+            """\
+This commit is poisoned: it is from a head or base branch--ghstack
+cannot validly submit it.  The most common situation for this to
+happen is if you checked out the head branch of a pull request that was
+previously submitted with ghstack (e.g., by using hub checkout).
+Making modifications on the head branch is not supported; instead,
+you should fetch the original commits in question by running:
+
+ghstack checkout $PR_URL
+
+Since we cannot proceed, ghstack will abort now.
+"""
+        )
+
+    def _warn_empty(
+        self, commit: ghstack.diff.Diff, elab_commit: Optional[DiffWithGitHubMetadata]
+    ) -> None:
+        self.ignored_diffs.append((commit, elab_commit))
+        logging.warning(
+            "Skipping '{}', as the commit now has no changes".format(commit.title)
+        )
+
+    def _allocate_ghnum(self) -> GhNumber:
+        # Determine the next available GhNumber.  We do this by
+        # iterating through known branches and keeping track
+        # of the max.  The next available GhNumber is the next number.
+        # This is technically subject to a race, but we assume
+        # end user is not running this script concurrently on
+        # multiple machines (you bad bad)
+        refs = self.sh.git(
+            "for-each-ref",
+            # Use OUR username here, since there's none attached to the
+            # diff
+            "refs/remotes/{}/gh/{}".format(self.remote_name, self.username),
+            "--format=%(refname)",
+        ).split()
+
+        def _is_valid_ref(ref: str) -> bool:
+            splits = ref.split("/")
+            if len(splits) < 3:
+                return False
+            else:
+                return splits[-2].isnumeric()
+
+        refs = list(filter(_is_valid_ref, refs))
+        max_ref_num = max(int(ref.split("/")[-2]) for ref in refs) if refs else 0
+        return GhNumber(str(max_ref_num + 1))
+
+    def _sanity_check_ghnum(self, username: str, ghnum: GhNumber) -> None:
+        if (username, ghnum) in self.seen_ghnums:
             raise RuntimeError(
                 "Something very strange has happened: a commit for "
-                "the pull request #{} occurs twice in your local "
+                f"the gh/{username}/{ghnum} occurs twice in your local "
                 "commit stack.  This is usually because of a botched "
                 "rebase.  Please take a look at your git log and seek "
-                "help from your local Git expert.".format(number)
+                "help from your local Git expert."
             )
-        self.seen_ghnums.add(ghnum)
+        self.seen_ghnums.add((username, ghnum))
 
-        logging.info("Pushing to #{}".format(number))
-
-        # Compute the local and remote source IDs
-        summary = commit.summary
+    def _update_source_id(
+        self, summary: str, elab_commit: DiffWithGitHubMetadata
+    ) -> str:
         m_local_source_id = RE_GHSTACK_SOURCE_ID.search(summary)
         if m_local_source_id is None:
+            # This is for an already submitted PR, so there should
+            # already be a source id on it.  But there isn't.
             # For BC, just slap on a source ID.  After BC is no longer
             # needed, we can just error in this case; however, this
             # situation is extremely likely to happen for preexisting
@@ -886,7 +849,9 @@ to disassociate the commit with the pull request, and then try again.
                 "Local commit has no ghstack-source-id; assuming that it is "
                 "up-to-date with remote."
             )
-            summary = "{}\nghstack-source-id: {}".format(summary, commit.source_id)
+            summary = "{}\nghstack-source-id: {}".format(
+                summary, elab_commit.diff.source_id
+            )
         else:
             local_source_id = m_local_source_id.group(1)
             if elab_commit.remote_source_id is None:
@@ -899,33 +864,42 @@ to disassociate the commit with the pull request, and then try again.
                     "Remote commit has no ghstack-source-id; assuming that we are "
                     "up-to-date with remote."
                 )
-            else:
-                if local_source_id != elab_commit.remote_source_id and not self.force:
-                    logging.debug(
-                        f"elab_commit.remote_source_id = {elab_commit.remote_source_id}"
-                    )
-                    raise RuntimeError(
-                        "Cowardly refusing to push an update to GitHub, since it "
-                        "looks another source has updated GitHub since you last "
-                        "pushed.  If you want to push anyway, rerun this command "
-                        "with --force.  Otherwise, diff your changes against "
-                        "{} and reapply them on top of an up-to-date commit from "
-                        "GitHub.".format(local_source_id)
-                    )
-                summary = RE_GHSTACK_SOURCE_ID.sub(
-                    "ghstack-source-id: {}\n".format(commit.source_id), summary
+            elif local_source_id != elab_commit.remote_source_id and not self.force:
+                logging.debug(
+                    f"elab_commit.remote_source_id = {elab_commit.remote_source_id}"
                 )
+                # TODO: have a 'ghstack pull' remediation for this case
+                raise RuntimeError(
+                    "Cowardly refusing to push an update to GitHub, since it "
+                    "looks another source has updated GitHub since you last "
+                    "pushed.  If you want to push anyway, rerun this command "
+                    "with --force.  Otherwise, diff your changes against "
+                    "{} and reapply them on top of an up-to-date commit from "
+                    "GitHub.".format(local_source_id)
+                )
+            summary = RE_GHSTACK_SOURCE_ID.sub(
+                "ghstack-source-id: {}\n".format(elab_commit.diff.source_id), summary
+            )
+        return summary
 
-        # I vacillated between whether or not we should use the PR
-        # body or the literal commit message here.  Right now we use
-        # the PR body, because after initial commit the original
-        # commit message is not supposed to "matter" anymore.  orig
-        # still uses the original commit message, however, because
-        # it's supposed to be the "original".
-        non_orig_commit_msg = strip_mentions(RE_STACK.sub("", elab_commit.body))
+    def _resolve_remote(self, branch: str) -> Optional[RemoteInfo]:
+        remote_ref = self.remote_name + "/" + branch
+        (remote_diff,) = ghstack.git.parse_header(
+            self.sh.git("rev-list", "--header", "-1", remote_ref), self.github_url
+        )
+        remote_tree = remote_diff.tree
 
-        # We've got an update to do!  But what exactly should we
-        # do?
+        return RemoteInfo(remote_ref, remote_tree)
+
+    def _create_base_and_head_if_needed(
+        self,
+        base: ghstack.git.CommitHeader,
+        commit: ghstack.diff.Diff,
+        elab_commit: Optional[DiffWithGitHubMetadata],
+        username: str,
+        ghnum: GhNumber,
+    ) -> List[Tuple[GitCommitHash, BranchKind]]:
+        # How exactly do we submit a commit to GitHub?
         #
         # Here is the relevant state:
         #   - Local parent tree
@@ -971,6 +945,9 @@ to disassociate the commit with the pull request, and then try again.
         #    Where BJ contains I, but BJ2 does NOT contain I.  The net result
         #    is the changes of I are included inside the BJ2 merge commit.
         #
+        # First time submission proceeds similarly, except that we no longer
+        # need to create a parent pointer to the previous base/head.
+        #
         # Note that, counterintuitively, the base of a diff has no
         # relationship to the head of an earlier diff on the stack.  This
         # makes it possible to selectively only update one diff in a stack
@@ -978,96 +955,90 @@ to disassociate the commit with the pull request, and then try again.
         # even if you rebase a commit backwards: you just see that the base
         # is updated to also remove changes.
 
-        def resolve_remote(branch: str) -> Tuple[str, ghstack.diff.Diff, str]:
-            remote_ref = self.remote_name + "/" + branch
-            (remote_diff,) = ghstack.git.parse_header(
-                self.sh.git("rev-list", "--header", "-1", remote_ref), self.github_url
-            )
-            remote_tree = remote_diff.tree
-
-            return remote_ref, remote_diff, remote_tree
-
-        # Edge case: check if the commit is empty; if so we don't
-        # submit a PR for it
-        if base.tree == elab_commit.diff.tree:
-            self.ignored_diffs.append((commit, number))
-            logging.warning(
-                "Skipping PR #{} {}, as the commit now has no changes".format(
-                    number, elab_commit.title
-                )
-            )
-            return None
-
-        remote_base_ref, remote_base, remote_base_tree = resolve_remote(
-            branch_base(username, ghnum)
-        )
-        remote_head_ref, remote_head, remote_head_tree = resolve_remote(
-            branch_head(username, ghnum)
-        )
-
         push_branches = []
 
-        # Check if bases match
-        base_args: Tuple[str, ...] = ()
-        if remote_base_tree != base.tree:
+        # Initialize head arguments (as original head parent must come first
+        # in parents list)
+        head_args: List[str] = []
+        remote_head = (
+            self._resolve_remote(branch_head(username, ghnum))
+            if elab_commit is not None
+            else None
+        )
+        if remote_head is not None:
+            head_args.extend(("-p", remote_head.ref))
+
+        # Create base commit if necessary
+        remote_base = (
+            self._resolve_remote(branch_base(username, ghnum))
+            if elab_commit is not None
+            else None
+        )
+        updated_base = False
+        if remote_base is None or remote_base.tree != base.tree:
             # Base is not the same, perform base update
+            updated_base = True
+            base_args: List[str] = []
+            if remote_base is not None:
+                base_args.extend(("-p", remote_base.ref))
             new_base = GitCommitHash(
                 self.sh.git(
                     "commit-tree",
                     *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                    "-p",
-                    remote_base_ref,
+                    *base_args,
                     base.tree,
-                    input='Update base for {} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(
-                        self.msg, elab_commit.title, non_orig_commit_msg
+                    input='Update base for {} on "{}"\n\n[ghstack-poisoned]'.format(
+                        self.msg, commit.title
                     ),
                 )
             )
-            base_args = ("-p", new_base)
+            head_args.extend(("-p", new_base))
             push_branches.append((new_base, "base"))
 
-        # Check if heads match, or base was updated
-        new_head: Optional[GitCommitHash] = None
-        if base_args or remote_head_tree != elab_commit.diff.tree:
+        # Check head commit if necessary
+        if remote_head is None or updated_base or remote_head.tree != commit.tree:
             new_head = GitCommitHash(
                 self.sh.git(
                     "commit-tree",
                     *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                    "-p",
-                    remote_head_ref,
-                    *base_args,
-                    elab_commit.diff.tree,
-                    input='{} on "{}"\n\n{}\n\n[ghstack-poisoned]'.format(
-                        self.msg, elab_commit.title, non_orig_commit_msg
+                    *head_args,
+                    commit.tree,
+                    input='{} on "{}"\n\n[ghstack-poisoned]'.format(
+                        self.msg, commit.title
                     ),
                 )
             )
             push_branches.append((new_head, "head"))
 
-        if not push_branches:
-            what = "Skipped"
-        elif elab_commit.closed:
-            # TODO: this does not seem synced with others
-            what = "Skipped closed"
-        else:
-            what = "Updated"
+        return push_branches
 
-        return DiffMeta(
-            title=elab_commit.title,
-            number=number,
-            # NB: Ignore the commit message, and just reuse the old commit
-            # message.  This is consistent with 'jf submit' default
-            # behavior.  The idea is that people may have edited the
-            # PR description on GitHub and you don't want to clobber
-            # it.
-            body=elab_commit.body,
-            commit_msg=summary,
-            ghnum=ghnum,
-            username=username,
-            push_branches=push_branches,
-            what=what,
-            closed=elab_commit.closed,
-            pr_url=elab_commit.pull_request_resolved.url(self.github_url),
+    def _create_pull_request(
+        self, commit: ghstack.diff.Diff, ghnum: GhNumber
+    ) -> Tuple[ghstack.diff.PullRequestResolved, str]:
+        title, pr_body = self._default_title_and_body(commit, None)
+
+        # Time to open the PR
+        # NB: GraphQL API does not support opening PRs
+        r = self.github.post(
+            "repos/{owner}/{repo}/pulls".format(
+                owner=self.repo_owner, repo=self.repo_name
+            ),
+            title=title,
+            head=branch_head(self.username, ghnum),
+            base=branch_base(self.username, ghnum),
+            body=pr_body,
+            maintainer_can_modify=True,
+            draft=self.draft,
+        )
+        number = r["number"]
+
+        logging.info("Opened PR #{}".format(number))
+
+        return (
+            ghstack.diff.PullRequestResolved(
+                owner=self.repo_owner, repo=self.repo_name, number=number
+            ),
+            pr_body,
         )
 
     def prepare_rebase(
@@ -1230,14 +1201,14 @@ to disassociate the commit with the pull request, and then try again.
             print("FYI: I ignored the following commits, because they had no changes:")
             print()
             noop_pr = False
-            for d, pr in reversed(self.ignored_diffs):
-                if pr is None:
+            for d, elab_commit in reversed(self.ignored_diffs):
+                if elab_commit is None:
                     print(" - {} {}".format(d.oid[:8], d.title))
                 else:
                     noop_pr = True
                     print(
                         " - {} {} (was previously submitted as PR #{})".format(
-                            d.oid[:8], d.title, pr
+                            d.oid[:8], d.title, elab_commit.number
                         )
                     )
             if noop_pr:
