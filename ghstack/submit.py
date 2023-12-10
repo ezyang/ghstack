@@ -563,21 +563,23 @@ class Submitter:
                     )
                 )
             parent = parents[0]
-            parent_commit = commit_index[parent]
-            diff = ghstack.git.convert_header(commit, self.github_url)
-            diff_meta = (
-                self.process_commit(
-                    parent_commit,
-                    diff,
-                    self.elaborate_diff(diff)
-                    if diff.pull_request_resolved is not None
-                    else None,
+            diff_meta = None
+            if submit:
+                parent_commit = commit_index[parent]
+                diff = ghstack.git.convert_header(commit, self.github_url)
+                diff_meta = (
+                    self.process_commit(
+                        parent_commit,
+                        diff,
+                        self.elaborate_diff(diff)
+                        if diff.pull_request_resolved is not None
+                        else None,
+                    )
+                    if submit
+                    else None
                 )
-                if submit
-                else None
-            )
-            if diff_meta is not None:
-                diff_meta_index[commit.commit_id] = diff_meta
+                if diff_meta is not None:
+                    diff_meta_index[commit.commit_id] = diff_meta
 
             # Check if we actually need to rebase it, or can use it as is
             # NB: This is not in process_commit, because we may need
