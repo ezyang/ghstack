@@ -736,7 +736,9 @@ to disassociate the commit with the pull request, and then try again.
         # Create pull request, if needed
         if elab_commit is None:
             # Need to push branches now rather than later, so we can create PR
-            self._git_push([push_spec(p[0], branch(username, ghnum, p[1])) for p in push_branches])
+            self._git_push(
+                [push_spec(p[0], branch(username, ghnum, p[1])) for p in push_branches]
+            )
             push_branches.clear()
             pull_request_resolved, body = self._create_pull_request(commit, ghnum)
             what = "Created"
