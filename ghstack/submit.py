@@ -373,9 +373,9 @@ class Submitter:
                     )
 
         commit_index = {h.commit_id: h for h in commits_to_submit_and_boundary}
-        diff_meta_index = self.prepare_submit(commit_index, commits_to_submit)
-        # NB: Also has side effect of updating branch updates
-        rebase_index = self.prepare_rebase(commits_to_rebase, diff_meta_index)
+        diff_meta_index, rebase_index = self.prepare_updates(
+            commit_index, commits_to_submit, commits_to_rebase
+        )
         logging.debug("rebase_index = %s", rebase_index)
         diffs_to_submit = [
             diff_meta_index[h.commit_id]
@@ -537,17 +537,23 @@ class Submitter:
 
         return commits_to_submit_and_boundary
 
-    def prepare_submit(
+    def prepare_updates(
         self,
         commit_index: Dict[GitCommitHash, ghstack.git.CommitHeader],
         commits_to_submit: List[ghstack.git.CommitHeader],
-    ) -> Dict[GitCommitHash, DiffMeta]:
+        commits_to_rebase: List[ghstack.git.CommitHeader],
+    ) -> Tuple[Dict[GitCommitHash, DiffMeta], Dict[GitCommitHash, GitCommitHash]]:
 
-        # NB: this can be done in parallel, if you like.
-        # When sequentially, reversed means we update early commits first (this
-        # doesn't really matter, but it's more intuitive for users)
+        # Prepare diffs in reverse topological order.
+        # (Reverse here is important because we must have processed parents
+        # first.)
+        # NB: some parts of the algo (namely commit creation) could
+        # be done in parallel
+        submit_set = set(h.commit_id for h in commits_to_submit)
         diff_meta_index: Dict[GitCommitHash, DiffMeta] = {}
-        for commit in reversed(commits_to_submit):
+        rebase_index: Dict[GitCommitHash, GitCommitHash] = {}
+        for commit in reversed(commits_to_rebase):
+            submit = commit.commit_id in submit_set
             parents = commit.parents
             if len(parents) != 1:
                 raise RuntimeError(
@@ -556,19 +562,71 @@ class Submitter:
                         commit.commit_id, len(parents)
                     )
                 )
-            parent_commit = commit_index[parents[0]]
+            parent = parents[0]
+            parent_commit = commit_index[parent]
             diff = ghstack.git.convert_header(commit, self.github_url)
-            diff_meta = self.process_commit(
-                parent_commit,
-                diff,
-                self.elaborate_diff(diff)
-                if diff.pull_request_resolved is not None
-                else None,
+            diff_meta = (
+                self.process_commit(
+                    parent_commit,
+                    diff,
+                    self.elaborate_diff(diff)
+                    if diff.pull_request_resolved is not None
+                    else None,
+                )
+                if submit
+                else None
             )
             if diff_meta is not None:
                 diff_meta_index[commit.commit_id] = diff_meta
 
-        return diff_meta_index
+            # Check if we actually need to rebase it, or can use it as is
+            # NB: This is not in process_commit, because we may need
+            # to rebase a commit even if we didn't submit it
+            if parent in rebase_index or diff_meta is not None:
+                # Yes, we need to rebase it
+
+                if diff_meta is not None:
+                    # use the updated commit message, if it exists
+                    commit_msg = diff_meta.commit_msg
+                else:
+                    commit_msg = commit.commit_msg
+
+                if rebase_id := rebase_index.get(commit.parents[0]):
+                    # use the updated base, if it exists
+                    base_commit_id = rebase_id
+                else:
+                    base_commit_id = parent
+
+                # Preserve authorship of original commit
+                # (TODO: for some reason, we didn't do this for old commits,
+                # maybe it doesn't matter)
+                env = {}
+                if commit.author_name is not None:
+                    env["GIT_AUTHOR_NAME"] = commit.author_name
+                if commit.author_email is not None:
+                    env["GIT_AUTHOR_EMAIL"] = commit.author_email
+
+                new_orig = GitCommitHash(
+                    self.sh.git(
+                        "commit-tree",
+                        *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
+                        "-p",
+                        base_commit_id,
+                        commit.tree,
+                        input=commit_msg,
+                        env=env,
+                    )
+                )
+
+                if diff_meta is not None:
+                    # Add the new_orig to push
+                    # This may not exist.  If so, that means this diff only exists
+                    # to update HEAD.
+                    diff_meta.push_branches.append((new_orig, "orig"))
+
+                rebase_index[commit.commit_id] = new_orig
+
+        return diff_meta_index, rebase_index
 
     def elaborate_diff(
         self, commit: ghstack.diff.Diff, *, is_ghexport: bool = False
@@ -1042,65 +1100,6 @@ Since we cannot proceed, ghstack will abort now.
             ),
             pr_body,
         )
-
-    def prepare_rebase(
-        self,
-        commits_to_rebase: List[ghstack.git.CommitHeader],
-        diff_meta_index: Dict[GitCommitHash, DiffMeta],
-    ) -> Dict[GitCommitHash, GitCommitHash]:
-        # Now that we've prepared the head/base branches, now we prepare the orig
-        # by performing a rebase in reverse topological order.
-        # (Reverse here is important because we must have processed parents
-        # first.)
-        rebase_index: Dict[GitCommitHash, GitCommitHash] = {}
-        for commit in reversed(commits_to_rebase):
-            # Check if we actually need to rebase it, or can use it as is
-            assert len(commit.parents) == 1
-            if commit.parents[0] in rebase_index or commit.commit_id in diff_meta_index:
-                # Yes, we need to rebase it
-
-                if diff_meta := diff_meta_index.get(commit.commit_id):
-                    # use the updated commit message, if it exists
-                    commit_msg = diff_meta.commit_msg
-                else:
-                    commit_msg = commit.commit_msg
-
-                if rebase_id := rebase_index.get(commit.parents[0]):
-                    # use the updated base, if it exists
-                    base_commit_id = rebase_id
-                else:
-                    base_commit_id = commit.parents[0]
-
-                # Preserve authorship of original commit
-                # (TODO: for some reason, we didn't do this for old commits,
-                # maybe it doesn't matter)
-                env = {}
-                if commit.author_name is not None:
-                    env["GIT_AUTHOR_NAME"] = commit.author_name
-                if commit.author_email is not None:
-                    env["GIT_AUTHOR_EMAIL"] = commit.author_email
-
-                new_orig = GitCommitHash(
-                    self.sh.git(
-                        "commit-tree",
-                        *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                        "-p",
-                        base_commit_id,
-                        commit.tree,
-                        input=commit_msg,
-                        env=env,
-                    )
-                )
-
-                if diff_meta is not None:
-                    # Add the new_orig to push
-                    # This may not exist.  If so, that means this diff only exists
-                    # to update HEAD.
-                    diff_meta.push_branches.append((new_orig, "orig"))
-
-                rebase_index[commit.commit_id] = new_orig
-
-        return rebase_index
 
     def push_updates(
         self, diffs_to_submit: List[DiffMeta], *, import_help: bool = True
