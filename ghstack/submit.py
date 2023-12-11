@@ -6,8 +6,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from functools import cached_property
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, Tuple
 
 import ghstack
 import ghstack.git
@@ -24,6 +23,40 @@ from ghstack.types import GhNumber, GitCommitHash, GitHubNumber, GitHubRepositor
 BranchKind = str
 
 
+@dataclass
+class PushBranches:
+    # What Git commit hash we should push to what branch.
+    # The orig branch is populated later
+    orig: Optional[GitCommitHash] = None
+    head: Optional[GitCommitHash] = None
+    base: Optional[GitCommitHash] = None
+    next: Optional[GitCommitHash] = None
+
+    def to_list(self) -> List[Tuple[GitCommitHash, BranchKind]]:
+        r = []
+        if self.orig is not None:
+            r.append((self.orig, "orig"))
+        if self.next is not None:
+            r.append((self.next, "next"))
+        if self.base is not None:
+            r.append((self.base, "base"))
+        if self.head is not None:
+            r.append((self.head, "head"))
+        return r
+
+    def __iter__(self) -> Iterator[Tuple[GitCommitHash, BranchKind]]:
+        return iter(self.to_list())
+
+    def __bool__(self) -> bool:
+        return bool(self.to_list())
+
+    def clear(self) -> None:
+        self.orig = None
+        self.head = None
+        self.base = None
+        self.next = None
+
+
 # Metadata describing a diff we submitted to GitHub
 @dataclass
 class DiffMeta:
@@ -35,21 +68,22 @@ class DiffMeta:
     commit_msg: str
     username: str
     ghnum: GhNumber
-    # What Git commit hash we should push to what branch.
-    # The orig branch is populated later
-    push_branches: List[Tuple[GitCommitHash, BranchKind]]
+    push_branches: PushBranches
     # A human-readable string like 'Created' which describes what
     # happened to this pull request
     what: str
     closed: bool
     pr_url: str
 
-    @cached_property
+    @property
     def orig(self) -> GitCommitHash:
-        for h, k in self.push_branches:
-            if k == "orig":
-                return h
-        raise RuntimeError("tried to access orig on DiffMeta that doesn't have it")
+        assert self.push_branches.orig is not None
+        return self.push_branches.orig
+
+    @property
+    def next(self) -> GitCommitHash:
+        assert self.push_branches.next is not None
+        return self.push_branches.next
 
 
 @dataclass(frozen=True)
@@ -652,7 +686,7 @@ class Submitter:
                     # Add the new_orig to push
                     # This may not exist.  If so, that means this diff only exists
                     # to update HEAD.
-                    diff_meta.push_branches.append((new_orig, "orig"))
+                    diff_meta.push_branches.orig = new_orig
 
                 rebase_index[commit.commit_id] = new_orig
 
@@ -986,7 +1020,7 @@ Since we cannot proceed, ghstack will abort now.
         elab_diff: Optional[DiffWithGitHubMetadata],
         username: str,
         ghnum: GhNumber,
-    ) -> List[Tuple[GitCommitHash, BranchKind]]:
+    ) -> PushBranches:
         # How exactly do we submit a commit to GitHub?
         #
         # Here is the relevant state:
@@ -1043,7 +1077,7 @@ Since we cannot proceed, ghstack will abort now.
         # even if you rebase a commit backwards: you just see that the base
         # is updated to also remove changes.
 
-        push_branches = []
+        push_branches = PushBranches()
 
         # Initialize head arguments (as original head parent must come first
         # in parents list)
@@ -1081,7 +1115,7 @@ Since we cannot proceed, ghstack will abort now.
                 )
             )
             head_args.extend(("-p", new_base))
-            push_branches.append((new_base, "base"))
+            push_branches.base = new_base
 
         # Check head commit if necessary
         if remote_head is None or updated_base or remote_head.tree != diff.tree:
@@ -1096,7 +1130,7 @@ Since we cannot proceed, ghstack will abort now.
                     ),
                 )
             )
-            push_branches.append((new_head, "head"))
+            push_branches.head = new_head
 
         return push_branches
 
