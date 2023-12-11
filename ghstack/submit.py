@@ -631,18 +631,18 @@ class Submitter:
         return diff_meta_index, rebase_index
 
     def elaborate_diff(
-        self, commit: ghstack.diff.Diff, *, is_ghexport: bool = False
+        self, diff: ghstack.diff.Diff, *, is_ghexport: bool = False
     ) -> DiffWithGitHubMetadata:
         """
         Query GitHub API for the current title, body and closed? status
         of the pull request corresponding to a ghstack.diff.Diff.
         """
 
-        assert commit.pull_request_resolved is not None
-        assert commit.pull_request_resolved.owner == self.repo_owner
-        assert commit.pull_request_resolved.repo == self.repo_name
+        assert diff.pull_request_resolved is not None
+        assert diff.pull_request_resolved.owner == self.repo_owner
+        assert diff.pull_request_resolved.repo == self.repo_name
 
-        number = commit.pull_request_resolved.number
+        number = diff.pull_request_resolved.number
         # TODO: There is no reason to do a node query here; we can
         # just look up the repo the old fashioned way
         r = self.github.graphql(
@@ -713,7 +713,7 @@ If you think this is in error, run:
 to disassociate the commit with the pull request, and then try again.
 (This will create a new pull request!)
 """.format(
-                        commit.oid
+                        diff.oid
                     )
                 )
         username = m.group(1)
@@ -725,7 +725,7 @@ to disassociate the commit with the pull request, and then try again.
         title = r["title"]
         pr_body = r["body"]
         if self.update_fields:
-            title, pr_body = self._default_title_and_body(commit, pr_body)
+            title, pr_body = self._default_title_and_body(diff, pr_body)
 
         # TODO: remote summary should be done earlier so we can use
         # it to test if updates are necessary
@@ -752,7 +752,7 @@ to disassociate the commit with the pull request, and then try again.
         remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
 
         return DiffWithGitHubMetadata(
-            diff=commit,
+            diff=diff,
             title=title,
             body=pr_body,
             closed=r["closed"],
@@ -760,7 +760,7 @@ to disassociate the commit with the pull request, and then try again.
             username=username,
             ghnum=gh_number,
             remote_source_id=remote_source_id,
-            pull_request_resolved=commit.pull_request_resolved,
+            pull_request_resolved=diff.pull_request_resolved,
             head_ref=r["headRefName"],
             base_ref=r["baseRefName"],
         )
@@ -768,57 +768,57 @@ to disassociate the commit with the pull request, and then try again.
     def process_commit(
         self,
         base: ghstack.git.CommitHeader,
-        commit: ghstack.diff.Diff,
-        elab_commit: Optional[DiffWithGitHubMetadata],
+        diff: ghstack.diff.Diff,
+        elab_diff: Optional[DiffWithGitHubMetadata],
     ) -> Optional[DiffMeta]:
         # Do not process poisoned commits
-        if "[ghstack-poisoned]" in commit.summary:
+        if "[ghstack-poisoned]" in diff.summary:
             self._raise_poisoned()
 
         # Do not process closed commits
-        if elab_commit is not None and elab_commit.closed:
+        if elab_diff is not None and elab_diff.closed:
             return None
 
         # Edge case: check if the commit is empty; if so skip submitting
-        if base.tree == commit.tree:
-            self._warn_empty(commit, elab_commit)
+        if base.tree == diff.tree:
+            self._warn_empty(diff, elab_diff)
             return None
 
-        username = elab_commit.username if elab_commit is not None else self.username
-        ghnum = elab_commit.ghnum if elab_commit is not None else self._allocate_ghnum()
+        username = elab_diff.username if elab_diff is not None else self.username
+        ghnum = elab_diff.ghnum if elab_diff is not None else self._allocate_ghnum()
         self._sanity_check_ghnum(username, ghnum)
 
         # Create base/head commits if needed
         push_branches = self._create_base_and_head_if_needed(
-            base, commit, elab_commit, username, ghnum
+            base, diff, elab_diff, username, ghnum
         )
 
         # Create pull request, if needed
-        if elab_commit is None:
+        if elab_diff is None:
             # Need to push branches now rather than later, so we can create PR
             self._git_push(
                 [push_spec(p[0], branch(username, ghnum, p[1])) for p in push_branches]
             )
             push_branches.clear()
-            pull_request_resolved, body = self._create_pull_request(commit, ghnum)
+            pull_request_resolved, body = self._create_pull_request(diff, ghnum)
             what = "Created"
         else:
-            pull_request_resolved = elab_commit.pull_request_resolved
-            body = elab_commit.body
+            pull_request_resolved = elab_diff.pull_request_resolved
+            body = elab_diff.body
             if not push_branches:
                 what = "Skipped"
             else:
                 what = "Updated"
 
         # Prepare the rest of the metadata
-        title = elab_commit.title if elab_commit is not None else commit.title
-        closed = elab_commit.closed if elab_commit is not None else False
-        if elab_commit is not None:
-            commit_msg = self._update_source_id(commit.summary, elab_commit)
+        title = elab_diff.title if elab_diff is not None else diff.title
+        closed = elab_diff.closed if elab_diff is not None else False
+        if elab_diff is not None:
+            commit_msg = self._update_source_id(diff.summary, elab_diff)
         else:
             commit_msg = (
-                f"{strip_mentions(commit.summary.rstrip())}\n\n"
-                f"ghstack-source-id: {commit.source_id}\n"
+                f"{strip_mentions(diff.summary.rstrip())}\n\n"
+                f"ghstack-source-id: {diff.source_id}\n"
                 f"Pull Request resolved: {pull_request_resolved.url(self.github_url)}"
             )
 
@@ -852,11 +852,11 @@ Since we cannot proceed, ghstack will abort now.
         )
 
     def _warn_empty(
-        self, commit: ghstack.diff.Diff, elab_commit: Optional[DiffWithGitHubMetadata]
+        self, diff: ghstack.diff.Diff, elab_diff: Optional[DiffWithGitHubMetadata]
     ) -> None:
-        self.ignored_diffs.append((commit, elab_commit))
+        self.ignored_diffs.append((diff, elab_diff))
         logging.warning(
-            "Skipping '{}', as the commit now has no changes".format(commit.title)
+            "Skipping '{}', as the commit now has no changes".format(diff.title)
         )
 
     def _allocate_ghnum(self) -> GhNumber:
@@ -896,9 +896,7 @@ Since we cannot proceed, ghstack will abort now.
             )
         self.seen_ghnums.add((username, ghnum))
 
-    def _update_source_id(
-        self, summary: str, elab_commit: DiffWithGitHubMetadata
-    ) -> str:
+    def _update_source_id(self, summary: str, elab_diff: DiffWithGitHubMetadata) -> str:
         m_local_source_id = RE_GHSTACK_SOURCE_ID.search(summary)
         if m_local_source_id is None:
             # This is for an already submitted PR, so there should
@@ -912,11 +910,11 @@ Since we cannot proceed, ghstack will abort now.
                 "up-to-date with remote."
             )
             summary = "{}\nghstack-source-id: {}".format(
-                summary, elab_commit.diff.source_id
+                summary, elab_diff.diff.source_id
             )
         else:
             local_source_id = m_local_source_id.group(1)
-            if elab_commit.remote_source_id is None:
+            if elab_diff.remote_source_id is None:
                 # This should also be an error condition, but I suppose
                 # it can happen in the wild if a user had an aborted
                 # ghstack run, where they updated their head pointer to
@@ -926,9 +924,9 @@ Since we cannot proceed, ghstack will abort now.
                     "Remote commit has no ghstack-source-id; assuming that we are "
                     "up-to-date with remote."
                 )
-            elif local_source_id != elab_commit.remote_source_id and not self.force:
+            elif local_source_id != elab_diff.remote_source_id and not self.force:
                 logging.debug(
-                    f"elab_commit.remote_source_id = {elab_commit.remote_source_id}"
+                    f"elab_diff.remote_source_id = {elab_diff.remote_source_id}"
                 )
                 # TODO: have a 'ghstack pull' remediation for this case
                 raise RuntimeError(
@@ -940,7 +938,7 @@ Since we cannot proceed, ghstack will abort now.
                     "GitHub.".format(local_source_id)
                 )
             summary = RE_GHSTACK_SOURCE_ID.sub(
-                "ghstack-source-id: {}\n".format(elab_commit.diff.source_id), summary
+                "ghstack-source-id: {}\n".format(elab_diff.diff.source_id), summary
             )
         return summary
 
@@ -956,8 +954,8 @@ Since we cannot proceed, ghstack will abort now.
     def _create_base_and_head_if_needed(
         self,
         base: ghstack.git.CommitHeader,
-        commit: ghstack.diff.Diff,
-        elab_commit: Optional[DiffWithGitHubMetadata],
+        diff: ghstack.diff.Diff,
+        elab_diff: Optional[DiffWithGitHubMetadata],
         username: str,
         ghnum: GhNumber,
     ) -> List[Tuple[GitCommitHash, BranchKind]]:
@@ -1024,7 +1022,7 @@ Since we cannot proceed, ghstack will abort now.
         head_args: List[str] = []
         remote_head = (
             self._resolve_remote(branch_head(username, ghnum))
-            if elab_commit is not None
+            if elab_diff is not None
             else None
         )
         if remote_head is not None:
@@ -1033,7 +1031,7 @@ Since we cannot proceed, ghstack will abort now.
         # Create base commit if necessary
         remote_base = (
             self._resolve_remote(branch_base(username, ghnum))
-            if elab_commit is not None
+            if elab_diff is not None
             else None
         )
         updated_base = False
@@ -1050,7 +1048,7 @@ Since we cannot proceed, ghstack will abort now.
                     *base_args,
                     base.tree,
                     input='Update base for {} on "{}"\n\n[ghstack-poisoned]'.format(
-                        self.msg, commit.title
+                        self.msg, diff.title
                     ),
                 )
             )
@@ -1058,15 +1056,15 @@ Since we cannot proceed, ghstack will abort now.
             push_branches.append((new_base, "base"))
 
         # Check head commit if necessary
-        if remote_head is None or updated_base or remote_head.tree != commit.tree:
+        if remote_head is None or updated_base or remote_head.tree != diff.tree:
             new_head = GitCommitHash(
                 self.sh.git(
                     "commit-tree",
                     *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
                     *head_args,
-                    commit.tree,
+                    diff.tree,
                     input='{} on "{}"\n\n[ghstack-poisoned]'.format(
-                        self.msg, commit.title
+                        self.msg, diff.title
                     ),
                 )
             )
@@ -1075,9 +1073,9 @@ Since we cannot proceed, ghstack will abort now.
         return push_branches
 
     def _create_pull_request(
-        self, commit: ghstack.diff.Diff, ghnum: GhNumber
+        self, diff: ghstack.diff.Diff, ghnum: GhNumber
     ) -> Tuple[ghstack.diff.PullRequestResolved, str]:
-        title, pr_body = self._default_title_and_body(commit, None)
+        title, pr_body = self._default_title_and_body(diff, None)
 
         # Time to open the PR
         # NB: GraphQL API does not support opening PRs
@@ -1142,14 +1140,14 @@ Since we cannot proceed, ghstack will abort now.
             # when actually they were just from the (new) upstream
             # branch
 
-            for commit, b in s.push_branches:
+            for diff, b in s.push_branches:
                 if b == "orig":
                     q = force_push_branches
                 elif b == "base":
                     q = base_push_branches
                 else:
                     q = push_branches
-                q.append(push_spec(commit, branch(s.username, s.ghnum, b)))
+                q.append(push_spec(diff, branch(s.username, s.ghnum, b)))
         # Careful!  Don't push master.
         # TODO: These pushes need to be atomic (somehow)
         if base_push_branches:
@@ -1204,14 +1202,14 @@ Since we cannot proceed, ghstack will abort now.
             print("FYI: I ignored the following commits, because they had no changes:")
             print()
             noop_pr = False
-            for d, elab_commit in reversed(self.ignored_diffs):
-                if elab_commit is None:
+            for d, elab_diff in reversed(self.ignored_diffs):
+                if elab_diff is None:
                     print(" - {} {}".format(d.oid[:8], d.title))
                 else:
                     noop_pr = True
                     print(
                         " - {} {} (was previously submitted as PR #{})".format(
-                            d.oid[:8], d.title, elab_commit.number
+                            d.oid[:8], d.title, elab_diff.number
                         )
                     )
             if noop_pr:
@@ -1350,7 +1348,7 @@ Since we cannot proceed, ghstack will abort now.
         return self.stack_header + ":\n" + "\n".join(rows) + "\n"
 
     def _default_title_and_body(
-        self, commit: ghstack.diff.Diff, old_pr_body: Optional[str]
+        self, diff: ghstack.diff.Diff, old_pr_body: Optional[str]
     ) -> Tuple[str, str]:
         """
         Compute what the default title and body of a newly opened pull
@@ -1362,7 +1360,7 @@ Since we cannot proceed, ghstack will abort now.
         it's good not to lose Phabricator diff assignment, so we special
         case this.
         """
-        title = commit.title
+        title = diff.title
         extra = ""
         if old_pr_body is not None:
             # Look for tags we should preserve, and keep them
@@ -1373,7 +1371,7 @@ Since we cannot proceed, ghstack will abort now.
                     "[{phabdiff}]"
                     "(https://our.internmc.facebook.com/intern/diff/{phabdiff})"
                 ).format(phabdiff=m.group(1))
-        commit_body = "".join(commit.summary.splitlines(True)[1:]).lstrip()
+        commit_body = "".join(diff.summary.splitlines(True)[1:]).lstrip()
         # Don't store ghstack-source-id in the PR body; it will become
         # stale quickly
         commit_body = RE_GHSTACK_SOURCE_ID.sub("", commit_body)
