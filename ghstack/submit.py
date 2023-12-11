@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import dataclasses
+import itertools
 import logging
 import os
 import re
@@ -19,6 +20,7 @@ from ghstack.types import GhNumber, GitCommitHash, GitHubNumber, GitHubRepositor
 
 # Either "base", "head" or "orig"; which of the ghstack generated
 # branches this diff corresponds to
+# For direct ghstack, either "next", "head" or "orig"
 BranchKind = str
 
 
@@ -52,6 +54,9 @@ class DiffMeta:
 
 @dataclass(frozen=True)
 class PreBranchState:
+    # NB: these do not necessarily coincide with head/base branches.
+    # In particular, in direct mode, the base commit will typically be
+    # another head branch, or the upstream main branch itself.
     head_commit_id: GitCommitHash
     base_commit_id: GitCommitHash
 
@@ -93,6 +98,13 @@ RE_GHSTACK_SOURCE_ID = re.compile(r"^ghstack-source-id: (.+)\n?", re.MULTILINE)
 #                      (Maybe this isn't necessary, because you can
 #                      get the "whole" diff from GitHub?  What about
 #                      commit description?)
+#
+#
+# In direct mode, there is no base branch, instead:
+#
+#   - gh/username/23/next -- staging ground for commits that must exist
+#     for later PRs in the stack to merge against, but should not be shown
+#     for the PR itself (because that PR was not submitted)
 
 
 def branch(username: str, ghnum: GhNumber, kind: BranchKind) -> GitCommitHash:
@@ -109,6 +121,10 @@ def branch_head(username: str, ghnum: GhNumber) -> GitCommitHash:
 
 def branch_orig(username: str, ghnum: GhNumber) -> GitCommitHash:
     return branch(username, ghnum, "orig")
+
+
+def branch_next(username: str, ghnum: GhNumber) -> GitCommitHash:
+    return branch(username, ghnum, "next")
 
 
 RE_MENTION = re.compile(r"(?<!\w)@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})", re.I)
@@ -231,6 +247,11 @@ class Submitter:
     # Check that invariants are upheld during execution
     check_invariants: bool = False
 
+    # Instead of merging into base branch, merge directly into the appropriate
+    # main or head branch.  Change merge targets appropriately as PRs get
+    # merged
+    direct: bool = False
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
 
@@ -310,9 +331,10 @@ class Submitter:
         # commits that we had already parsed in commits_to_submit, and we will
         # also parse prefix even if it's not being processed, but it's at most ~10
         # extra parses so whatever
-        commits_to_rebase = ghstack.git.split_header(
+        commits_to_rebase_and_boundary = ghstack.git.split_header(
             self.sh.git(
                 "rev-list",
+                "--boundary",
                 "--header",
                 "--topo-order",
                 # Get all commits reachable from HEAD...
@@ -324,15 +346,16 @@ class Submitter:
             )
         )
 
-        # NB: commits_to_rebase does not necessarily contain diffs_to_submit, as you
-        # can specify REVS that are not connected to HEAD.  In principle, we
-        # could also rebase them, if we identified all local branches for which
-        # the REV was reachable from--this is left for future work.
-        #
-        # NB: commits_to_submit does not necessarily contain diffs_to_rebase.  If
-        # you ask to submit only a prefix of your current stack, the suffix is
-        # not to be submitted, but it needs to be rebased (to, e.g., update the
-        # ghstack-source-id)
+        commits_to_rebase = [
+            d for d in commits_to_rebase_and_boundary if not d.boundary
+        ]
+
+        # NB: commits_to_rebase always contains all diffs to submit (because
+        # we always have to generate orig commits for submitted diffs.)
+        # However, commits_to_submit does not necessarily contain
+        # diffs_to_rebase.  If you ask to submit only a prefix of your current
+        # stack, the suffix is not to be submitted, but it needs to be rebased
+        # (to, e.g., update the ghstack-source-id)
 
         commit_count = len(commits_to_submit)
 
@@ -372,7 +395,13 @@ class Submitter:
                         ),
                     )
 
-        commit_index = {h.commit_id: h for h in commits_to_submit_and_boundary}
+        # NB: deduplicates
+        commit_index = {
+            h.commit_id: h
+            for h in itertools.chain(
+                commits_to_submit_and_boundary, commits_to_rebase_and_boundary
+            )
+        }
         diff_meta_index, rebase_index = self.prepare_updates(
             commit_index, commits_to_submit, commits_to_rebase
         )
@@ -564,22 +593,21 @@ class Submitter:
                 )
             parent = parents[0]
             diff_meta = None
-            if submit:
-                parent_commit = commit_index[parent]
-                diff = ghstack.git.convert_header(commit, self.github_url)
-                diff_meta = (
-                    self.process_commit(
-                        parent_commit,
-                        diff,
-                        self.elaborate_diff(diff)
-                        if diff.pull_request_resolved is not None
-                        else None,
-                    )
-                    if submit
-                    else None
+            parent_commit = commit_index[parent]
+            diff = ghstack.git.convert_header(commit, self.github_url)
+            diff_meta = (
+                self.process_commit(
+                    parent_commit,
+                    diff,
+                    self.elaborate_diff(diff)
+                    if diff.pull_request_resolved is not None
+                    else None,
                 )
-                if diff_meta is not None:
-                    diff_meta_index[commit.commit_id] = diff_meta
+                if submit
+                else None
+            )
+            if diff_meta is not None:
+                diff_meta_index[commit.commit_id] = diff_meta
 
             # Check if we actually need to rebase it, or can use it as is
             # NB: This is not in process_commit, because we may need
