@@ -862,22 +862,27 @@ to disassociate the commit with the pull request, and then try again.
                 [push_spec(p[0], branch(username, ghnum, p[1])) for p in push_branches]
             )
             push_branches.clear()
-            pull_request_resolved, body = self._create_pull_request(diff, ghnum)
+            elab_diff = self._create_pull_request(diff, ghnum)
             what = "Created"
+            new_pr = True
         else:
-            pull_request_resolved = elab_diff.pull_request_resolved
-            body = elab_diff.body
             if not push_branches:
                 what = "Skipped"
             else:
                 what = "Updated"
+            new_pr = False
 
-        # Prepare the rest of the metadata
-        title = elab_diff.title if elab_diff is not None else diff.title
-        closed = elab_diff.closed if elab_diff is not None else False
-        if elab_diff is not None:
+        pull_request_resolved = elab_diff.pull_request_resolved
+        body = elab_diff.body
+        title = elab_diff.title
+        closed = elab_diff.closed
+
+        if not new_pr:
+            # Underlying diff can be assumed to have the correct metadata, we
+            # only need to update it
             commit_msg = self._update_source_id(diff.summary, elab_diff)
         else:
+            # Need to insert metadata for the first time
             commit_msg = (
                 f"{strip_mentions(diff.summary.rstrip())}\n\n"
                 f"ghstack-source-id: {diff.source_id}\n"
@@ -1136,8 +1141,10 @@ Since we cannot proceed, ghstack will abort now.
 
     def _create_pull_request(
         self, diff: ghstack.diff.Diff, ghnum: GhNumber
-    ) -> Tuple[ghstack.diff.PullRequestResolved, str]:
-        title, pr_body = self._default_title_and_body(diff, None)
+    ) -> DiffWithGitHubMetadata:
+        title, body = self._default_title_and_body(diff, None)
+        head_ref = branch_head(self.username, ghnum)
+        base_ref = branch_base(self.username, ghnum)
 
         # Time to open the PR
         # NB: GraphQL API does not support opening PRs
@@ -1146,9 +1153,9 @@ Since we cannot proceed, ghstack will abort now.
                 owner=self.repo_owner, repo=self.repo_name
             ),
             title=title,
-            head=branch_head(self.username, ghnum),
-            base=branch_base(self.username, ghnum),
-            body=pr_body,
+            head=head_ref,
+            base=base_ref,
+            body=body,
             maintainer_can_modify=True,
             draft=self.draft,
         )
@@ -1156,11 +1163,22 @@ Since we cannot proceed, ghstack will abort now.
 
         logging.info("Opened PR #{}".format(number))
 
-        return (
-            ghstack.diff.PullRequestResolved(
-                owner=self.repo_owner, repo=self.repo_name, number=number
-            ),
-            pr_body,
+        pull_request_resolved = ghstack.diff.PullRequestResolved(
+            owner=self.repo_owner, repo=self.repo_name, number=number
+        )
+
+        return DiffWithGitHubMetadata(
+            diff=diff,
+            number=number,
+            username=self.username,
+            remote_source_id=diff.source_id,  # in sync
+            title=title,
+            body=body,
+            closed=False,
+            ghnum=ghnum,
+            pull_request_resolved=pull_request_resolved,
+            head_ref=head_ref,
+            base_ref=base_ref,
         )
 
     def push_updates(
