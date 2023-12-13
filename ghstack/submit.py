@@ -296,8 +296,6 @@ class Submitter:
 
     repo_name: str = dataclasses.field(init=False)
 
-    # unlike base_opt, qualified by remote name so it is a ref that correctly
-    # points at remote branch
     base: str = dataclasses.field(init=False)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -347,7 +345,7 @@ class Submitter:
         else:
             default_branch = repo["default_branch"]
 
-        object.__setattr__(self, "base", f"{self.remote_name}/{default_branch}")
+        object.__setattr__(self, "base", default_branch)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # The main algorithm
@@ -376,7 +374,7 @@ class Submitter:
                 # ...as well as all the commits we are going to submit...
                 *[c.commit_id for c in commits_to_submit],
                 # ...but we don't need any commits that aren't draft
-                f"^{self.base}",
+                f"^{self.remote_name}/{self.base}",
             )
         )
 
@@ -406,7 +404,9 @@ class Submitter:
 
         # This is not really accurate if you're doing a fancy pattern;
         # if this is a problem file us a bug.
-        run_pre_ghstack_hook(self.sh, self.base, commits_to_submit[0].commit_id)
+        run_pre_ghstack_hook(
+            self.sh, f"{self.remote_name}/{self.base}", commits_to_submit[0].commit_id
+        )
 
         # NB: This is duplicative with prepare_submit to keep the
         # check_invariants code small, as it counts as TCB
@@ -570,7 +570,7 @@ class Submitter:
                         "--topo-order",
                         "--boundary",
                         *revs,
-                        f"^{self.base}",
+                        f"^{self.remote_name}/{self.base}",
                     ),
                 )
             )
@@ -585,7 +585,7 @@ class Submitter:
                         "--topo-order",
                         "--boundary",
                         f"{rev}~..{rev}",
-                        f"^{self.base}",
+                        f"^{self.remote_name}/{self.base}",
                     ),
                 )
                 if not r:
