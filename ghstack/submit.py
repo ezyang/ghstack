@@ -83,8 +83,8 @@ class PreBranchState:
     # NB: these do not necessarily coincide with head/base branches.
     # In particular, in direct mode, the base commit will typically be
     # another head branch, or the upstream main branch itself.
-    head_commit_id: GitCommitHash
     base_commit_id: GitCommitHash
+    head_commit_id: GitCommitHash
 
 
 # Ya, sometimes we get carriage returns.  Crazy right?
@@ -228,6 +228,11 @@ class DiffMeta:
     def orig(self) -> GitCommitHash:
         assert self.push_branches.orig.commit is not None
         return self.push_branches.orig.commit.commit_id
+
+    @property
+    def head(self) -> GitCommitHash:
+        assert self.push_branches.head.commit is not None
+        return self.push_branches.head.commit.commit_id
 
     @property
     def next(self) -> GitCommitHash:
@@ -1184,25 +1189,23 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 #
                 # We can always use next, because if head is OK, head will have
                 # been advanced to next anyway
-                assert False
-                """
                 if base_diff_meta.head is not None:
                     assert base_diff_meta.next == base_diff_meta.head
-                """
                 new_base = base_diff_meta.next
             else:
                 # The base is not actually a PR, you can use the commit id
                 # directly (merge base is master)
-                if push_branches.head.commit is None or not self.sh.git(
+                if push_branches.head.commit is not None and self.sh.git(
                     "merge-base",
                     "--is-ancestor",
                     base.commit_id,
                     push_branches.head.commit.commit_id,
                     exitcode=True,
                 ):
-                    new_base = base.commit_id
-                else:
+                    # The base is already an ancestor, don't need to add it
                     new_base = None
+                else:
+                    new_base = base.commit_id
             if new_base is not None:
                 updated_base = True
                 head_args.extend(("-p", new_base))
@@ -1463,16 +1466,24 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
 
         # 5. GitHub branches are correct
         head_ref = elaborated_orig_diff.head_ref
-        base_ref = elaborated_orig_diff.base_ref
         assert_eq(head_ref, branch_head(self.username, elaborated_orig_diff.ghnum))
-        assert_eq(base_ref, branch_base(self.username, elaborated_orig_diff.ghnum))
         (head_commit,) = ghstack.git.split_header(
             self.sh.git("rev-list", "--header", "-1", f"{self.remote_name}/{head_ref}")
         )
+        assert_eq(head_commit.tree, user_commit.tree)
+
+        base_ref = elaborated_orig_diff.base_ref
+
+        if not self.direct:
+            assert_eq(base_ref, branch_base(self.username, elaborated_orig_diff.ghnum))
+        else:
+            # TODO: assert the base is the head of the next branch, or main
+            pass
+
         (base_commit,) = ghstack.git.split_header(
             self.sh.git("rev-list", "--header", "-1", f"{self.remote_name}/{base_ref}")
         )
-        assert_eq(head_commit.tree, user_commit.tree)
+        # TODO: tree equality may not hold for self.direct
         assert_eq(base_commit.tree, user_parent_commit.tree)
 
         # 6.  Orig commit was correctly pushed
@@ -1501,7 +1512,10 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 *([base_commit.parents[0]] if base_commit.parents else []),
             ]
         else:
-            assert not base_commit.parents
+            # Direct commit parent typically have base, as it will be the
+            # main branch
+            if not self.direct:
+                assert not base_commit.parents
 
         # 8. Head branch is not malformed
         assert self.sh.git(
@@ -1514,7 +1528,10 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
 
         # 9. Head and base branches are correctly poisoned
         assert "[ghstack-poisoned]" in head_commit.commit_msg
-        assert "[ghstack-poisoned]" in base_commit.commit_msg
+
+        # TODO: direct PR based on main are not poisoned base commit
+        if not self.direct:
+            assert "[ghstack-poisoned]" in base_commit.commit_msg
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Small helpers
