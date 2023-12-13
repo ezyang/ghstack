@@ -35,6 +35,20 @@ import ghstack.unlink
 from ghstack.types import GitCommitHash
 
 
+DIRECT = False
+
+
+@contextlib.contextmanager
+def use_direct() -> Iterator[None]:
+    global DIRECT
+    try:
+        DIRECT = True
+        yield
+    finally:
+        DIRECT = False
+        pass
+
+
 @contextlib.contextmanager
 def captured_output() -> Iterator[Tuple[io.StringIO, io.StringIO]]:
     new_out, new_err = io.StringIO(), io.StringIO()
@@ -153,6 +167,7 @@ class TestGh(expecttest.TestCase):
         revs: Sequence[str] = (),
         stack: bool = True,
     ) -> List[ghstack.submit.DiffMeta]:
+        direct = DIRECT
         r = ghstack.submit.main(
             msg=msg,
             username="ezyang",
@@ -163,6 +178,7 @@ class TestGh(expecttest.TestCase):
             repo_owner_opt="pytorch",
             repo_name_opt="pytorch",
             short=short,
+            direct=direct,
             no_skip=no_skip,
             github_url="github.com",
             remote_name="origin",
@@ -171,7 +187,7 @@ class TestGh(expecttest.TestCase):
             stack=stack,
             check_invariants=True,
         )
-        self.check_global_github_invariants()
+        self.check_global_github_invariants(direct)
         return r
 
     def gh_land(self, pull_request: str) -> None:
@@ -193,7 +209,7 @@ class TestGh(expecttest.TestCase):
             remote_name="origin",
         )
 
-    def check_global_github_invariants(self) -> None:
+    def check_global_github_invariants(self, direct: bool) -> None:
         r = self.github.graphql(
             """
           query {
@@ -214,8 +230,11 @@ class TestGh(expecttest.TestCase):
         for pr in r["data"]["repository"]["pullRequests"]["nodes"]:
             if pr["closed"]:
                 continue
-            assert pr["baseRefName"] not in seen_refs
-            seen_refs.add(pr["baseRefName"])
+            # In direct mode, only head refs may not be reused;
+            # base refs can be reused in octopus situations
+            if not direct:
+                assert pr["baseRefName"] not in seen_refs
+                seen_refs.add(pr["baseRefName"])
             assert pr["headRefName"] not in seen_refs
             seen_refs.add(pr["headRefName"])
 
@@ -335,70 +354,85 @@ class TestGh(expecttest.TestCase):
         )
 
     def test_simple(self) -> None:
-        print("####################")
-        print("### test_simple")
-        print("###")
-
-        print("### First commit")
-        self.writeFileAndAdd("a", "asdf")
-        self.sh.git("commit", "-m", "Commit 1\n\nThis is my first commit")
-        self.sh.test_tick()
-        self.gh("Initial 1")
-        self.assertExpectedInline(
-            self.dump_github(),
-            """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
-
-    Stack:
-    * __->__ #500
-
-    This is my first commit
-
-    * 9a174dd (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
-""",
-        )
+        self.commit("A")
+        (A,) = self.gh("Initial 1")
 
         # Just to test what happens if we use those branches
         self.sh.git("checkout", "gh/ezyang/1/orig")
-
-        print("###")
-        print("### Second commit")
-        self.writeFileAndAdd("b", "asdf")
-        self.sh.git("commit", "-m", "Commit 2\n\nThis is my second commit")
-        self.sh.test_tick()
+        self.commit("B")
         self.gh("Initial 2")
+
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
     * __->__ #500
 
-    This is my first commit
 
-    * 9a174dd (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * f4778ef (gh/ezyang/1/head)
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
     * #500
 
-    This is my second commit
 
-    * 21f20fe (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 9c89bd6 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
+
+    * f16bff9 (gh/ezyang/2/head)
+    |    Initial 2 on "Commit B"
+    * c7e3a0c (gh/ezyang/2/base)
+         Update base for Initial 2 on "Commit B"
+
+""",
+        )
+
+    @use_direct()
+    def test_direct_simple(self) -> None:
+        self.commit("A")
+        (A,) = self.gh("Initial 1")
+
+        # Just to test what happens if we use those branches
+        self.sh.git("checkout", "gh/ezyang/1/orig")
+        self.commit("B")
+        self.gh("Initial 2")
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> master)
+
+    Stack:
+    * #501
+    * __->__ #500
+
+
+
+    * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
+    |    Initial 1 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
+
+    Stack:
+    * __->__ #501
+    * #500
+
+
+
+    * 09a6970 (gh/ezyang/2/next, gh/ezyang/2/head)
+    |    Initial 2 on "Commit B"
+    * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
+    |    Initial 1 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
 
 """,
         )
