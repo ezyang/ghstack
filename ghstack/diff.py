@@ -32,10 +32,11 @@ class PullRequestResolved:
     owner: str
     repo: str
     number: GitHubNumber
+    github_url: str
 
-    def url(self, github_url: str) -> str:
+    def url(self) -> str:
         return "https://{}/{}/{}/pull/{}".format(
-            github_url, self.owner, self.repo, self.number
+            self.github_url, self.owner, self.repo, self.number
         )
 
     @staticmethod
@@ -46,6 +47,7 @@ class PullRequestResolved:
                 owner=m.group("owner"),
                 repo=m.group("repo"),
                 number=GitHubNumber(int(m.group("number"))),
+                github_url=github_url,
             )
         m = RE_GH_METADATA.search(s)
         if m is not None:
@@ -53,6 +55,7 @@ class PullRequestResolved:
                 owner=m.group("owner"),
                 repo=m.group("repo"),
                 number=GitHubNumber(int(m.group("number"))),
+                github_url=github_url,
             )
         return None
 
