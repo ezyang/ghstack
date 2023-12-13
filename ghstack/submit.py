@@ -628,16 +628,21 @@ class Submitter:
             parent = parents[0]
             diff_meta = None
             parent_commit = commit_index[parent]
+            parent_diff_meta = diff_meta_index.get(parent)
             diff = ghstack.git.convert_header(commit, self.github_url)
             diff_meta = (
                 self.process_commit(
                     parent_commit,
+                    parent_diff_meta,
                     diff,
                     self.elaborate_diff(diff)
                     if diff.pull_request_resolved is not None
                     else None,
+                    submit,
                 )
-                if submit
+                # NB: unconditionally process commits if doing direct style,
+                # we may need to update next branches
+                if submit or self.direct
                 else None
             )
             if diff_meta is not None:
@@ -830,8 +835,10 @@ to disassociate the commit with the pull request, and then try again.
     def process_commit(
         self,
         base: ghstack.git.CommitHeader,
+        base_diff_meta: Optional[DiffMeta],
         diff: ghstack.diff.Diff,
         elab_diff: Optional[DiffWithGitHubMetadata],
+        submit: bool,
     ) -> Optional[DiffMeta]:
         # Do not process poisoned commits
         if "[ghstack-poisoned]" in diff.summary:
@@ -839,11 +846,15 @@ to disassociate the commit with the pull request, and then try again.
 
         # Do not process closed commits
         if elab_diff is not None and elab_diff.closed:
+            if self.direct:
+                self._raise_needs_rebase()
             return None
 
         # Edge case: check if the commit is empty; if so skip submitting
         if base.tree == diff.tree:
             self._warn_empty(diff, elab_diff)
+            # Maybe it can just fall through here and make an empty PR fine
+            assert not self.direct, "empty commits with direct NYI"
             return None
 
         username = elab_diff.username if elab_diff is not None else self.username
@@ -851,8 +862,8 @@ to disassociate the commit with the pull request, and then try again.
         self._sanity_check_ghnum(username, ghnum)
 
         # Create base/head commits if needed
-        push_branches = self._create_base_and_head_if_needed(
-            base, diff, elab_diff, username, ghnum
+        push_branches = self._create_non_orig_branches(
+            base, base_diff_meta, diff, elab_diff, username, ghnum, submit
         )
 
         # Create pull request, if needed
@@ -862,12 +873,14 @@ to disassociate the commit with the pull request, and then try again.
                 [push_spec(p[0], branch(username, ghnum, p[1])) for p in push_branches]
             )
             push_branches.clear()
-            elab_diff = self._create_pull_request(diff, ghnum)
+            elab_diff = self._create_pull_request(diff, base_diff_meta, ghnum)
             what = "Created"
             new_pr = True
         else:
             if not push_branches:
                 what = "Skipped"
+            elif push_branches.head is None:
+                what = "Skipped (next updated)"
             else:
                 what = "Updated"
             new_pr = False
@@ -915,6 +928,14 @@ you should fetch the original commits in question by running:
 ghstack checkout $PR_URL
 
 Since we cannot proceed, ghstack will abort now.
+"""
+        )
+
+    def _raise_needs_rebase(self) -> None:
+        raise RuntimeError(
+            """\
+ghstack --next requires all PRs in the stack to be open.  One of your PRs
+is closed (likely due to being merged).  Please rebase to upstream and try again.
 """
         )
 
@@ -1018,13 +1039,15 @@ Since we cannot proceed, ghstack will abort now.
 
         return RemoteInfo(remote_ref, remote_tree)
 
-    def _create_base_and_head_if_needed(
+    def _create_non_orig_branches(
         self,
         base: ghstack.git.CommitHeader,
+        base_diff_meta: Optional[DiffMeta],
         diff: ghstack.diff.Diff,
         elab_diff: Optional[DiffWithGitHubMetadata],
         username: str,
         ghnum: GhNumber,
+        submit: bool,
     ) -> PushBranches:
         # How exactly do we submit a commit to GitHub?
         #
@@ -1096,31 +1119,63 @@ Since we cannot proceed, ghstack will abort now.
             head_args.extend(("-p", remote_head.ref))
 
         # Create base commit if necessary
-        remote_base = (
-            self._resolve_remote(branch_base(username, ghnum))
-            if elab_diff is not None
-            else None
-        )
         updated_base = False
-        if remote_base is None or remote_base.tree != base.tree:
-            # Base is not the same, perform base update
-            updated_base = True
-            base_args: List[str] = []
-            if remote_base is not None:
-                base_args.extend(("-p", remote_base.ref))
-            new_base = GitCommitHash(
-                self.sh.git(
-                    "commit-tree",
-                    *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
-                    *base_args,
-                    base.tree,
-                    input='Update base for {} on "{}"\n\n[ghstack-poisoned]'.format(
-                        self.msg, diff.title
-                    ),
-                )
+        if not self.direct:
+            remote_base = (
+                self._resolve_remote(branch_base(username, ghnum))
+                if elab_diff is not None
+                else None
             )
-            head_args.extend(("-p", new_base))
-            push_branches.base = new_base
+            if remote_base is None or remote_base.tree != base.tree:
+                # Base is not the same, perform base update
+                updated_base = True
+                base_args: List[str] = []
+                if remote_base is not None:
+                    base_args.extend(("-p", remote_base.ref))
+                new_base = GitCommitHash(
+                    self.sh.git(
+                        "commit-tree",
+                        *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
+                        *base_args,
+                        base.tree,
+                        input='Update base for {} on "{}"\n\n[ghstack-poisoned]'.format(
+                            self.msg, diff.title
+                        ),
+                    )
+                )
+                head_args.extend(("-p", new_base))
+                push_branches.base = new_base
+        else:
+            # We never have to create a base commit, we read it out from
+            # the base
+            if base_diff_meta is not None:
+                # The base was submitted the normal way (merge base is either
+                # next or head)
+                #
+                # We can always use next, because if head is OK, head will have
+                # been advanced to next anyway
+                assert False
+                """
+                if base_diff_meta.head is not None:
+                    assert base_diff_meta.next == base_diff_meta.head
+                """
+                new_base = base_diff_meta.next
+            else:
+                # The base is not actually a PR, you can use the commit id
+                # directly (merge base is master)
+                if remote_head is None or not self.sh.git(
+                    "merge-base",
+                    "--is-ancestor",
+                    base.commit_id,
+                    remote_head.ref,
+                    exitcode=True,
+                ):
+                    new_base = base.commit_id
+                else:
+                    new_base = None
+            if new_base is not None:
+                updated_base = True
+                head_args.extend(("-p", new_base))
 
         # Check head commit if necessary
         if remote_head is None or updated_base or remote_head.tree != diff.tree:
@@ -1135,16 +1190,32 @@ Since we cannot proceed, ghstack will abort now.
                     ),
                 )
             )
-            push_branches.head = new_head
+            if self.direct:
+                # only update head branch if we're actually submitting
+                if submit:
+                    push_branches.head = new_head
+                push_branches.next = new_head
+            else:
+                push_branches.head = new_head
 
         return push_branches
 
     def _create_pull_request(
-        self, diff: ghstack.diff.Diff, ghnum: GhNumber
+        self,
+        diff: ghstack.diff.Diff,
+        base_diff_meta: Optional[DiffMeta],
+        ghnum: GhNumber,
     ) -> DiffWithGitHubMetadata:
         title, body = self._default_title_and_body(diff, None)
         head_ref = branch_head(self.username, ghnum)
-        base_ref = branch_base(self.username, ghnum)
+
+        if self.direct:
+            if base_diff_meta is None:
+                base_ref = self.base
+            else:
+                base_ref = branch_head(base_diff_meta.username, base_diff_meta.ghnum)
+        else:
+            base_ref = branch_base(self.username, ghnum)
 
         # Time to open the PR
         # NB: GraphQL API does not support opening PRs
