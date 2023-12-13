@@ -175,12 +175,15 @@ class DiffMeta:
     elab_diff: DiffWithGitHubMetadata
     # The commit message to put on the orig commit
     commit_msg: str
-    pr_url: str
 
     push_branches: PushBranches
     # A human-readable string like 'Created' which describes what
     # happened to this pull request
     what: str
+
+    @property
+    def pr_url(self) -> str:
+        return self.elab_diff.pull_request_resolved.url()
 
     @property
     def title(self) -> str:
@@ -909,13 +912,12 @@ to disassociate the commit with the pull request, and then try again.
             commit_msg = (
                 f"{strip_mentions(diff.summary.rstrip())}\n\n"
                 f"ghstack-source-id: {diff.source_id}\n"
-                f"Pull Request resolved: {pull_request_resolved.url(self.github_url)}"
+                f"Pull Request resolved: {pull_request_resolved.url()}"
             )
 
         return DiffMeta(
             elab_diff=elab_diff,
             commit_msg=commit_msg,
-            pr_url=pull_request_resolved.url(self.github_url),
             push_branches=push_branches,
             what=what,
         )
@@ -1240,7 +1242,10 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         logging.info("Opened PR #{}".format(number))
 
         pull_request_resolved = ghstack.diff.PullRequestResolved(
-            owner=self.repo_owner, repo=self.repo_name, number=number
+            owner=self.repo_owner,
+            repo=self.repo_name,
+            number=number,
+            github_url=self.github_url,
         )
 
         return DiffWithGitHubMetadata(
