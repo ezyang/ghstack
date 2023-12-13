@@ -57,35 +57,6 @@ class PushBranches:
         self.next = None
 
 
-# Metadata describing a diff we submitted to GitHub
-@dataclass
-class DiffMeta:
-    title: str
-    number: GitHubNumber
-    # The PR body to put on GitHub
-    body: str
-    # The commit message to put on the orig commit
-    commit_msg: str
-    username: str
-    ghnum: GhNumber
-    push_branches: PushBranches
-    # A human-readable string like 'Created' which describes what
-    # happened to this pull request
-    what: str
-    closed: bool
-    pr_url: str
-
-    @property
-    def orig(self) -> GitCommitHash:
-        assert self.push_branches.orig is not None
-        return self.push_branches.orig
-
-    @property
-    def next(self) -> GitCommitHash:
-        assert self.push_branches.next is not None
-        return self.push_branches.next
-
-
 @dataclass(frozen=True)
 class PreBranchState:
     # NB: these do not necessarily coincide with head/base branches.
@@ -196,6 +167,54 @@ class DiffWithGitHubMetadata:
     pull_request_resolved: ghstack.diff.PullRequestResolved
     head_ref: str
     base_ref: str
+
+
+# Metadata describing a diff we submitted to GitHub
+@dataclass
+class DiffMeta:
+    elab_diff: DiffWithGitHubMetadata
+    # The commit message to put on the orig commit
+    commit_msg: str
+    pr_url: str
+
+    push_branches: PushBranches
+    # A human-readable string like 'Created' which describes what
+    # happened to this pull request
+    what: str
+
+    @property
+    def title(self) -> str:
+        return self.elab_diff.title
+
+    @property
+    def number(self) -> GitHubNumber:
+        return self.elab_diff.number
+
+    @property
+    def body(self) -> str:
+        return self.elab_diff.body
+
+    @property
+    def username(self) -> str:
+        return self.elab_diff.username
+
+    @property
+    def ghnum(self) -> GhNumber:
+        return self.elab_diff.ghnum
+
+    @property
+    def closed(self) -> bool:
+        return self.elab_diff.closed
+
+    @property
+    def orig(self) -> GitCommitHash:
+        assert self.push_branches.orig is not None
+        return self.push_branches.orig
+
+    @property
+    def next(self) -> GitCommitHash:
+        assert self.push_branches.next is not None
+        return self.push_branches.next
 
 
 def main(**kwargs: Any) -> List[DiffMeta]:
@@ -630,20 +649,14 @@ class Submitter:
             parent_commit = commit_index[parent]
             parent_diff_meta = diff_meta_index.get(parent)
             diff = ghstack.git.convert_header(commit, self.github_url)
-            diff_meta = (
-                self.process_commit(
-                    parent_commit,
-                    parent_diff_meta,
-                    diff,
-                    self.elaborate_diff(diff)
-                    if diff.pull_request_resolved is not None
-                    else None,
-                    submit,
-                )
-                # NB: unconditionally process commits if doing direct style,
-                # we may need to update next branches
-                if submit or self.direct
-                else None
+            diff_meta = self.process_commit(
+                parent_commit,
+                parent_diff_meta,
+                diff,
+                self.elaborate_diff(diff)
+                if diff.pull_request_resolved is not None
+                else None,
+                submit,
             )
             if diff_meta is not None:
                 diff_meta_index[commit.commit_id] = diff_meta
@@ -886,9 +899,6 @@ to disassociate the commit with the pull request, and then try again.
             new_pr = False
 
         pull_request_resolved = elab_diff.pull_request_resolved
-        body = elab_diff.body
-        title = elab_diff.title
-        closed = elab_diff.closed
 
         if not new_pr:
             # Underlying diff can be assumed to have the correct metadata, we
@@ -903,16 +913,11 @@ to disassociate the commit with the pull request, and then try again.
             )
 
         return DiffMeta(
-            title=title,
-            number=pull_request_resolved.number,
-            body=body,
+            elab_diff=elab_diff,
             commit_msg=commit_msg,
-            ghnum=ghnum,
-            username=username,
+            pr_url=pull_request_resolved.url(self.github_url),
             push_branches=push_branches,
             what=what,
-            closed=closed,
-            pr_url=pull_request_resolved.url(self.github_url),
         )
 
     def _raise_poisoned(self) -> None:
