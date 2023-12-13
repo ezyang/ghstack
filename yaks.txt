@@ -1,0 +1,8 @@
+- micro-dsl for creating git repositories for testing
+
+- port github-fake to Python, so we can test in fbcode
+- Note: must use graphql-core-next, because GitHub GraphQL schema
+  uses new features not understood by graphql-core (namely '&' schema;
+  this is true even as of 2.1)
+
+- maybe we should force push when structure changes?
