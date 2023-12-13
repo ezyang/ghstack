@@ -23,25 +23,46 @@ from ghstack.types import GhNumber, GitCommitHash, GitHubNumber, GitHubRepositor
 BranchKind = str
 
 
+@dataclass(frozen=True)
+class GhCommit:
+    commit_id: GitCommitHash
+    tree: str
+
+
+# Commit can be None if this is a completely fresh PR
 @dataclass
-class PushBranches:
+class GhBranch:
+    commit: Optional[GhCommit] = None
+    updated: bool = False
+
+    def update(self, val: GhCommit) -> None:
+        self.commit = val
+        self.updated = True
+
+
+@dataclass
+class GhBranches:
     # What Git commit hash we should push to what branch.
     # The orig branch is populated later
-    orig: Optional[GitCommitHash] = None
-    head: Optional[GitCommitHash] = None
-    base: Optional[GitCommitHash] = None
-    next: Optional[GitCommitHash] = None
+    orig: GhBranch = dataclasses.field(default_factory=GhBranch)
+    head: GhBranch = dataclasses.field(default_factory=GhBranch)
+    base: GhBranch = dataclasses.field(default_factory=GhBranch)
+    next: GhBranch = dataclasses.field(default_factory=GhBranch)
 
     def to_list(self) -> List[Tuple[GitCommitHash, BranchKind]]:
         r = []
-        if self.orig is not None:
-            r.append((self.orig, "orig"))
-        if self.next is not None:
-            r.append((self.next, "next"))
-        if self.base is not None:
-            r.append((self.base, "base"))
-        if self.head is not None:
-            r.append((self.head, "head"))
+        if self.orig.updated:
+            assert self.orig.commit is not None
+            r.append((self.orig.commit.commit_id, "orig"))
+        if self.next.updated:
+            assert self.next.commit is not None
+            r.append((self.next.commit.commit_id, "next"))
+        if self.base.updated:
+            assert self.base.commit is not None
+            r.append((self.base.commit.commit_id, "base"))
+        if self.head.updated:
+            assert self.head.commit is not None
+            r.append((self.head.commit.commit_id, "head"))
         return r
 
     def __iter__(self) -> Iterator[Tuple[GitCommitHash, BranchKind]]:
@@ -51,10 +72,10 @@ class PushBranches:
         return bool(self.to_list())
 
     def clear(self) -> None:
-        self.orig = None
-        self.head = None
-        self.base = None
-        self.next = None
+        self.orig.updated = False
+        self.head.updated = False
+        self.base.updated = False
+        self.next.updated = False
 
 
 @dataclass(frozen=True)
@@ -64,12 +85,6 @@ class PreBranchState:
     # another head branch, or the upstream main branch itself.
     head_commit_id: GitCommitHash
     base_commit_id: GitCommitHash
-
-
-@dataclass(frozen=True)
-class RemoteInfo:
-    ref: str
-    tree: str
 
 
 # Ya, sometimes we get carriage returns.  Crazy right?
@@ -176,7 +191,7 @@ class DiffMeta:
     # The commit message to put on the orig commit
     commit_msg: str
 
-    push_branches: PushBranches
+    push_branches: GhBranches
     # A human-readable string like 'Created' which describes what
     # happened to this pull request
     what: str
@@ -211,13 +226,13 @@ class DiffMeta:
 
     @property
     def orig(self) -> GitCommitHash:
-        assert self.push_branches.orig is not None
-        return self.push_branches.orig
+        assert self.push_branches.orig.commit is not None
+        return self.push_branches.orig.commit.commit_id
 
     @property
     def next(self) -> GitCommitHash:
-        assert self.push_branches.next is not None
-        return self.push_branches.next
+        assert self.push_branches.next.commit is not None
+        return self.push_branches.next.commit.commit_id
 
 
 def main(**kwargs: Any) -> List[DiffMeta]:
@@ -707,7 +722,7 @@ class Submitter:
                     # Add the new_orig to push
                     # This may not exist.  If so, that means this diff only exists
                     # to update HEAD.
-                    diff_meta.push_branches.orig = new_orig
+                    diff_meta.push_branches.orig.update(GhCommit(new_orig, commit.tree))
 
                 rebase_index[commit.commit_id] = new_orig
 
@@ -1037,14 +1052,26 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             )
         return summary
 
-    def _resolve_remote(self, branch: str) -> Optional[RemoteInfo]:
-        remote_ref = self.remote_name + "/" + branch
-        (remote_diff,) = ghstack.git.parse_header(
-            self.sh.git("rev-list", "--header", "-1", remote_ref), self.github_url
+    # NB: mutates GhBranch
+    def _resolve_gh_branch(
+        self, kind: str, gh_branch: GhBranch, username: str, ghnum: GhNumber
+    ) -> None:
+        remote_ref = self.remote_name + "/" + branch(username, ghnum, kind)
+        (remote_commit,) = ghstack.git.split_header(
+            self.sh.git("rev-list", "--header", "-1", remote_ref)
         )
-        remote_tree = remote_diff.tree
+        gh_branch.commit = GhCommit(remote_commit.commit_id, remote_commit.tree)
 
-        return RemoteInfo(remote_ref, remote_tree)
+    # Precondition: these branches exist
+    def _resolve_gh_branches(self, username: str, ghnum: GhNumber) -> GhBranches:
+        push_branches = GhBranches()
+        self._resolve_gh_branch("orig", push_branches.orig, username, ghnum)
+        self._resolve_gh_branch("head", push_branches.head, username, ghnum)
+        if self.direct:
+            self._resolve_gh_branch("next", push_branches.next, username, ghnum)
+        else:
+            self._resolve_gh_branch("base", push_branches.base, username, ghnum)
+        return push_branches
 
     def _create_non_orig_branches(
         self,
@@ -1055,7 +1082,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         username: str,
         ghnum: GhNumber,
         submit: bool,
-    ) -> PushBranches:
+    ) -> GhBranches:
         # How exactly do we submit a commit to GitHub?
         #
         # Here is the relevant state:
@@ -1112,33 +1139,29 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         # even if you rebase a commit backwards: you just see that the base
         # is updated to also remove changes.
 
-        push_branches = PushBranches()
+        if elab_diff is not None:
+            push_branches = self._resolve_gh_branches(username, ghnum)
+        else:
+            push_branches = GhBranches()
 
         # Initialize head arguments (as original head parent must come first
         # in parents list)
         head_args: List[str] = []
-        remote_head = (
-            self._resolve_remote(branch_head(username, ghnum))
-            if elab_diff is not None
-            else None
-        )
-        if remote_head is not None:
-            head_args.extend(("-p", remote_head.ref))
+        if push_branches.head.commit is not None:
+            head_args.extend(("-p", push_branches.head.commit.commit_id))
 
         # Create base commit if necessary
         updated_base = False
         if not self.direct:
-            remote_base = (
-                self._resolve_remote(branch_base(username, ghnum))
-                if elab_diff is not None
-                else None
-            )
-            if remote_base is None or remote_base.tree != base.tree:
+            if (
+                push_branches.base.commit is None
+                or push_branches.base.commit.tree != base.tree
+            ):
                 # Base is not the same, perform base update
                 updated_base = True
                 base_args: List[str] = []
-                if remote_base is not None:
-                    base_args.extend(("-p", remote_base.ref))
+                if push_branches.base.commit is not None:
+                    base_args.extend(("-p", push_branches.base.commit.commit_id))
                 new_base = GitCommitHash(
                     self.sh.git(
                         "commit-tree",
@@ -1151,7 +1174,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                     )
                 )
                 head_args.extend(("-p", new_base))
-                push_branches.base = new_base
+                push_branches.base.update(GhCommit(new_base, base.tree))
         else:
             # We never have to create a base commit, we read it out from
             # the base
@@ -1170,11 +1193,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             else:
                 # The base is not actually a PR, you can use the commit id
                 # directly (merge base is master)
-                if remote_head is None or not self.sh.git(
+                if push_branches.head.commit is None or not self.sh.git(
                     "merge-base",
                     "--is-ancestor",
                     base.commit_id,
-                    remote_head.ref,
+                    push_branches.head.commit.commit_id,
                     exitcode=True,
                 ):
                     new_base = base.commit_id
@@ -1185,7 +1208,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 head_args.extend(("-p", new_base))
 
         # Check head commit if necessary
-        if remote_head is None or updated_base or remote_head.tree != diff.tree:
+        if (
+            push_branches.head.commit is None
+            or updated_base
+            or push_branches.head.commit.tree != diff.tree
+        ):
             new_head = GitCommitHash(
                 self.sh.git(
                     "commit-tree",
@@ -1200,10 +1227,10 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             if self.direct:
                 # only update head branch if we're actually submitting
                 if submit:
-                    push_branches.head = new_head
-                push_branches.next = new_head
+                    push_branches.head.update(GhCommit(new_head, diff.tree))
+                push_branches.next.update(GhCommit(new_head, diff.tree))
             else:
-                push_branches.head = new_head
+                push_branches.head.update(GhCommit(new_head, diff.tree))
 
         return push_branches
 
