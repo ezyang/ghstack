@@ -1,0 +1,13 @@
+{
+  "name": "ghstack extension",
+  "version": "1.0",
+  "manifest_version": 3,
+  "description": "GitHub UI enhancements for ghstack",
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*/pull/*"],
+      "run_at": "document_end",
+      "js": ["ghstack.js"]
+    }
+  ]
+}
