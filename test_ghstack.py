@@ -38,6 +38,9 @@ from ghstack.types import GitCommitHash
 DIRECT = False
 
 
+# TODO: replicate github commit list
+
+
 @contextlib.contextmanager
 def use_direct() -> Iterator[None]:
     global DIRECT
@@ -408,10 +411,6 @@ class TestGh(expecttest.TestCase):
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -420,10 +419,6 @@ class TestGh(expecttest.TestCase):
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-    * #500
 
 
 
@@ -699,9 +694,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * __->__ #500
-
 
 
     * e3902de (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -857,10 +849,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     * c5b379e (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -869,10 +857,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-    * #500
 
 
 
@@ -948,10 +932,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -960,10 +940,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-    * #500
 
 
 
@@ -1051,10 +1027,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     * f22b24c (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -1065,10 +1037,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-    * #500
 
 
 
@@ -1158,10 +1126,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     * 9d56b39 (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -1172,10 +1136,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-    * #500
 
 
 
@@ -1275,10 +1235,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     *   ad37802 (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -1291,10 +1247,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-    * #500
 
 
 
@@ -1385,10 +1337,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
-
 
 
     * 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -1397,9 +1345,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> master)
-
-    Stack:
-    * __->__ #501
 
 
 
@@ -1485,10 +1430,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/2/head)
 
-    Stack:
-    * __->__ #500
-    * #501
-
 
 
     *   3a17667 (gh/ezyang/1/next, gh/ezyang/1/head)
@@ -1503,10 +1444,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
          Initial commit
 
 [O] #501 Commit B (gh/ezyang/2/head -> master)
-
-    Stack:
-    * #500
-    * __->__ #501
 
 
 
