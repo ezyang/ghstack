@@ -1365,103 +1365,159 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 """,
         )
 
-    # ------------------------------------------------------------------------- #
+    @use_direct()
+    def test_direct_cherry_pick(self) -> None:
+        self.sh.git("checkout", "-b", "feature")
 
-    def test_reorder(self) -> None:
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
-        self.sh.test_tick()
+        self.commit("A")
+        self.commit("B")
+        A, B = self.gh("Initial 2")
 
-        self.writeFileAndAdd("file2.txt", "B")
-        self.sh.git("commit", "-m", "Commit 2\n\nA commit with an B")
-        self.sh.test_tick()
+        self.sh.git("checkout", "master")
+        self.commit("M")
+        self.sh.git("push", "origin", "master")
 
-        self.gh("Initial")
-        self.sh.test_tick()
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+        self.cherry_pick(B)
+        self.gh("Cherry pick")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> master)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * d35565d (gh/ezyang/1/head)
-    |    Initial on "Commit 1"
-    * b4fea1f (gh/ezyang/1/base)
-         Update base for Initial on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
+    |    Initial 2 on "Commit A"
+    * dc8bfe4
+         Initial commit
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
     Stack:
     * __->__ #501
-    * #500
 
-    A commit with an B
 
-    * eae49cd (gh/ezyang/2/head)
-    |    Initial on "Commit 2"
-    * 30abec4 (gh/ezyang/2/base)
-         Update base for Initial on "Commit 2"
+
+    *   fd891f3 (gh/ezyang/2/next, gh/ezyang/2/head)
+    |\\     Cherry pick on "Commit B"
+    | * 686e5ea (HEAD -> master)
+    | |    Commit M
+    * | d8884f2
+    | |    Initial 2 on "Commit B"
+    * | 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
+    |/     Initial 2 on "Commit A"
+    * dc8bfe4
+         Initial commit
 
 """,
         )
 
-        # https://stackoverflow.com/a/16205257
-        self.sh.git("rebase", "--onto", "HEAD~2", "HEAD~", "HEAD")
-        self.sh.test_tick()
-        self.sh.git("cherry-pick", "master~")
-        self.sh.test_tick()
+    # ------------------------------------------------------------------------- #
 
-        self.gh("Reorder")
-        self.sh.test_tick()
-        self.substituteRev("origin/gh/ezyang/1/base", "rINI1A")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
-        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
+    def test_reorder(self) -> None:
+        self.commit("A")
+        self.commit("B")
+        A, B = self.gh("Initial")
+
+        self.checkout(GitCommitHash("HEAD~~"))
+        self.cherry_pick(B)
+        self.cherry_pick(A)
+        B2, A2 = self.gh("Reorder")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * __->__ #500
     * #501
 
-    A commit with an A
 
-    *   58a1844 (gh/ezyang/1/head)
-    |\\     Reorder on "Commit 1"
-    | * f8862a8 (gh/ezyang/1/base)
-    | |    Update base for Reorder on "Commit 1"
-    * | d35565d
-    |/     Initial on "Commit 1"
-    * b4fea1f
-         Update base for Initial on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    *   5a11d6e (gh/ezyang/1/head)
+    |\\     Reorder on "Commit A"
+    | * 48df0b3 (gh/ezyang/1/base)
+    | |    Update base for Reorder on "Commit A"
+    * | 30f6c01
+    |/     Initial on "Commit A"
+    * 7e61353
+         Update base for Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * #500
     * __->__ #501
 
-    A commit with an B
 
-    *   bd9356f (gh/ezyang/2/head)
-    |\\     Reorder on "Commit 2"
-    | * 39a5bae (gh/ezyang/2/base)
-    | |    Update base for Reorder on "Commit 2"
-    * | eae49cd
-    |/     Initial on "Commit 2"
-    * 30abec4
-         Update base for Initial on "Commit 2"
+
+    *   28e7ae2 (gh/ezyang/2/head)
+    |\\     Reorder on "Commit B"
+    | * 7be762b (gh/ezyang/2/base)
+    | |    Update base for Reorder on "Commit B"
+    * | 4d6d2a4
+    |/     Initial on "Commit B"
+    * c9e5b0d
+         Update base for Initial on "Commit B"
+
+""",
+        )
+
+    @use_direct()
+    def test_direct_reorder(self) -> None:
+        self.commit("A")
+        self.commit("B")
+        A, B = self.gh("Initial")
+
+        self.checkout(GitCommitHash("HEAD~~"))
+        self.cherry_pick(B)
+        self.cherry_pick(A)
+        B2, A2 = self.gh("Reorder")
+
+        self.assertExpectedInline(
+            self.dump_github(),
+            """\
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/2/head)
+
+    Stack:
+    * __->__ #500
+    * #501
+
+
+
+    *   3a17667 (gh/ezyang/1/next, gh/ezyang/1/head)
+    |\\     Reorder on "Commit A"
+    | * 5f812b3 (gh/ezyang/2/next, gh/ezyang/2/head)
+    | |    Reorder on "Commit B"
+    | * 60b80d9
+    |/     Initial on "Commit B"
+    * 8bf3ca1
+    |    Initial on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
+
+[O] #501 Commit B (gh/ezyang/2/head -> master)
+
+    Stack:
+    * #500
+    * __->__ #501
+
+
+
+    * 5f812b3 (gh/ezyang/2/next, gh/ezyang/2/head)
+    |    Reorder on "Commit B"
+    * 60b80d9
+    |    Initial on "Commit B"
+    * 8bf3ca1
+    |    Initial on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
 
 """,
         )
