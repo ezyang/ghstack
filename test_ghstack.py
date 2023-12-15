@@ -982,143 +982,106 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     # ------------------------------------------------------------------------- #
 
     def test_amend_bottom(self) -> None:
-        print("####################")
-        print("### test_amend_bottom")
-        print("###")
-        print("### First commit")
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
-        self.sh.test_tick()
-        self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.commit("A")
+        (A,) = self.gh("Initial 1")
+        self.commit("B")
+        A2, B2 = self.gh("Initial 2")
 
-        print("###")
-        print("### Second commit")
-        self.writeFileAndAdd("file2.txt", "B")
-        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
-        self.sh.test_tick()
-        self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+        self.checkout(A2)
+        self.amend("A3")
+        (A3,) = self.gh("Update A")
+
+        self.cherry_pick(B2)
+        A4, B4 = self.gh("Update B")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * 79e3249 (gh/ezyang/1/head)
+    |    Update A on "Commit A"
+    * f4778ef
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A"
 
-    Stack:
-    * __->__ #501
-    * #500
-
-    A commit with a B
-
-    * b93d7fa (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 59cae92 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
-
-""",
-        )
-
-        print("###")
-        print("### Amend the bottom commit")
-        self.sh.git("checkout", "HEAD~")
-        self.writeFileAndAdd("file1.txt", "ABBA")
-        # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend", "--no-edit")
-        self.substituteRev("HEAD", "rCOM1A")
-        self.sh.test_tick()
-        self.gh("Update A")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
-        self.assertExpectedInline(
-            self.dump_github(),
-            """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
-
-    Stack:
-    * __->__ #500
-
-    A commit with an A
-
-    * 56ee762 (gh/ezyang/1/head)
-    |    Update A on "Commit 1"
-    * fd92fed
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
     * #500
 
-    A commit with a B
 
-    * b93d7fa (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 59cae92 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
+
+    *   dd9d87d (gh/ezyang/2/head)
+    |\\     Update B on "Commit B"
+    | * e24c5c2 (gh/ezyang/2/base)
+    | |    Update base for Update B on "Commit B"
+    * | f16bff9
+    |/     Initial 2 on "Commit B"
+    * c7e3a0c
+         Update base for Initial 2 on "Commit B"
 
 """,
         )
 
-        print("###")
-        print("### Restack the top commit")
-        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
-        self.sh.test_tick()
-        self.gh("Update B")
-        self.substituteRev("HEAD", "rCOM2A")
-        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
+    @use_direct()
+    def test_direct_amend_bottom(self) -> None:
+        self.commit("A")
+        (A,) = self.gh("Initial 1")
+        self.commit("B")
+        A2, B2 = self.gh("Initial 2")
+
+        self.checkout(A2)
+        self.amend("A3")
+        (A3,) = self.gh("Update A")
+
+        self.cherry_pick(B2)
+        A4, B4 = self.gh("Update B")
+
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> master)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * 56ee762 (gh/ezyang/1/head)
-    |    Update A on "Commit 1"
-    * fd92fed
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * f22b24c (gh/ezyang/1/next, gh/ezyang/1/head)
+    |    Update A on "Commit A"
+    * c3ca023
+    |    Initial 1 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
     Stack:
     * __->__ #501
     * #500
 
-    A commit with a B
 
-    *   3dbe41d (gh/ezyang/2/head)
-    |\\     Update B on "Commit 2"
-    | * 167704c (gh/ezyang/2/base)
-    | |    Update base for Update B on "Commit 2"
-    * | b93d7fa
-    |/     Initial 2 on "Commit 2"
-    * 59cae92
-         Update base for Initial 2 on "Commit 2"
+
+    *   165ebd2 (gh/ezyang/2/next, gh/ezyang/2/head)
+    |\\     Update B on "Commit B"
+    | * f22b24c (gh/ezyang/1/next, gh/ezyang/1/head)
+    | |    Update A on "Commit A"
+    * | 09a6970
+    |/     Initial 2 on "Commit B"
+    * c3ca023
+    |    Initial 1 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
 
 """,
         )
@@ -1126,110 +1089,106 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     # ------------------------------------------------------------------------- #
 
     def test_amend_all(self) -> None:
-        print("####################")
-        print("### test_amend_all")
-        print("###")
-        print("### First commit")
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
-        self.sh.test_tick()
-        self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.commit("A")
+        _ = self.gh("Initial 1")
 
-        print("###")
-        print("### Second commit")
-        self.writeFileAndAdd("file2.txt", "B")
-        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
-        self.sh.test_tick()
-        self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+        self.commit("B")
+        A2, B2 = self.gh("Initial 2")
+
+        self.checkout(A2)
+        self.amend("A3")
+        self.cherry_pick(B2)
+        self.amend("B3")
+        A3, B3 = self.gh("Update A")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * 98de643 (gh/ezyang/1/head)
+    |    Update A on "Commit A"
+    * f4778ef
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
     * #500
 
-    A commit with a B
 
-    * b93d7fa (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 59cae92 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
+
+    *   870e05a (gh/ezyang/2/head)
+    |\\     Update A on "Commit B"
+    | * 293b569 (gh/ezyang/2/base)
+    | |    Update base for Update A on "Commit B"
+    * | f16bff9
+    |/     Initial 2 on "Commit B"
+    * c7e3a0c
+         Update base for Initial 2 on "Commit B"
 
 """,
         )
 
-        print("###")
-        print("### Amend the commits")
-        self.sh.git("checkout", "HEAD~")
-        self.writeFileAndAdd("file1.txt", "ABBA")
-        # Can't use -m here, it will clobber the metadata
-        self.sh.git("commit", "--amend", "--no-edit")
-        self.substituteRev("HEAD", "rCOM1A")
-        self.sh.test_tick()
+    @use_direct()
+    def test_direct_amend_all(self) -> None:
+        self.commit("A")
+        _ = self.gh("Initial 1")
 
-        self.sh.git("cherry-pick", self.lookupRev("rCOM2"))
-        self.substituteRev("HEAD", "rCOM2A")
-        self.sh.test_tick()
+        self.commit("B")
+        A2, B2 = self.gh("Initial 2")
 
-        self.gh("Update A")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
-        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
+        self.checkout(A2)
+        self.amend("A3")
+        self.cherry_pick(B2)
+        self.amend("B3")
+        A3, B3 = self.gh("Update A")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> master)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * b3375f4 (gh/ezyang/1/head)
-    |    Update A on "Commit 1"
-    * fd92fed
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * 9d56b39 (gh/ezyang/1/next, gh/ezyang/1/head)
+    |    Update A on "Commit A"
+    * c3ca023
+    |    Initial 1 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
     Stack:
     * __->__ #501
     * #500
 
-    A commit with a B
 
-    *   10214a0 (gh/ezyang/2/head)
-    |\\     Update A on "Commit 2"
-    | * 8979124 (gh/ezyang/2/base)
-    | |    Update base for Update A on "Commit 2"
-    * | b93d7fa
-    |/     Initial 2 on "Commit 2"
-    * 59cae92
-         Update base for Initial 2 on "Commit 2"
+
+    *   e3873c9 (gh/ezyang/2/next, gh/ezyang/2/head)
+    |\\     Update A on "Commit B"
+    | * 9d56b39 (gh/ezyang/1/next, gh/ezyang/1/head)
+    | |    Update A on "Commit A"
+    * | 09a6970
+    |/     Initial 2 on "Commit B"
+    * c3ca023
+    |    Initial 1 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
 
 """,
         )
@@ -1237,120 +1196,120 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     # ------------------------------------------------------------------------- #
 
     def test_rebase(self) -> None:
-        print("####################")
-        print("### test_rebase")
-
         self.sh.git("checkout", "-b", "feature")
 
-        print("###")
-        print("### First commit")
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
-        self.sh.test_tick()
-        self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.commit("A")
+        (A1,) = self.gh("Initial 1")
+        self.commit("B")
+        A2, B2 = self.gh("Initial 2")
 
-        print("###")
-        print("### Second commit")
-        self.writeFileAndAdd("file2.txt", "B")
-        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
-        self.sh.test_tick()
-        self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+        self.sh.git("checkout", "master")
+        self.commit("M")
+        self.sh.git("push", "origin", "master")
+
+        self.sh.git("checkout", "feature")
+        self.sh.git("rebase", "origin/master")
+
+        self.gh("Rebase")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    *   51b1590 (gh/ezyang/1/head)
+    |\\     Rebase on "Commit A"
+    | * 0c51c0c (gh/ezyang/1/base)
+    | |    Update base for Rebase on "Commit A"
+    * | f4778ef
+    |/     Initial 1 on "Commit A"
+    * 6b23cb6
+         Update base for Initial 1 on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
     * #500
 
-    A commit with a B
 
-    * b93d7fa (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 59cae92 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
+
+    *   f33fe2b (gh/ezyang/2/head)
+    |\\     Rebase on "Commit B"
+    | * 96db6fb (gh/ezyang/2/base)
+    | |    Update base for Rebase on "Commit B"
+    * | f16bff9
+    |/     Initial 2 on "Commit B"
+    * c7e3a0c
+         Update base for Initial 2 on "Commit B"
 
 """,
         )
 
-        print("###")
-        print("### Push master forward")
+    @use_direct()
+    def test_direct_rebase(self) -> None:
+        self.sh.git("checkout", "-b", "feature")
+
+        self.commit("A")
+        (A1,) = self.gh("Initial 1")
+        self.commit("B")
+        A2, B2 = self.gh("Initial 2")
+
         self.sh.git("checkout", "master")
-        self.writeFileAndAdd("master.txt", "M")
-        self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
-        self.substituteRev("HEAD", "rINI2")
-        self.sh.test_tick()
+        self.commit("M")
         self.sh.git("push", "origin", "master")
 
-        print("###")
-        print("### Rebase the commits")
         self.sh.git("checkout", "feature")
         self.sh.git("rebase", "origin/master")
 
-        self.substituteRev("HEAD", "rCOM2A")
-        self.substituteRev("HEAD~", "rCOM1A")
-
         self.gh("Rebase")
-        self.substituteRev("origin/gh/ezyang/1/base", "rINI1A")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1A")
-        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> master)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    *   e2d2f26 (gh/ezyang/1/head)
-    |\\     Rebase on "Commit 1"
-    | * 0b08b23 (gh/ezyang/1/base)
-    | |    Update base for Rebase on "Commit 1"
-    * | fd92fed
-    |/     Initial 1 on "Commit 1"
-    * bf7ce67
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    *   ad37802 (gh/ezyang/1/next, gh/ezyang/1/head)
+    |\\     Rebase on "Commit A"
+    | * 686e5ea (HEAD -> master)
+    | |    Commit M
+    * | c3ca023
+    |/     Initial 1 on "Commit A"
+    * dc8bfe4
+         Initial commit
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
     Stack:
     * __->__ #501
     * #500
 
-    A commit with a B
 
-    *   19f68db (gh/ezyang/2/head)
-    |\\     Rebase on "Commit 2"
-    | * 36efff4 (gh/ezyang/2/base)
-    | |    Update base for Rebase on "Commit 2"
-    * | b93d7fa
-    |/     Initial 2 on "Commit 2"
-    * 59cae92
-         Update base for Initial 2 on "Commit 2"
+
+    *   1d1ca2d (gh/ezyang/2/next, gh/ezyang/2/head)
+    |\\     Rebase on "Commit B"
+    | *   ad37802 (gh/ezyang/1/next, gh/ezyang/1/head)
+    | |\\     Rebase on "Commit A"
+    | | * 686e5ea (HEAD -> master)
+    | | |    Commit M
+    * | | 09a6970
+    |/ /     Initial 2 on "Commit B"
+    * / c3ca023
+    |/     Initial 1 on "Commit A"
+    * dc8bfe4
+         Initial commit
 
 """,
         )
@@ -1358,111 +1317,50 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     # ------------------------------------------------------------------------- #
 
     def test_cherry_pick(self) -> None:
-        print("####################")
-        print("### test_cherry_pick")
-
         self.sh.git("checkout", "-b", "feature")
 
-        print("###")
-        print("### First commit")
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
-        self.sh.test_tick()
-        self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
+        self.commit("A")
+        self.commit("B")
+        A, B = self.gh("Initial 2")
 
-        print("###")
-        print("### Second commit")
-        self.writeFileAndAdd("file2.txt", "B")
-        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
-        self.sh.test_tick()
-        self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
-
-        self.assertExpectedInline(
-            self.dump_github(),
-            """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
-
-    Stack:
-    * #501
-    * __->__ #500
-
-    A commit with an A
-
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
-
-    Stack:
-    * __->__ #501
-    * #500
-
-    A commit with a B
-
-    * b93d7fa (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 59cae92 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
-
-""",
-        )
-
-        print("###")
-        print("### Push master forward")
         self.sh.git("checkout", "master")
-        self.writeFileAndAdd("master.txt", "M")
-        self.sh.git("commit", "-m", "Master commit 1\n\nA commit with a M")
-        self.substituteRev("HEAD", "rINI2")
-        self.sh.test_tick()
+        self.commit("M")
         self.sh.git("push", "origin", "master")
 
-        print("###")
-        print("### Cherry-pick the second commit")
-        self.sh.git("cherry-pick", "feature")
-
-        self.substituteRev("HEAD", "rCOM2A")
-
+        self.cherry_pick(B)
         self.gh("Cherry pick")
-        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    * 48cad68 (gh/ezyang/1/head)
+    |    Initial 2 on "Commit A"
+    * adb13d7 (gh/ezyang/1/base)
+         Update base for Initial 2 on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
 
-    A commit with a B
 
-    *   5033136 (gh/ezyang/2/head)
-    |\\     Cherry pick on "Commit 2"
-    | * 98491f6 (gh/ezyang/2/base)
-    | |    Update base for Cherry pick on "Commit 2"
-    * | b93d7fa
-    |/     Initial 2 on "Commit 2"
-    * 59cae92
-         Update base for Initial 2 on "Commit 2"
+
+    *   c1946ee (gh/ezyang/2/head)
+    |\\     Cherry pick on "Commit B"
+    | * cd14633 (gh/ezyang/2/base)
+    | |    Update base for Cherry pick on "Commit B"
+    * | f16bff9
+    |/     Initial 2 on "Commit B"
+    * c7e3a0c
+         Update base for Initial 2 on "Commit B"
 
 """,
         )
