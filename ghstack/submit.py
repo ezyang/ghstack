@@ -1193,19 +1193,19 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                     assert base_diff_meta.next == base_diff_meta.head
                 new_base = base_diff_meta.next
             else:
-                # The base is not actually a PR, you can use the commit id
-                # directly (merge base is master)
-                if push_branches.head.commit is not None and self.sh.git(
-                    "merge-base",
-                    "--is-ancestor",
-                    base.commit_id,
-                    push_branches.head.commit.commit_id,
-                    exitcode=True,
-                ):
-                    # The base is already an ancestor, don't need to add it
-                    new_base = None
-                else:
-                    new_base = base.commit_id
+                new_base = base.commit_id
+
+            # Check if the base is already an ancestor, don't need to add it
+            # if so
+            if push_branches.next.commit is not None and self.sh.git(
+                "merge-base",
+                "--is-ancestor",
+                new_base,
+                push_branches.next.commit.commit_id,
+                exitcode=True,
+            ):
+                new_base = None
+
             if new_base is not None:
                 updated_base = True
                 head_args.extend(("-p", new_base))
