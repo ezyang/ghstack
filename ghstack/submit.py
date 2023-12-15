@@ -196,6 +196,9 @@ class DiffMeta:
     # happened to this pull request
     what: str
 
+    # The name of the branch that should be targeted
+    base: str
+
     @property
     def pr_url(self) -> str:
         return self.elab_diff.pull_request_resolved.url()
@@ -898,7 +901,7 @@ to disassociate the commit with the pull request, and then try again.
         self._sanity_check_ghnum(username, ghnum)
 
         # Create base/head commits if needed
-        push_branches = self._create_non_orig_branches(
+        push_branches, base_branch = self._create_non_orig_branches(
             base, base_diff_meta, diff, elab_diff, username, ghnum, submit
         )
 
@@ -940,6 +943,7 @@ to disassociate the commit with the pull request, and then try again.
             commit_msg=commit_msg,
             push_branches=push_branches,
             what=what,
+            base=base_branch,
         )
 
     def _raise_poisoned(self) -> None:
@@ -1087,7 +1091,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         username: str,
         ghnum: GhNumber,
         submit: bool,
-    ) -> GhBranches:
+    ) -> Tuple[GhBranches, str]:
         # How exactly do we submit a commit to GitHub?
         #
         # Here is the relevant state:
@@ -1158,6 +1162,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         # Create base commit if necessary
         updated_base = False
         if not self.direct:
+            base_branch = branch_base(username, ghnum)
             if (
                 push_branches.base.commit is None
                 or push_branches.base.commit.tree != base.tree
@@ -1271,7 +1276,6 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             #        \        \
             #         \------- X2
 
-
             # We never have to create a base commit, we read it out from
             # the base
             if base_diff_meta is not None:
@@ -1280,13 +1284,29 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 #
                 # We can always use next, because if head is OK, head will have
                 # been advanced to next anyway
+                #
+                # TODO: I do not feel this can be None
                 if base_diff_meta.head is not None:
+                    # TODO: This assert is sus, next may be ahed of head
                     assert base_diff_meta.next == base_diff_meta.head
                 new_base = base_diff_meta.next
+
+                if base_diff_meta.next == base_diff_meta.head:
+                    # use head
+                    base_branch = branch_head(
+                        base_diff_meta.username, base_diff_meta.ghnum
+                    )
+                else:
+                    # use next
+                    base_branch = branch_next(
+                        base_diff_meta.username, base_diff_meta.ghnum
+                    )
             else:
                 # TODO: test that there isn't a more recent ancestor
                 # such that this doesn't actually work
                 new_base = base.commit_id
+
+                base_branch = GitCommitHash(self.base)
 
             # Check if the base is already an ancestor, don't need to add it
             # if so
@@ -1328,7 +1348,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             else:
                 push_branches.head.update(GhCommit(new_head, diff.tree))
 
-        return push_branches
+        return push_branches, base_branch
 
     def _create_pull_request(
         self,
@@ -1407,6 +1427,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 )
             )
             # TODO: don't update this if it doesn't need updating
+            base_kwargs = {}
+            if self.direct:
+                base_kwargs["base"] = s.base
+            else:
+                assert s.base == s.elab_diff.base_ref
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}".format(
                     owner=self.repo_owner, repo=self.repo_name, number=s.number
@@ -1416,6 +1441,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                     s.body,
                 ),
                 title=s.title,
+                **base_kwargs,
             )
 
             # It is VERY important that we do base updates BEFORE real
@@ -1602,10 +1628,12 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 head_commit.commit_id,
                 head_commit.parents[0],
             ]
-            assert pre_branch_state.base_commit_id in [
-                base_commit.commit_id,
-                *([base_commit.parents[0]] if base_commit.parents else []),
-            ]
+            # The base branch can change if we changed base in direct mode
+            if not self.direct:
+                assert pre_branch_state.base_commit_id in [
+                    base_commit.commit_id,
+                    *([base_commit.parents[0]] if base_commit.parents else []),
+                ]
         else:
             # Direct commit parent typically have base, as it will be the
             # main branch
