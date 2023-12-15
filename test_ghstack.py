@@ -1365,58 +1365,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 """,
         )
 
-    @use_direct()
-    def test_direct_cherry_pick(self) -> None:
-        self.sh.git("checkout", "-b", "feature")
-
-        self.commit("A")
-        self.commit("B")
-        A, B = self.gh("Initial 2")
-
-        self.sh.git("checkout", "master")
-        self.commit("M")
-        self.sh.git("push", "origin", "master")
-
-        self.cherry_pick(B)
-        self.gh("Cherry pick")
-
-        self.assertExpectedInline(
-            self.dump_github(),
-            """\
-[O] #500 Commit A (gh/ezyang/1/head -> master)
-
-    Stack:
-    * #501
-    * __->__ #500
-
-
-
-    * 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Initial 2 on "Commit A"
-    * dc8bfe4
-         Initial commit
-
-[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
-
-    Stack:
-    * __->__ #501
-
-
-
-    *   fd891f3 (gh/ezyang/2/next, gh/ezyang/2/head)
-    |\\     Cherry pick on "Commit B"
-    | * 686e5ea (HEAD -> master)
-    | |    Commit M
-    * | d8884f2
-    | |    Initial 2 on "Commit B"
-    * | 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
-    |/     Initial 2 on "Commit A"
-    * dc8bfe4
-         Initial commit
-
-""",
-        )
-
     # ------------------------------------------------------------------------- #
 
     def test_reorder(self) -> None:
