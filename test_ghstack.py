@@ -278,8 +278,8 @@ class TestGh(expecttest.TestCase):
                     "log",
                     "--graph",
                     "--oneline",
-                    "--pretty=format:%h%d%n%w(0,3,3)%s",
-                    pr["headRefName"],
+                    "--pretty=format:%h %s",
+                    f'{pr["baseRefName"]}..{pr["headRefName"]}',
                 )
                 pr["commits"] = indent(strip_trailing_whitespace(pr["commits"]), "    ")
             else:
@@ -289,6 +289,20 @@ class TestGh(expecttest.TestCase):
                 "{status} #{number} {title} ({headRefName} -> {baseRefName})\n\n"
                 "{body}\n\n{commits}\n\n".format(**pr)
             )
+
+        refs = self.upstream_sh.git(
+            "log",
+            "--graph",
+            "--oneline",
+            "--branches=gh/*/*/next",
+            "--branches=gh/*/*/head",
+            "--pretty=format:%h%d%n%w(0,3,3)%s",
+        )
+        prs.append(
+            "Repository state:\n\n"
+            + indent(strip_trailing_whitespace(refs), "    ")
+            + "\n"
+        )
         return "".join(prs)
 
     # ------------------------------------------------------------------------- #
@@ -374,12 +388,9 @@ class TestGh(expecttest.TestCase):
     * #501
     * __->__ #500
 
+    This is commit A
 
-
-    * f4778ef (gh/ezyang/1/head)
-    |    Initial 1 on "Commit A"
-    * 6b23cb6 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit A"
+    * f4778ef Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -387,13 +398,20 @@ class TestGh(expecttest.TestCase):
     * __->__ #501
     * #500
 
+    This is commit B
 
+    * f16bff9 Initial 2 on "Commit B"
+
+Repository state:
 
     * f16bff9 (gh/ezyang/2/head)
     |    Initial 2 on "Commit B"
     * c7e3a0c (gh/ezyang/2/base)
          Update base for Initial 2 on "Commit B"
-
+    * f4778ef (gh/ezyang/1/head)
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A\"
 """,
         )
 
@@ -411,16 +429,17 @@ class TestGh(expecttest.TestCase):
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Initial 1 on "Commit A"
-    * dc8bfe4 (HEAD -> master)
-         Initial commit
+    * c3ca023 Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
+    This is commit B
 
+    * 09a6970 Initial 2 on "Commit B"
+
+Repository state:
 
     * 09a6970 (gh/ezyang/2/next, gh/ezyang/2/head)
     |    Initial 2 on "Commit B"
@@ -428,7 +447,6 @@ class TestGh(expecttest.TestCase):
     |    Initial 1 on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
 """,
         )
 
@@ -464,11 +482,16 @@ class TestGh(expecttest.TestCase):
 
     This is my first commit
 
+    * 9a174dd Initial 1 on "Commit 1"
+
+Repository state:
+
     * 9a174dd (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
          Update base for Initial 1 on "Commit 1"
-
+    * dc8bfe4 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform)
+         Initial commit
 """,
         )
         print("###")
@@ -490,10 +513,7 @@ class TestGh(expecttest.TestCase):
 
     This is my first commit
 
-    * 9a174dd (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
+    * 9a174dd Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -503,11 +523,20 @@ class TestGh(expecttest.TestCase):
 
     This is my second commit
 
+    * 21f20fe Initial 2 on "Commit 2"
+
+Repository state:
+
     * 21f20fe (gh/ezyang/2/head)
     |    Initial 2 on "Commit 2"
     * 9c89bd6 (gh/ezyang/2/base)
          Update base for Initial 2 on "Commit 2"
-
+    * 9a174dd (gh/ezyang/1/head)
+    |    Initial 1 on "Commit 1"
+    * bf7ce67 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
+    * dc8bfe4 (HEAD -> master, gh/ezyang/non_int/head, gh/ezyang/malform)
+         Initial commit
 """,
         )
 
@@ -539,11 +568,14 @@ class TestGh(expecttest.TestCase):
 
 
 
+    * 20ca97f Initial on "Commit 2"
+
+Repository state:
+
     * 20ca97f (gh/ezyang/1/head)
     |    Initial on "Commit 2"
     * 93739c0 (gh/ezyang/1/base)
-         Update base for Initial on "Commit 2"
-
+         Update base for Initial on "Commit 2\"
 """,
         )
 
@@ -622,11 +654,14 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 
     This is my first commit
 
+    * 3d5d65c Initial on "Commit 1"
+
+Repository state:
+
     * 3d5d65c (gh/ezyang/1/head)
     |    Initial on "Commit 1"
     * 6e62a66 (gh/ezyang/1/base)
-         Update base for Initial on "Commit 1"
-
+         Update base for Initial on "Commit 1\"
 """,
         )
 
@@ -644,11 +679,14 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 
     This is my first commit
 
+    * 3d5d65c Initial on "Commit 1"
+
+Repository state:
+
     * 3d5d65c (gh/ezyang/1/head)
     |    Initial on "Commit 1"
     * 6e62a66 (gh/ezyang/1/base)
-         Update base for Initial on "Commit 1"
-
+         Update base for Initial on "Commit 1\"
 """,
         )
 
@@ -669,7 +707,12 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     Stack:
     * __->__ #500
 
+    This is commit A
 
+    * e46afee Update A on "Commit A"
+    * f4778ef Initial 1 on "Commit A"
+
+Repository state:
 
     * e46afee (gh/ezyang/1/head)
     |    Update A on "Commit A"
@@ -677,7 +720,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 1 on "Commit A"
     * 6b23cb6 (gh/ezyang/1/base)
          Update base for Initial 1 on "Commit A"
-
 """,
         )
 
@@ -694,7 +736,12 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
+    * e3902de Update A on "Commit A"
+    * c3ca023 Initial 1 on "Commit A"
+
+Repository state:
 
     * e3902de (gh/ezyang/1/next, gh/ezyang/1/head)
     |    Update A on "Commit A"
@@ -702,7 +749,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 1 on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
 """,
         )
 
@@ -730,11 +776,14 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 
     A commit with an A
 
+    * fd92fed Initial 1 on "Commit 1"
+
+Repository state:
+
     * fd92fed (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
         print("###")
@@ -762,11 +811,14 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 
     A commit with an A
 
+    * fd92fed Initial 1 on "Commit 1"
+
+Repository state:
+
     * fd92fed (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -815,12 +867,9 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * #501
     * __->__ #500
 
+    This is commit A
 
-
-    * 01a577e (gh/ezyang/1/head)
-    |    Initial 1 and 2 on "Commit A"
-    * 7557970 (gh/ezyang/1/base)
-         Update base for Initial 1 and 2 on "Commit A"
+    * 01a577e Initial 1 and 2 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -828,13 +877,20 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * __->__ #501
     * #500
 
+    This is commit B
 
+    * 4bc08ea Initial 1 and 2 on "Commit B"
 
+Repository state:
+
+    * 01a577e (gh/ezyang/1/head)
+    |    Initial 1 and 2 on "Commit A"
+    * 7557970 (gh/ezyang/1/base)
+         Update base for Initial 1 and 2 on "Commit A"
     * 4bc08ea (gh/ezyang/2/head)
     |    Initial 1 and 2 on "Commit B"
     * 0db1241 (gh/ezyang/2/base)
-         Update base for Initial 1 and 2 on "Commit B"
-
+         Update base for Initial 1 and 2 on "Commit B\"
 """,
         )
 
@@ -849,16 +905,17 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    * c5b379e (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Initial 1 and 2 on "Commit A"
-    * dc8bfe4 (HEAD -> master)
-         Initial commit
+    * c5b379e Initial 1 and 2 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
+    This is commit B
 
+    * fd9fc99 Initial 1 and 2 on "Commit B"
+
+Repository state:
 
     * fd9fc99 (gh/ezyang/2/next, gh/ezyang/2/head)
     |    Initial 1 and 2 on "Commit B"
@@ -866,7 +923,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 1 and 2 on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
 """,
         )
 
@@ -891,12 +947,9 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * #501
     * __->__ #500
 
+    This is commit A
 
-
-    * f4778ef (gh/ezyang/1/head)
-    |    Initial 1 on "Commit A"
-    * 6b23cb6 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit A"
+    * f4778ef Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -904,7 +957,12 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * __->__ #501
     * #500
 
+    This is commit B
 
+    * d4be138 Update A on "Commit B"
+    * f16bff9 Initial 2 on "Commit B"
+
+Repository state:
 
     * d4be138 (gh/ezyang/2/head)
     |    Update A on "Commit B"
@@ -912,7 +970,10 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 2 on "Commit B"
     * c7e3a0c (gh/ezyang/2/base)
          Update base for Initial 2 on "Commit B"
-
+    * f4778ef (gh/ezyang/1/head)
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A\"
 """,
         )
 
@@ -932,16 +993,18 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Initial 1 on "Commit A"
-    * dc8bfe4 (HEAD -> master)
-         Initial commit
+    * c3ca023 Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
+    This is commit B
 
+    * 20bbb07 Update A on "Commit B"
+    * 09a6970 Initial 2 on "Commit B"
+
+Repository state:
 
     * 20bbb07 (gh/ezyang/2/next, gh/ezyang/2/head)
     |    Update A on "Commit B"
@@ -951,7 +1014,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 1 on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
 """,
         )
 
@@ -979,14 +1041,10 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * #501
     * __->__ #500
 
+    This is commit A
 
-
-    * 79e3249 (gh/ezyang/1/head)
-    |    Update A on "Commit A"
-    * f4778ef
-    |    Initial 1 on "Commit A"
-    * 6b23cb6 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit A"
+    * 79e3249 Update A on "Commit A"
+    * f4778ef Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -994,7 +1052,12 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * __->__ #501
     * #500
 
+    This is commit B
 
+    * dd9d87d Update B on "Commit B"
+    * f16bff9 Initial 2 on "Commit B"
+
+Repository state:
 
     *   dd9d87d (gh/ezyang/2/head)
     |\\     Update B on "Commit B"
@@ -1004,7 +1067,12 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial 2 on "Commit B"
     * c7e3a0c
          Update base for Initial 2 on "Commit B"
-
+    * 79e3249 (gh/ezyang/1/head)
+    |    Update A on "Commit A"
+    * f4778ef
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A\"
 """,
         )
 
@@ -1027,18 +1095,19 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    * f22b24c (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Update A on "Commit A"
-    * c3ca023
-    |    Initial 1 on "Commit A"
-    * dc8bfe4 (HEAD -> master)
-         Initial commit
+    * f22b24c Update A on "Commit A"
+    * c3ca023 Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
+    This is commit B
 
+    * 165ebd2 Update B on "Commit B"
+    * 09a6970 Initial 2 on "Commit B"
+
+Repository state:
 
     *   165ebd2 (gh/ezyang/2/next, gh/ezyang/2/head)
     |\\     Update B on "Commit B"
@@ -1050,7 +1119,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 1 on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
 """,
         )
 
@@ -1078,14 +1146,10 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * #501
     * __->__ #500
 
+    This is commit A
 
-
-    * 98de643 (gh/ezyang/1/head)
-    |    Update A on "Commit A"
-    * f4778ef
-    |    Initial 1 on "Commit A"
-    * 6b23cb6 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit A"
+    * 98de643 Update A on "Commit A"
+    * f4778ef Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1093,8 +1157,19 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * __->__ #501
     * #500
 
+    This is commit B
 
+    * 870e05a Update A on "Commit B"
+    * f16bff9 Initial 2 on "Commit B"
 
+Repository state:
+
+    * 98de643 (gh/ezyang/1/head)
+    |    Update A on "Commit A"
+    * f4778ef
+    |    Initial 1 on "Commit A"
+    * 6b23cb6 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit A"
     *   870e05a (gh/ezyang/2/head)
     |\\     Update A on "Commit B"
     | * 293b569 (gh/ezyang/2/base)
@@ -1103,7 +1178,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial 2 on "Commit B"
     * c7e3a0c
          Update base for Initial 2 on "Commit B"
-
 """,
         )
 
@@ -1126,18 +1200,19 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    * 9d56b39 (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Update A on "Commit A"
-    * c3ca023
-    |    Initial 1 on "Commit A"
-    * dc8bfe4 (HEAD -> master)
-         Initial commit
+    * 9d56b39 Update A on "Commit A"
+    * c3ca023 Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
+    This is commit B
 
+    * e3873c9 Update A on "Commit B"
+    * 09a6970 Initial 2 on "Commit B"
+
+Repository state:
 
     *   e3873c9 (gh/ezyang/2/next, gh/ezyang/2/head)
     |\\     Update A on "Commit B"
@@ -1149,7 +1224,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial 1 on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
 """,
         )
 
@@ -1181,7 +1255,23 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * #501
     * __->__ #500
 
+    This is commit A
 
+    * 51b1590 Rebase on "Commit A"
+    * f4778ef Initial 1 on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * __->__ #501
+    * #500
+
+    This is commit B
+
+    * f33fe2b Rebase on "Commit B"
+    * f16bff9 Initial 2 on "Commit B"
+
+Repository state:
 
     *   51b1590 (gh/ezyang/1/head)
     |\\     Rebase on "Commit A"
@@ -1191,15 +1281,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial 1 on "Commit A"
     * 6b23cb6
          Update base for Initial 1 on "Commit A"
-
-[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
-
-    Stack:
-    * __->__ #501
-    * #500
-
-
-
     *   f33fe2b (gh/ezyang/2/head)
     |\\     Rebase on "Commit B"
     | * 96db6fb (gh/ezyang/2/base)
@@ -1207,8 +1288,7 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * | f16bff9
     |/     Initial 2 on "Commit B"
     * c7e3a0c
-         Update base for Initial 2 on "Commit B"
-
+         Update base for Initial 2 on "Commit B\"
 """,
         )
 
@@ -1235,26 +1315,25 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    *   ad37802 (gh/ezyang/1/next, gh/ezyang/1/head)
-    |\\     Rebase on "Commit A"
-    | * 686e5ea (HEAD -> master)
-    | |    Commit M
-    * | c3ca023
-    |/     Initial 1 on "Commit A"
-    * dc8bfe4
-         Initial commit
+    * dc45e07 Rebase on "Commit A"
+    * c3ca023 Initial 1 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
+    This is commit B
 
+    * 952418e Rebase on "Commit B"
+    * 09a6970 Initial 2 on "Commit B"
 
-    *   1d1ca2d (gh/ezyang/2/next, gh/ezyang/2/head)
+Repository state:
+
+    *   952418e (gh/ezyang/2/next, gh/ezyang/2/head)
     |\\     Rebase on "Commit B"
-    | *   ad37802 (gh/ezyang/1/next, gh/ezyang/1/head)
+    | *   dc45e07 (gh/ezyang/1/next, gh/ezyang/1/head)
     | |\\     Rebase on "Commit A"
-    | | * 686e5ea (HEAD -> master)
+    | | * 7ceeaa9 (HEAD -> master)
     | | |    Commit M
     * | | 09a6970
     |/ /     Initial 2 on "Commit B"
@@ -1262,7 +1341,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial 1 on "Commit A"
     * dc8bfe4
          Initial commit
-
 """,
         )
 
@@ -1291,19 +1369,21 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * #501
     * __->__ #500
 
+    This is commit A
 
-
-    * 48cad68 (gh/ezyang/1/head)
-    |    Initial 2 on "Commit A"
-    * adb13d7 (gh/ezyang/1/base)
-         Update base for Initial 2 on "Commit A"
+    * 48cad68 Initial 2 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
 
+    This is commit B
 
+    * c1946ee Cherry pick on "Commit B"
+    * f16bff9 Initial 2 on "Commit B"
+
+Repository state:
 
     *   c1946ee (gh/ezyang/2/head)
     |\\     Cherry pick on "Commit B"
@@ -1313,7 +1393,10 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial 2 on "Commit B"
     * c7e3a0c
          Update base for Initial 2 on "Commit B"
-
+    * 48cad68 (gh/ezyang/1/head)
+    |    Initial 2 on "Commit A"
+    * adb13d7 (gh/ezyang/1/base)
+         Update base for Initial 2 on "Commit A\"
 """,
         )
 
@@ -1337,20 +1420,23 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> master)
 
+    This is commit A
 
-
-    * 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
-    |    Initial 2 on "Commit A"
-    * dc8bfe4
-         Initial commit
+    * 2949b6b Initial 2 on "Commit A"
 
 [O] #501 Commit B (gh/ezyang/2/head -> master)
 
+    This is commit B
 
+    * 89cac20 Cherry pick on "Commit B"
+    * d8884f2 Initial 2 on "Commit B"
+    * 2949b6b Initial 2 on "Commit A"
 
-    *   fd891f3 (gh/ezyang/2/next, gh/ezyang/2/head)
+Repository state:
+
+    *   89cac20 (gh/ezyang/2/next, gh/ezyang/2/head)
     |\\     Cherry pick on "Commit B"
-    | * 686e5ea (HEAD -> master)
+    | * 7ceeaa9 (HEAD -> master)
     | |    Commit M
     * | d8884f2
     | |    Initial 2 on "Commit B"
@@ -1358,7 +1444,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial 2 on "Commit A"
     * dc8bfe4
          Initial commit
-
 """,
         )
 
@@ -1383,7 +1468,23 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * __->__ #500
     * #501
 
+    This is commit A
 
+    * 5a11d6e Reorder on "Commit A"
+    * 30f6c01 Initial on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+    Stack:
+    * #500
+    * __->__ #501
+
+    This is commit B
+
+    * 28e7ae2 Reorder on "Commit B"
+    * 4d6d2a4 Initial on "Commit B"
+
+Repository state:
 
     *   5a11d6e (gh/ezyang/1/head)
     |\\     Reorder on "Commit A"
@@ -1393,15 +1494,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |/     Initial on "Commit A"
     * 7e61353
          Update base for Initial on "Commit A"
-
-[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
-
-    Stack:
-    * #500
-    * __->__ #501
-
-
-
     *   28e7ae2 (gh/ezyang/2/head)
     |\\     Reorder on "Commit B"
     | * 7be762b (gh/ezyang/2/base)
@@ -1409,8 +1501,7 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     * | 4d6d2a4
     |/     Initial on "Commit B"
     * c9e5b0d
-         Update base for Initial on "Commit B"
-
+         Update base for Initial on "Commit B\"
 """,
         )
 
@@ -1430,7 +1521,19 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
             """\
 [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/2/head)
 
+    This is commit A
 
+    * 3a17667 Reorder on "Commit A"
+
+[O] #501 Commit B (gh/ezyang/2/head -> master)
+
+    This is commit B
+
+    * 5f812b3 Reorder on "Commit B"
+    * 60b80d9 Initial on "Commit B"
+    * 8bf3ca1 Initial on "Commit A"
+
+Repository state:
 
     *   3a17667 (gh/ezyang/1/next, gh/ezyang/1/head)
     |\\     Reorder on "Commit A"
@@ -1442,20 +1545,6 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     |    Initial on "Commit A"
     * dc8bfe4 (HEAD -> master)
          Initial commit
-
-[O] #501 Commit B (gh/ezyang/2/head -> master)
-
-
-
-    * 5f812b3 (gh/ezyang/2/next, gh/ezyang/2/head)
-    |    Reorder on "Commit B"
-    * 60b80d9
-    |    Initial on "Commit B"
-    * 8bf3ca1
-    |    Initial on "Commit A"
-    * dc8bfe4 (HEAD -> master)
-         Initial commit
-
 """,
         )
 
@@ -1484,11 +1573,14 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1514,11 +1606,14 @@ Directly updated message body""",
 
     Directly updated message body
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1542,13 +1637,17 @@ Directly updated message body""",
 
     Directly updated message body
 
+    * 5c110bc Update 1 on "Commit 1"
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * 5c110bc (gh/ezyang/1/head)
     |    Update 1 on "Commit 1"
     * e0c08a4
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1578,11 +1677,14 @@ Directly updated message body""",
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1621,10 +1723,7 @@ Directly updated message body""".replace(
 
     Directly updated message body
 
-    * e0c08a4 (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
+    * e0c08a4 Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1634,11 +1733,18 @@ Directly updated message body""".replace(
 
 
 
+    * 9357368 Initial 2 on "Commit 2"
+
+Repository state:
+
     * 9357368 (gh/ezyang/2/head)
     |    Initial 2 on "Commit 2"
     * f1dde2f (gh/ezyang/2/base)
          Update base for Initial 2 on "Commit 2"
-
+    * e0c08a4 (gh/ezyang/1/head)
+    |    Initial 1 on "Commit 1"
+    * bf7ce67 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1686,11 +1792,14 @@ Directly updated message body""".replace(
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1709,11 +1818,14 @@ Directly updated message body""".replace(
 
     Directly updated message body
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
          Update base for Initial 1 on "Commit 1"
-
 """,
         )
 
@@ -1732,11 +1844,14 @@ Directly updated message body""".replace(
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1765,11 +1880,14 @@ Directly updated message body""".replace(
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1793,11 +1911,14 @@ Directly updated message body""".replace(
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1829,11 +1950,14 @@ Directly updated message body""".replace(
 
     Original message
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1859,11 +1983,14 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
     Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1883,11 +2010,14 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
 
     Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
+    * e0c08a4 Initial 1 on "Commit 1"
+
+Repository state:
+
     * e0c08a4 (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1928,10 +2058,7 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
 
     A commit with an A
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
+    * fd92fed Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1941,11 +2068,18 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
 
     A commit with a B
 
+    * b93d7fa Initial 2 on "Commit 2"
+
+Repository state:
+
     * b93d7fa (gh/ezyang/2/head)
     |    Initial 2 on "Commit 2"
     * 59cae92 (gh/ezyang/2/base)
          Update base for Initial 2 on "Commit 2"
-
+    * fd92fed (gh/ezyang/1/head)
+    |    Initial 1 on "Commit 1"
+    * bf7ce67 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -1974,10 +2108,7 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
 
     A commit with an A
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
+    * fd92fed Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -1985,6 +2116,11 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
     * __->__ #501
 
     A commit with a B
+
+    * 10d2ea6 Cherry pick on "Commit 2"
+    * b93d7fa Initial 2 on "Commit 2"
+
+Repository state:
 
     *   10d2ea6 (gh/ezyang/2/head)
     |\\     Cherry pick on "Commit 2"
@@ -1994,7 +2130,10 @@ Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff
     |/     Initial 2 on "Commit 2"
     * 59cae92
          Update base for Initial 2 on "Commit 2"
-
+    * fd92fed (gh/ezyang/1/head)
+    |    Initial 1 on "Commit 1"
+    * bf7ce67 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -2223,10 +2362,7 @@ dc8bfe4 Initial commit""",
 
     A commit with an A
 
-    * c8c7a8c (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bad4a1e (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
+    * c8c7a8c Initial 1 on "Commit 1"
 
 [O] #501 Commit 1 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -2236,10 +2372,7 @@ dc8bfe4 Initial commit""",
 
     A commit with an B
 
-    * e5adf76 (gh/ezyang/2/head)
-    |    Initial 1 on "Commit 1"
-    * 1e34833 (gh/ezyang/2/base)
-         Update base for Initial 1 on "Commit 1"
+    * e5adf76 Initial 1 on "Commit 1"
 
 [O] #502 Commit 1 (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -2249,10 +2382,7 @@ dc8bfe4 Initial commit""",
 
     A commit with an A
 
-    * 977ffd4 (gh/ezyang/3/head)
-    |    Initial 2 on "Commit 1"
-    * b4653bb (gh/ezyang/3/base)
-         Update base for Initial 2 on "Commit 1"
+    * 977ffd4 Initial 2 on "Commit 1"
 
 [O] #503 Commit 1 (gh/ezyang/4/head -> gh/ezyang/4/base)
 
@@ -2262,11 +2392,26 @@ dc8bfe4 Initial commit""",
 
     A commit with an B
 
+    * fd2f563 Initial 2 on "Commit 1"
+
+Repository state:
+
+    * c8c7a8c (gh/ezyang/1/head)
+    |    Initial 1 on "Commit 1"
+    * bad4a1e (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1"
+    * e5adf76 (gh/ezyang/2/head)
+    |    Initial 1 on "Commit 1"
+    * 1e34833 (gh/ezyang/2/base)
+         Update base for Initial 1 on "Commit 1"
+    * 977ffd4 (gh/ezyang/3/head)
+    |    Initial 2 on "Commit 1"
+    * b4653bb (gh/ezyang/3/base)
+         Update base for Initial 2 on "Commit 1"
     * fd2f563 (gh/ezyang/4/head)
     |    Initial 2 on "Commit 1"
     * 2a80464 (gh/ezyang/4/base)
-         Update base for Initial 2 on "Commit 1"
-
+         Update base for Initial 2 on "Commit 1\"
 """,
         )
 
@@ -2302,11 +2447,14 @@ dc8bfe4 Initial commit""",
 
     This is my first commit
 
+    * fd92fed Initial 1 on "Commit 1"
+
+Repository state:
+
     * fd92fed (gh/ezyang/1/head)
     |    Initial 1 on "Commit 1"
     * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
-
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -2351,10 +2499,7 @@ dc8bfe4 Initial commit""",
 
     This is my first commit
 
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1"
+    * fd92fed Initial 1 on "Commit 1"
 
 [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -2363,11 +2508,18 @@ dc8bfe4 Initial commit""",
 
     This is my second commit
 
+    * b93d7fa Initial 2 on "Commit 2"
+
+Repository state:
+
     * b93d7fa (gh/ezyang/2/head)
     |    Initial 2 on "Commit 2"
     * 59cae92 (gh/ezyang/2/base)
          Update base for Initial 2 on "Commit 2"
-
+    * fd92fed (gh/ezyang/1/head)
+    |    Initial 1 on "Commit 1"
+    * bf7ce67 (gh/ezyang/1/base)
+         Update base for Initial 1 on "Commit 1\"
 """,
         )
 
@@ -2454,6 +2606,11 @@ dc8bfe4 Initial commit""",
 
     This is my second commit
 
+    * 40b34ea Run 3 on "Commit 2"
+    * ffcf6e3 Initial 1 on "Commit 2"
+
+Repository state:
+
     *   40b34ea (gh/ezyang/2/head)
     |\\     Run 3 on "Commit 2"
     | * bd30532 (gh/ezyang/2/base)
@@ -2461,8 +2618,7 @@ dc8bfe4 Initial commit""",
     * | ffcf6e3
     |/     Initial 1 on "Commit 2"
     * e9c9e53
-         Update base for Initial 1 on "Commit 2"
-
+         Update base for Initial 1 on "Commit 2\"
 """,
         )
 
@@ -2595,11 +2751,14 @@ Committer: C O Mitter <committer@example.com>""",
 
     This is my first commit
 
+    * 7355574 New PR on "Commit 1"
+
+Repository state:
+
     * 7355574 (gh/ezyang/1/head)
     |    New PR on "Commit 1"
     * 0b27755 (gh/ezyang/1/base)
-         Update base for New PR on "Commit 1"
-
+         Update base for New PR on "Commit 1\"
 """,
         )
 
@@ -2648,11 +2807,14 @@ Committer: C O Mitter <committer@example.com>""",
 
 
 
+    * 9be6059 Initial 1 on "PR on release"
+
+Repository state:
+
     * 9be6059 (gh/ezyang/1/head)
     |    Initial 1 on "PR on release"
     * 3055698 (gh/ezyang/1/base)
-         Update base for Initial 1 on "PR on release"
-
+         Update base for Initial 1 on "PR on release\"
 """,
         )
 
@@ -2683,11 +2845,14 @@ Committer: C O Mitter <committer@example.com>""",
     * It starts with a fabulous
     * Bullet list
 
+    * 840eb38 Initial on "This is my commit"
+
+Repository state:
+
     * 840eb38 (gh/ezyang/1/head)
     |    Initial on "This is my commit"
     * b059a32 (gh/ezyang/1/base)
-         Update base for Initial on "This is my commit"
-
+         Update base for Initial on "This is my commit\"
 """,
         )
 
@@ -2707,7 +2872,7 @@ Committer: C O Mitter <committer@example.com>""",
 
     def commit(self, name: str) -> None:
         self.writeFileAndAdd(f"{name}.txt", "A")
-        self.sh.git("commit", "-m", f"Commit {name}")
+        self.sh.git("commit", "-m", f"Commit {name}\n\nThis is commit {name}")
         self.sh.test_tick()
 
     def amend(self, name: str) -> None:
@@ -2798,6 +2963,8 @@ Committer: C O Mitter <committer@example.com>""",
             """\
 Commit ARGLE
 
+This is commit ARGLE
+
 ghstack-source-id: ac00f28640afe01e4299441bb5041cdf06d0b6b4
 Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
         )
@@ -2810,13 +2977,16 @@ Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
     Stack:
     * __->__ #500
 
+    This is commit TO_REPLACE
 
+    * 37fd652 Initial on "Commit TO_REPLACE"
+
+Repository state:
 
     * 37fd652 (gh/ezyang/1/head)
     |    Initial on "Commit TO_REPLACE"
     * b6bd9bb (gh/ezyang/1/base)
-         Update base for Initial on "Commit TO_REPLACE"
-
+         Update base for Initial on "Commit TO_REPLACE\"
 """,
         )
 
