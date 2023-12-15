@@ -196,6 +196,9 @@ class DiffMeta:
     # happened to this pull request
     what: str
 
+    # The name of the branch that should be targeted
+    base: str
+
     @property
     def pr_url(self) -> str:
         return self.elab_diff.pull_request_resolved.url()
@@ -898,7 +901,7 @@ to disassociate the commit with the pull request, and then try again.
         self._sanity_check_ghnum(username, ghnum)
 
         # Create base/head commits if needed
-        push_branches = self._create_non_orig_branches(
+        push_branches, base_branch = self._create_non_orig_branches(
             base, base_diff_meta, diff, elab_diff, username, ghnum, submit
         )
 
@@ -940,6 +943,7 @@ to disassociate the commit with the pull request, and then try again.
             commit_msg=commit_msg,
             push_branches=push_branches,
             what=what,
+            base=base_branch,
         )
 
     def _raise_poisoned(self) -> None:
@@ -1087,7 +1091,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         username: str,
         ghnum: GhNumber,
         submit: bool,
-    ) -> GhBranches:
+    ) -> Tuple[GhBranches, str]:
         # How exactly do we submit a commit to GitHub?
         #
         # Here is the relevant state:
@@ -1158,6 +1162,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         # Create base commit if necessary
         updated_base = False
         if not self.direct:
+            base_branch = branch_base(username, ghnum)
             if (
                 push_branches.base.commit is None
                 or push_branches.base.commit.tree != base.tree
@@ -1181,6 +1186,96 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 head_args.extend(("-p", new_base))
                 push_branches.base.update(GhCommit(new_base, base.tree))
         else:
+            # So, there is some complication here.  We're computing what base
+            # to use based on the local situation on the user diff stack, but
+            # the remote merge structure may disagree with our local
+            # situation.  For example, suppose I have a commit stack A - B,
+            # and then I insert a new commit A - M - B between them;
+            # previously B would have been based on A, but now it is based
+            # on M.  What should happen here?
+            #
+            # Here are the high level correctness conditions:
+            # - No force pushes (history must be preserved)
+            # - GitHub displays a diff which is equivalent to the original
+            #   user diff
+            #
+            # It turns out the logic here is fine, and the only thing it
+            # chokes on is rebasing back in time on master branch (you can't
+            # go back in time on PR branches, so this is a moot point there.)
+            # The problem is suppose you have:
+            #
+            #   A - B - C
+            #    \   \
+            #     M2  M1  # M1 was cherry-picked onto A, becoming M2
+            #
+            # In branch form, this becomes:
+            #
+            #   A - B - C
+            #    \   \
+            #     \   M1 - M2
+            #      \       /
+            #       \-----/
+            #
+            # However, the merge base for C and M2 will always be computed to
+            # be B, because B is an ancestor of both C and M2, and it always
+            # beets out A (which is an ancestor of B).  This means that you
+            # will diff M2 against B, which will typically result in "remove
+            # changes from B" spuriously showing up on the PR.
+            #
+            # When heads are always monotonically moving forward in time,
+            # there is not any problem with progressively more complicated
+            # merge histories, because we always specify the "correct" base
+            # branch.  For example, consider:
+            #
+            #   A - B
+            #        \
+            #         \- X - Y1
+            #          \
+            #           \- Y2
+            #
+            # Where Y1 is cherry-picked off of X onto B directly.  In branch
+            # form, this becomes:
+            #
+            #   A - B
+            #        \
+            #         \- X - Y1 - Y2
+            #
+            # But we update the base branch to be B, so we correctly diff Y2
+            # against B (where here, the tree for Y2 no longer incorporates
+            # the changes for X).
+            #
+            # What does NOT work in this situation is if you manually (outside
+            # of ghstack) retarget Y2 back at X; we will spuriously report
+            # that the diff X and Y2 removes the changes from X.  If you use
+            # ghstack, however, we will do this:
+            #
+            #   A - B
+            #        \
+            #         \- X - Y1 - Y2 - Y3
+            #
+            # Where here Y3 has restored the changes from X, so the diff from
+            # X to Y3 checks out.
+            #
+            # It turns out there are a subset of manipulations, for which it
+            # is always safe to change the target base commit from GitHub UI
+            # without pushing a new commit.  Intuitively, the idea is that
+            # once you add a commit as a merge base, you can't take it back:
+            # we always consider that branch to have been "merged in".  So
+            # you can effectively only ever insert new commits between
+            # pre-existing commits, but once a commit depends on another
+            # commit, that dependency must always exist.  I'm still
+            # considering whether or not we should force push by default in
+            # this sort of situation.
+            #
+            # By the way, what happens if you reorder commits?  You get this
+            # funny looking graph:
+            #
+            # A - B
+            #      \
+            #       X - Y - Y2
+            #        \        \
+            #         \------- X2
+
             # We never have to create a base commit, we read it out from
             # the base
             if base_diff_meta is not None:
@@ -1189,11 +1284,29 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 #
                 # We can always use next, because if head is OK, head will have
                 # been advanced to next anyway
+                #
+                # TODO: I do not feel this can be None
                 if base_diff_meta.head is not None:
+                    # TODO: This assert is sus, next may be ahed of head
                     assert base_diff_meta.next == base_diff_meta.head
                 new_base = base_diff_meta.next
+
+                if base_diff_meta.next == base_diff_meta.head:
+                    # use head
+                    base_branch = branch_head(
+                        base_diff_meta.username, base_diff_meta.ghnum
+                    )
+                else:
+                    # use next
+                    base_branch = branch_next(
+                        base_diff_meta.username, base_diff_meta.ghnum
+                    )
             else:
+                # TODO: test that there isn't a more recent ancestor
+                # such that this doesn't actually work
                 new_base = base.commit_id
+
+                base_branch = GitCommitHash(self.base)
 
             # Check if the base is already an ancestor, don't need to add it
             # if so
@@ -1235,7 +1348,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             else:
                 push_branches.head.update(GhCommit(new_head, diff.tree))
 
-        return push_branches
+        return push_branches, base_branch
 
     def _create_pull_request(
         self,
@@ -1314,6 +1427,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 )
             )
             # TODO: don't update this if it doesn't need updating
+            base_kwargs = {}
+            if self.direct:
+                base_kwargs["base"] = s.base
+            else:
+                assert s.base == s.elab_diff.base_ref
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}".format(
                     owner=self.repo_owner, repo=self.repo_name, number=s.number
@@ -1323,6 +1441,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                     s.body,
                 ),
                 title=s.title,
+                **base_kwargs,
             )
 
             # It is VERY important that we do base updates BEFORE real
@@ -1483,8 +1602,10 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         (base_commit,) = ghstack.git.split_header(
             self.sh.git("rev-list", "--header", "-1", f"{self.remote_name}/{base_ref}")
         )
-        # TODO: tree equality may not hold for self.direct
-        assert_eq(base_commit.tree, user_parent_commit.tree)
+        # TODO: tree equality may not hold for self.direct, figure out a
+        # related invariant
+        if not self.direct:
+            assert_eq(base_commit.tree, user_parent_commit.tree)
 
         # 6.  Orig commit was correctly pushed
         assert_eq(
@@ -1507,10 +1628,12 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 head_commit.commit_id,
                 head_commit.parents[0],
             ]
-            assert pre_branch_state.base_commit_id in [
-                base_commit.commit_id,
-                *([base_commit.parents[0]] if base_commit.parents else []),
-            ]
+            # The base branch can change if we changed base in direct mode
+            if not self.direct:
+                assert pre_branch_state.base_commit_id in [
+                    base_commit.commit_id,
+                    *([base_commit.parents[0]] if base_commit.parents else []),
+                ]
         else:
             # Direct commit parent typically have base, as it will be the
             # main branch
