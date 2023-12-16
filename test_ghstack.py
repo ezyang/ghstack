@@ -38,9 +38,6 @@ from ghstack.types import GitCommitHash
 DIRECT = False
 
 
-# TODO: replicate github commit list
-
-
 @contextlib.contextmanager
 def use_direct() -> Iterator[None]:
     global DIRECT
