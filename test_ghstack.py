@@ -2025,112 +2025,95 @@ Repository state:
         # but this was wrong
 
         self.sh.git("checkout", "-b", "feature")
+        self.commit("A")
+        self.commit("B")
+        A, B = self.gh("Initial 2")
 
-        print("###")
-        print("### First commit")
-        self.writeFileAndAdd("file1.txt", "A")
-        self.sh.git("commit", "-m", "Commit 1\n\nA commit with an A")
-        self.sh.test_tick()
-        self.gh("Initial 1")
-        self.substituteRev("HEAD", "rCOM1")
-        self.substituteRev("origin/gh/ezyang/1/head", "rMRG1")
-
-        print("###")
-        print("### Second commit")
-        self.writeFileAndAdd("file2.txt", "B")
-        self.sh.git("commit", "-m", "Commit 2\n\nA commit with a B")
-        self.sh.test_tick()
-        self.gh("Initial 2")
-        self.substituteRev("HEAD", "rCOM2")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2")
+        self.sh.git("checkout", "master")
+        self.cherry_pick(B)
+        B2, = self.gh("Cherry pick")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
     Stack:
     * #501
     * __->__ #500
 
-    A commit with an A
+    This is commit A
 
-    * fd92fed Initial 1 on "Commit 1"
+    * 48cad68 Initial 2 on "Commit A"
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+[O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
     Stack:
     * __->__ #501
-    * #500
 
-    A commit with a B
+    This is commit B
 
-    * b93d7fa Initial 2 on "Commit 2"
+    * 721a3b9 Cherry pick on "Commit B"
+    * f16bff9 Initial 2 on "Commit B"
 
 Repository state:
 
-    * b93d7fa (gh/ezyang/2/head)
-    |    Initial 2 on "Commit 2"
-    * 59cae92 (gh/ezyang/2/base)
-         Update base for Initial 2 on "Commit 2"
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1\"
+    *   721a3b9 (gh/ezyang/2/head)
+    |\\     Cherry pick on "Commit B"
+    | * 610abfa (gh/ezyang/2/base)
+    | |    Update base for Cherry pick on "Commit B"
+    * | f16bff9
+    |/     Initial 2 on "Commit B"
+    * c7e3a0c
+         Update base for Initial 2 on "Commit B"
+    * 48cad68 (gh/ezyang/1/head)
+    |    Initial 2 on "Commit A"
+    * adb13d7 (gh/ezyang/1/base)
+         Update base for Initial 2 on "Commit A"
 """,
         )
 
-        print("###")
-        print("### Delete first commit")
+    @use_direct()
+    def test_direct_remove_bottom_commit(self) -> None:
+        # This is to test a bug where we decided not to update base,
+        # but this was wrong
+
+        self.sh.git("checkout", "-b", "feature")
+        self.commit("A")
+        self.commit("B")
+        A, B = self.gh("Initial 2")
+
         self.sh.git("checkout", "master")
-
-        print("###")
-        print("### Cherry-pick the second commit")
-        self.sh.git("cherry-pick", "feature")
-
-        self.substituteRev("HEAD", "rCOM2A")
-
-        self.gh("Cherry pick")
-        self.substituteRev("origin/gh/ezyang/2/base", "rINI2A")
-        self.substituteRev("origin/gh/ezyang/2/head", "rMRG2A")
+        self.cherry_pick(B)
+        B2, = self.gh("Cherry pick")
 
         self.assertExpectedInline(
             self.dump_github(),
             """\
-[O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+[O] #500 Commit A (gh/ezyang/1/head -> master)
 
-    Stack:
-    * #501
-    * __->__ #500
+    This is commit A
 
-    A commit with an A
+    * 2949b6b Initial 2 on "Commit A"
 
-    * fd92fed Initial 1 on "Commit 1"
+[O] #501 Commit B (gh/ezyang/2/head -> master)
 
-[O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+    This is commit B
 
-    Stack:
-    * __->__ #501
-
-    A commit with a B
-
-    * 10d2ea6 Cherry pick on "Commit 2"
-    * b93d7fa Initial 2 on "Commit 2"
+    * 558bd88 Cherry pick on "Commit B"
+    * d8884f2 Initial 2 on "Commit B"
+    * 2949b6b Initial 2 on "Commit A"
 
 Repository state:
 
-    *   10d2ea6 (gh/ezyang/2/head)
-    |\\     Cherry pick on "Commit 2"
-    | * 86b83f3 (gh/ezyang/2/base)
-    | |    Update base for Cherry pick on "Commit 2"
-    * | b93d7fa
-    |/     Initial 2 on "Commit 2"
-    * 59cae92
-         Update base for Initial 2 on "Commit 2"
-    * fd92fed (gh/ezyang/1/head)
-    |    Initial 1 on "Commit 1"
-    * bf7ce67 (gh/ezyang/1/base)
-         Update base for Initial 1 on "Commit 1\"
+    * 558bd88 (gh/ezyang/2/next, gh/ezyang/2/head)
+    |    Cherry pick on "Commit B"
+    * d8884f2
+    |    Initial 2 on "Commit B"
+    * 2949b6b (gh/ezyang/1/next, gh/ezyang/1/head)
+    |    Initial 2 on "Commit A"
+    * dc8bfe4 (HEAD -> master)
+         Initial commit
 """,
         )
 
