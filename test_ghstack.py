@@ -2031,7 +2031,7 @@ Repository state:
 
         self.sh.git("checkout", "master")
         self.cherry_pick(B)
-        B2, = self.gh("Cherry pick")
+        (B2,) = self.gh("Cherry pick")
 
         self.assertExpectedInline(
             self.dump_github(),
@@ -2085,7 +2085,7 @@ Repository state:
 
         self.sh.git("checkout", "master")
         self.cherry_pick(B)
-        B2, = self.gh("Cherry pick")
+        (B2,) = self.gh("Cherry pick")
 
         self.assertExpectedInline(
             self.dump_github(),
