@@ -110,6 +110,17 @@ RE_DIFF_REV = re.compile(r"^Differential Revision:.+?(D[0-9]+)", re.MULTILINE)
 RE_GHSTACK_SOURCE_ID = re.compile(r"^ghstack-source-id: (.+)\n?", re.MULTILINE)
 
 
+# When we make a GitHub PR using --direct, we submit an extra comment which
+# contains the links to the rest of the PRs in the stack.  We don't put this
+# inside the pull request body, because if you squash merge the PR, that body
+# gets put into the commit message, but the stack information is just line
+# noise and shouldn't go there.
+#
+# We can technically find the ghstack commit by querying GitHub API for all
+# comments, but this is a more efficient way of getting it.
+RE_GHSTACK_COMMENT_ID = re.compile(r"^ghstack-comment-id: (.+)\n?", re.MULTILINE)
+
+
 # repo layout:
 #   - gh/username/23/head -- what we think GitHub's current tip for commit is
 #   - gh/username/23/base -- what we think base commit for commit is
@@ -175,6 +186,8 @@ class DiffWithGitHubMetadata:
     username: str
     # Really ought not to be optional, but for BC reasons it might be
     remote_source_id: Optional[str]
+    # Guaranteed to be set for --direct PRs
+    comment_id: Optional[int]
     title: str
     body: str
     closed: bool
@@ -856,6 +869,8 @@ to disassociate the commit with the pull request, and then try again.
         remote_summary = ghstack.git.split_header(rev_list)[0]
         m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
         remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
+        m_comment_id = RE_GHSTACK_COMMENT_ID.search(remote_summary.commit_msg)
+        comment_id = int(m_comment_id.group(1)) if m_comment_id else None
 
         return DiffWithGitHubMetadata(
             diff=diff,
@@ -866,6 +881,7 @@ to disassociate the commit with the pull request, and then try again.
             username=username,
             ghnum=gh_number,
             remote_source_id=remote_source_id,
+            comment_id=comment_id,
             pull_request_resolved=diff.pull_request_resolved,
             head_ref=r["headRefName"],
             base_ref=r["baseRefName"],
@@ -932,10 +948,15 @@ to disassociate the commit with the pull request, and then try again.
             commit_msg = self._update_source_id(diff.summary, elab_diff)
         else:
             # Need to insert metadata for the first time
-            commit_msg = (
-                f"{strip_mentions(diff.summary.rstrip())}\n\n"
-                f"ghstack-source-id: {diff.source_id}\n"
-                f"Pull Request resolved: {pull_request_resolved.url()}"
+            commit_msg = "".join(
+                [
+                    f"{strip_mentions(diff.summary.rstrip())}\n\n",
+                    f"ghstack-source-id: {diff.source_id}\n",
+                    f"ghstack-comment-id: {elab_diff.comment_id}\n"
+                    if self.direct
+                    else "",
+                    f"Pull Request resolved: {pull_request_resolved.url()}",
+                ]
             )
 
         return DiffMeta(
@@ -1382,6 +1403,14 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         )
         number = r["number"]
 
+        comment_id = None
+        if self.direct:
+            rc = self.github.post(
+                f"repos/{self.repo_owner}/{self.repo_name}/issues/{number}/comments",
+                body=f"{self.stack_header}:\n* (to be filled)",
+            )
+            comment_id = rc["id"]
+
         logging.info("Opened PR #{}".format(number))
 
         pull_request_resolved = ghstack.diff.PullRequestResolved(
@@ -1396,6 +1425,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             number=number,
             username=self.username,
             remote_source_id=diff.source_id,  # in sync
+            comment_id=comment_id,
             title=title,
             body=body,
             closed=False,
@@ -1432,17 +1462,25 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 base_kwargs["base"] = s.base
             else:
                 assert s.base == s.elab_diff.base_ref
+            stack_desc = self._format_stack(diffs_to_submit, s.number)
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}".format(
                     owner=self.repo_owner, repo=self.repo_name, number=s.number
                 ),
+                # NB: this substitution does nothing on direct PRs
                 body=RE_STACK.sub(
-                    self._format_stack(diffs_to_submit, s.number),
+                    stack_desc,
                     s.body,
                 ),
                 title=s.title,
                 **base_kwargs,
             )
+
+            if s.elab_diff.comment_id is not None:
+                self.github.patch(
+                    f"repos/{self.repo_owner}/{self.repo_name}/issues/comments/{s.elab_diff.comment_id}",
+                    body=stack_desc,
+                )
 
             # It is VERY important that we do base updates BEFORE real
             # head updates, otherwise GitHub will spuriously think that
@@ -1703,16 +1741,21 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         # Don't store ghstack-source-id in the PR body; it will become
         # stale quickly
         commit_body = RE_GHSTACK_SOURCE_ID.sub("", commit_body)
+        # Comment ID is not necessary; source of truth is orig commit
+        commit_body = RE_GHSTACK_COMMENT_ID.sub("", commit_body)
         # Don't store Pull request resolved in the PR body; it's
         # unnecessary
         commit_body = ghstack.diff.re_pull_request_resolved_w_sp(self.github_url).sub(
             "", commit_body
         )
-        if starts_with_bullet(commit_body):
-            commit_body = f"----\n\n{commit_body}"
-        pr_body = "{}:\n* (to be filled)\n\n{}{}".format(
-            self.stack_header, commit_body, extra
-        )
+        if self.direct:
+            pr_body = f"{commit_body}{extra}"
+        else:
+            if starts_with_bullet(commit_body):
+                commit_body = f"----\n\n{commit_body}"
+            pr_body = "{}:\n* (to be filled)\n\n{}{}".format(
+                self.stack_header, commit_body, extra
+            )
         return title, pr_body
 
     def _git_push(self, branches: Sequence[str], force: bool = False) -> None:

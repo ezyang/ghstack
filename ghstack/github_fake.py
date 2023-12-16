@@ -45,6 +45,23 @@ CreatePullRequestInput = TypedDict(
     },
 )
 
+CreateIssueCommentInput = TypedDict(
+    "CreateIssueCommentInput",
+    {"body": str},
+)
+
+CreateIssueCommentPayload = TypedDict(
+    "CreateIssueCommentPayload",
+    {
+        "id": int,
+    },
+)
+
+UpdateIssueCommentInput = TypedDict(
+    "UpdateIssueCommentInput",
+    {"body": str},
+)
+
 CreatePullRequestPayload = TypedDict(
     "CreatePullRequestPayload",
     {
@@ -57,8 +74,12 @@ CreatePullRequestPayload = TypedDict(
 class GitHubState:
     repositories: Dict[GraphQLId, "Repository"]
     pull_requests: Dict[GraphQLId, "PullRequest"]
+    # This is very inefficient but whatever
+    issue_comments: Dict[GraphQLId, "IssueComment"]
     _next_id: int
+    # These are indexed by repo id
     _next_pull_request_number: Dict[GraphQLId, int]
+    _next_issue_comment_full_database_id: Dict[GraphQLId, int]
     root: "Root"
     upstream_sh: Optional[ghstack.shell.Shell]
 
@@ -79,6 +100,14 @@ class GitHubState:
             )
         )
 
+    def issue_comment(self, repo: "Repository", comment_id: int) -> "IssueComment":
+        for comment in self.issue_comments.values():
+            if repo.id == comment._repository and comment.fullDatabaseId == comment_id:
+                return comment
+        raise RuntimeError(
+            f"unrecognized issue comment {comment_id} in repository {repo.nameWithOwner}"
+        )
+
     def next_id(self) -> GraphQLId:
         r = GraphQLId(str(self._next_id))
         self._next_id += 1
@@ -87,6 +116,11 @@ class GitHubState:
     def next_pull_request_number(self, repo_id: GraphQLId) -> GitHubNumber:
         r = GitHubNumber(self._next_pull_request_number[repo_id])
         self._next_pull_request_number[repo_id] += 1
+        return r
+
+    def next_issue_comment_full_database_id(self, repo_id: GraphQLId) -> int:
+        r = self._next_issue_comment_full_database_id[repo_id]
+        self._next_issue_comment_full_database_id[repo_id] += 1
         return r
 
     def push_hook(self, refs: Sequence[str]) -> None:
@@ -107,8 +141,10 @@ class GitHubState:
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
         self.repositories = {}
         self.pull_requests = {}
+        self.issue_comments = {}
         self._next_id = 5000
         self._next_pull_request_number = {}
+        self._next_issue_comment_full_database_id = {}
         self.root = Root()
 
         # Populate it with the most important repo ;)
@@ -121,6 +157,7 @@ class GitHubState:
         )
         self.repositories[GraphQLId("1000")] = repo
         self._next_pull_request_number[GraphQLId("1000")] = 500
+        self._next_issue_comment_full_database_id[GraphQLId("1000")] = 1500
 
         self.upstream_sh = upstream_sh
         if self.upstream_sh is not None:
@@ -240,6 +277,16 @@ class PullRequest(Node):
 
 
 @dataclass
+class IssueComment(Node):
+    body: str
+    fullDatabaseId: int
+    _repository: GraphQLId
+
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+
+@dataclass
 class PullRequestConnection:
     nodes: List[PullRequest]
 
@@ -253,6 +300,8 @@ class Root:
             return github_state(info).repositories[id]
         elif id in github_state(info).pull_requests:
             return github_state(info).pull_requests[id]
+        elif id in github_state(info).issue_comments:
+            return github_state(info).issue_comments[id]
         else:
             raise RuntimeError("unknown id {}".format(id))
 
@@ -277,6 +326,7 @@ def set_is_type_of(name: str, cls: Any) -> None:
 
 set_is_type_of("Repository", Repository)
 set_is_type_of("PullRequest", PullRequest)
+set_is_type_of("IssueComment", IssueComment)
 
 
 class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
@@ -366,6 +416,35 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "body" in input and input["body"] is not None:
             pr.body = input["body"]
 
+    def _create_issue_comment(
+        self, owner: str, name: str, comment_id: int, input: CreateIssueCommentInput
+    ) -> CreateIssueCommentPayload:
+        state = self.state
+        id = state.next_id()
+        repo = state.repository(owner, name)
+        comment_id = state.next_issue_comment_full_database_id(repo.id)
+        comment = IssueComment(
+            id=id,
+            _repository=repo.id,
+            fullDatabaseId=comment_id,
+            body=input["body"],
+        )
+        state.issue_comments[id] = comment
+        # This is only a subset of what the actual REST endpoint
+        # returns.
+        return {
+            "id": comment_id,
+        }
+
+    def _update_issue_comment(
+        self, owner: str, name: str, comment_id: int, input: UpdateIssueCommentInput
+    ) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        comment = state.issue_comment(repo, comment_id)
+        if (r := input.get("body")) is not None:
+            comment.body = r
+
     # NB: This may have a payload, but we don't
     # use it so I didn't bother constructing it.
     def _set_default_branch(
@@ -383,14 +462,19 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 raise ghstack.github.NotFoundError()
 
         elif method == "post":
-            m = re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path)
-            if m:
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
                 return self._create_pull(
                     m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
                 )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/comments", path):
+                return self._create_issue_comment(
+                    m.group(1),
+                    m.group(2),
+                    GitHubNumber(int(m.group(3))),
+                    cast(CreateIssueCommentInput, kwargs),
+                )
         elif method == "patch":
-            m = re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path)
-            if m:
+            if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):
                 owner, name, number = m.groups()
                 if number is not None:
                     return self._update_pull(
@@ -403,6 +487,13 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     return self._set_default_branch(
                         owner, name, cast(SetDefaultBranchInput, kwargs)
                     )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
+                return self._update_issue_comment(
+                    m.group(1),
+                    m.group(2),
+                    int(m.group(3)),
+                    cast(UpdateIssueCommentInput, kwargs),
+                )
         raise NotImplementedError(
             "FakeGitHubEndpoint REST {} {} not implemented".format(method.upper(), path)
         )
