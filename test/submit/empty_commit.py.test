@@ -1,0 +1,29 @@
+from ghstack.test_prelude import *
+
+git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+commit("B")
+
+if is_direct():
+    # TODO: NYI
+    pass
+else:
+    gh_submit("Initial")
+    assert_github_state(
+        """\
+        [O] #500 Commit B (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit B
+
+            * 0a47f30 Initial on "Commit B"
+
+        Repository state:
+
+            * 0a47f30 (gh/ezyang/1/head)
+            |    Initial on "Commit B"
+            * 481ab4c (gh/ezyang/1/base)
+                 Update base for Initial on "Commit B"
+        """
+    )

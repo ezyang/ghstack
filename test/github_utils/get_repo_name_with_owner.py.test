@@ -1,0 +1,65 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+sh = get_sh()
+
+git("remote", "add", "normal", "git@github.com:ezyang/ghstack.git")
+assert_eq(
+    ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="normal"
+    ),
+    {"owner": "ezyang", "name": "ghstack"},
+)
+git("remote", "add", "with-dot", "git@github.com:ezyang/ghstack.dotted.git")
+assert_eq(
+    ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="with-dot"
+    ),
+    {"owner": "ezyang", "name": "ghstack.dotted"},
+)
+git("remote", "add", "https", "https://github.com/ezyang/ghstack")
+assert_eq(
+    ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="https"
+    ),
+    {"owner": "ezyang", "name": "ghstack"},
+)
+git(
+    "remote",
+    "add",
+    "https-with-dotgit",
+    "https://github.com/ezyang/ghstack.git",
+)
+assert_eq(
+    ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="https-with-dotgit"
+    ),
+    {"owner": "ezyang", "name": "ghstack"},
+)
+git(
+    "remote",
+    "add",
+    "https-with-dot",
+    "https://github.com/ezyang/ghstack.dotted",
+)
+assert_eq(
+    ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="https-with-dot"
+    ),
+    {"owner": "ezyang", "name": "ghstack.dotted"},
+)
+git(
+    "remote",
+    "add",
+    "https-with-dot-with-dotgit",
+    "https://github.com/ezyang/ghstack.dotted.git",
+)
+assert_eq(
+    ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh,
+        github_url="github.com",
+        remote_name="https-with-dot-with-dotgit",
+    ),
+    {"owner": "ezyang", "name": "ghstack.dotted"},
+)

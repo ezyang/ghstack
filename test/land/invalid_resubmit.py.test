@@ -1,0 +1,64 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+
+commit("A")
+(diff,) = gh_submit("Initial")
+assert diff is not None
+pr_url = diff.pr_url
+
+gh_land(pr_url)
+
+write_file_and_add("file2.txt", "A")
+git("commit", "--amend")
+assert_expected_raises_inline(
+    RuntimeError,
+    lambda: gh_submit("Update"),
+    """Cannot ghstack a stack with closed PR #500 whose branch was deleted.  If you were just trying to update a later PR in the stack, `git rebase` and try again.  Otherwise, you may have been trying to update a PR that was already closed. To disassociate your update from the old PR and open a new PR, run `ghstack unlink`, `git rebase` and then try again.""",
+)
+
+# Do the remediation
+gh_unlink()
+git("rebase", "origin/master")
+gh_submit("New PR")
+
+if is_direct():
+    assert_github_state("""""")
+else:
+    assert_github_state(
+        """\
+        [X] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit A
+
+              (omitted)
+
+        [O] #501 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #501
+
+            This is commit A
+
+            * 856b1b6 New PR on "Commit A"
+
+        Repository state:
+
+            * 856b1b6 (gh/ezyang/1/head)
+            |    New PR on "Commit A"
+            * 787f322 (gh/ezyang/1/base)
+                 Update base for New PR on "Commit A"
+        """
+    )
+
+ok()
+
+# only the amend shows up now
+assert_expected_inline(
+    git("show", "--pretty=", "--name-only", "origin/gh/ezyang/1/orig"),
+    """file2.txt""",
+)

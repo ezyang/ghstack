@@ -1,0 +1,19 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+commit("C")
+A, B, C = gh_submit("Initial")
+
+checkout(A)
+amend("A2")
+cherry_pick(B)
+cherry_pick(C)
+A2, B2 = gh_submit("Don't update C", revs=["HEAD~"], stack=True)
+
+assert_eq(A.number, A2.number)
+assert_eq(B.number, B2.number)
+
+ok()

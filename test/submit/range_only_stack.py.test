@@ -1,0 +1,22 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# TODO: NYI direct
+if not is_direct():
+
+    commit("A")
+    commit("B")
+    commit("C")
+    commit("D")
+    A, B, C, D = gh_submit("Initial")
+
+    checkout(A)
+    amend("A2")
+    cherry_pick(B)
+    cherry_pick(C)
+    cherry_pick(D)
+    B2, C2 = gh_submit("Update B and C only", revs=["HEAD~~~..HEAD~"], stack=True)
+
+    assert_eq(B.number, B2.number)
+    assert_eq(C.number, C2.number)

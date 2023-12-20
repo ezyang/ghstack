@@ -1,0 +1,18 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+gh_submit("Initial")
+
+# botch it up
+write_file_and_add("file2.txt", "A")
+git("commit", "-C", "HEAD")
+tick()
+assert_expected_raises_inline(
+    RuntimeError,
+    lambda: gh_submit("Should fail"),
+    """Something very strange has happened: a commit for the gh/ezyang/1 occurs twice in your local commit stack.  This is usually because of a botched rebase.  Please take a look at your git log and seek help from your local Git expert.""",
+)
+
+ok()

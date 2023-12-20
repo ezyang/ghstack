@@ -1,0 +1,53 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Check that we do clobber fields when explicitly asked
+
+commit("A")
+(A,) = gh_submit("Initial 1")
+
+git("commit", "--amend", "-m", "Amended " + A.commit_msg)
+(A2,) = gh_submit("Update 1", update_fields=True)
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Amended Commit A (gh/ezyang/1/head -> master)
+
+            This is commit A
+
+            * c3ca023 Initial 1 on "Commit A"
+
+        Repository state:
+
+            * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 on "Commit A"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Amended Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit A
+
+            * f4778ef Initial 1 on "Commit A"
+
+        Repository state:
+
+            * f4778ef (gh/ezyang/1/head)
+            |    Initial 1 on "Commit A"
+            * 6b23cb6 (gh/ezyang/1/base)
+                 Update base for Initial 1 on "Commit A"
+        """
+    )
+
+assert "Amended" in git("log", "--format=%B", "-n", "1", "HEAD")
+
+ok()

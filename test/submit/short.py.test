@@ -1,0 +1,10 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+with captured_output() as (out, err):
+    gh_submit("Initial", short=True)
+assert_eq(out.getvalue(), "https://github.com/pytorch/pytorch/pull/500\n")
+
+ok()

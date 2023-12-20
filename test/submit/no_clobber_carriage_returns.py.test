@@ -1,0 +1,133 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# In some situations, GitHub will replace your newlines with
+# \r\n.  Check we handle this correctly.
+
+write_file_and_add("b", "asdf")
+git("commit", "-m", "Commit 1\n\nOriginal message")
+tick()
+gh_submit("Initial 1")
+tick()
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit 1 (gh/ezyang/1/head -> master)
+
+            Original message
+
+            * aed2eaf Initial 1 on "Commit 1"
+
+        Repository state:
+
+            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 on "Commit 1"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            Original message
+
+            * e0c08a4 Initial 1 on "Commit 1"
+
+        Repository state:
+
+            * e0c08a4 (gh/ezyang/1/head)
+            |    Initial 1 on "Commit 1"
+            * bf7ce67 (gh/ezyang/1/base)
+                 Update base for Initial 1 on "Commit 1"
+        """
+    )
+
+get_github().patch(
+    "repos/pytorch/pytorch/pulls/500",
+    body="""\
+Stack:
+* **#500 Commit 1**
+
+Directly updated message body""".replace(
+        "\n", "\r\n"
+    ),
+    title="Directly updated title",
+)
+
+write_file_and_add("file1.txt", "A")
+git("commit", "-m", "Commit 2")
+tick()
+gh_submit("Initial 2")
+tick()
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Directly updated title (gh/ezyang/1/head -> master)
+
+            Stack:
+            * #501
+            * __->__ #500
+
+            Directly updated message body
+
+            * aed2eaf Initial 1 on "Commit 1"
+
+        [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/1/head)
+
+
+
+            * 3b3a497 Initial 2 on "Commit 2"
+
+        Repository state:
+
+            * 3b3a497 (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Initial 2 on "Commit 2"
+            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 on "Commit 1"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #501
+            * __->__ #500
+
+            Directly updated message body
+
+            * e0c08a4 Initial 1 on "Commit 1"
+
+        [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * __->__ #501
+            * #500
+
+
+
+            * 9357368 Initial 2 on "Commit 2"
+
+        Repository state:
+
+            * 9357368 (gh/ezyang/2/head)
+            |    Initial 2 on "Commit 2"
+            * f1dde2f (gh/ezyang/2/base)
+                 Update base for Initial 2 on "Commit 2"
+            * e0c08a4 (gh/ezyang/1/head)
+            |    Initial 1 on "Commit 1"
+            * bf7ce67 (gh/ezyang/1/base)
+                 Update base for Initial 1 on "Commit 1"
+        """
+    )

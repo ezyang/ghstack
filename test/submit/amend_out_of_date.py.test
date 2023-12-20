@@ -1,0 +1,18 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+(A,) = gh_submit("Initial 1")
+
+amend("A2")
+(A2,) = gh_submit("Update A")
+
+# Reset to the old version
+git("reset", "--hard", A.orig)
+amend("A3")
+assert_expected_raises_inline(
+    RuntimeError,
+    lambda: gh_submit("Update B"),
+    """Cowardly refusing to push an update to GitHub, since it looks another source has updated GitHub since you last pushed.  If you want to push anyway, rerun this command with --force.  Otherwise, diff your changes against cbc98e2976fd71cb5552f4acef54d93c300a3827 and reapply them on top of an up-to-date commit from GitHub.""",
+)

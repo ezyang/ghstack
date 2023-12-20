@@ -1,0 +1,18 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+(diff,) = gh_submit("Initial")
+assert diff is not None
+pr_url = diff.pr_url
+
+gh_land(pr_url)
+assert_expected_inline(
+    get_upstream_sh().git("log", "--oneline", "master"),
+    """\
+8b023bd Commit A
+dc8bfe4 Initial commit""",
+)
+
+ok()
