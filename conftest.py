@@ -34,9 +34,7 @@ class ScriptItem(pytest.Item):
 
     def runtest(self):
         with ghstack.test_prelude.scoped_test(direct=self.direct):
-            if es := expecttest.EDIT_HISTORY.state.get(self.fspath):
-                es.clear()
-            expecttest.EDIT_HISTORY.seen.clear()
+            expecttest.EDIT_HISTORY.reload_file(self.fspath)
             runpy.run_path(self.fspath)
 
     def repr_failure(self, excinfo):
