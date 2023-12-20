@@ -1,0 +1,108 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Check that Differential Revision is preserved
+
+commit("A")
+gh_submit("Initial 1")
+
+body = """\n
+Directly updated message body
+
+Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+"""
+get_github().patch(
+    "repos/pytorch/pytorch/pulls/500", body=body, title="Directly updated title"
+)
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Directly updated title (gh/ezyang/1/head -> master)
+
+
+
+            Directly updated message body
+
+            Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+
+
+            * c3ca023 Initial 1 on "Commit A"
+
+        Repository state:
+
+            * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 on "Commit A"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+
+
+            Directly updated message body
+
+            Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+
+
+            * f4778ef Initial 1 on "Commit A"
+
+        Repository state:
+
+            * f4778ef (gh/ezyang/1/head)
+            |    Initial 1 on "Commit A"
+            * 6b23cb6 (gh/ezyang/1/base)
+                 Update base for Initial 1 on "Commit A"
+        """
+    )
+
+gh_submit("Update 1", update_fields=True)
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> master)
+
+            This is commit A
+
+            Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+
+            * c3ca023 Initial 1 on "Commit A"
+
+        Repository state:
+
+            * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 on "Commit A"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit A
+
+            Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
+
+            * f4778ef Initial 1 on "Commit A"
+
+        Repository state:
+
+            * f4778ef (gh/ezyang/1/head)
+            |    Initial 1 on "Commit A"
+            * 6b23cb6 (gh/ezyang/1/base)
+                 Update base for Initial 1 on "Commit A"
+        """
+    )
+
+ok()

@@ -1,0 +1,29 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+(
+    diff1,
+    diff2,
+) = gh_submit("Initial")
+assert diff1 is not None
+assert diff2 is not None
+pr_url1 = diff1.pr_url
+pr_url2 = diff2.pr_url
+
+git("checkout", "origin/master")
+commit("C")
+git("push", "origin", "HEAD:master")
+
+gh_land(pr_url1)
+gh_land(pr_url2)
+assert_expected_inline(
+    get_upstream_sh().git("log", "--oneline", "master"),
+    """\
+643692e Commit B
+3a731f4 Commit A
+a8ca27f Commit C
+dc8bfe4 Initial commit""",
+)

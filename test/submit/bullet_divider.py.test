@@ -1,0 +1,59 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+write_file_and_add("file1.txt", "A")
+git(
+    "commit",
+    "-m",
+    """This is my commit
+
+* It starts with a fabulous
+* Bullet list""",
+)
+tick()
+gh_submit("Initial")
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 This is my commit (gh/ezyang/1/head -> master)
+
+            * It starts with a fabulous
+            * Bullet list
+
+            * c092307 Initial on "This is my commit"
+
+        Repository state:
+
+            * c092307 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial on "This is my commit"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 This is my commit (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            ----
+
+            * It starts with a fabulous
+            * Bullet list
+
+            * 840eb38 Initial on "This is my commit"
+
+        Repository state:
+
+            * 840eb38 (gh/ezyang/1/head)
+            |    Initial on "This is my commit"
+            * b059a32 (gh/ezyang/1/base)
+                 Update base for Initial on "This is my commit"
+        """
+    )
+
+ok()

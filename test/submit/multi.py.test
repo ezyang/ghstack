@@ -1,0 +1,66 @@
+from ghstack.test_prelude import *
+
+commit("A")
+commit("B")
+A, B = gh_submit("Initial 1 and 2")
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> master)
+
+            This is commit A
+
+            * c5b379e Initial 1 and 2 on "Commit A"
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
+
+            This is commit B
+
+            * fd9fc99 Initial 1 and 2 on "Commit B"
+
+        Repository state:
+
+            * fd9fc99 (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Initial 1 and 2 on "Commit B"
+            * c5b379e (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 and 2 on "Commit A"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """,
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+            * 01a577e Initial 1 and 2 on "Commit A"
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * __->__ #501
+            * #500
+
+            This is commit B
+
+            * 4bc08ea Initial 1 and 2 on "Commit B"
+
+        Repository state:
+
+            * 01a577e (gh/ezyang/1/head)
+            |    Initial 1 and 2 on "Commit A"
+            * 7557970 (gh/ezyang/1/base)
+                 Update base for Initial 1 and 2 on "Commit A"
+            * 4bc08ea (gh/ezyang/2/head)
+            |    Initial 1 and 2 on "Commit B"
+            * 0db1241 (gh/ezyang/2/base)
+                 Update base for Initial 1 and 2 on "Commit B"
+        """
+    )

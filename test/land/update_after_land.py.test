@@ -1,0 +1,74 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+(diff1, diff2) = gh_submit("Initial 1")
+assert diff1 is not None
+assert diff2 is not None
+
+# setup an upstream commit, so the land isn't just trivial
+git("reset", "--hard", "origin/master")
+commit("U")
+git("push")
+
+# land first pr
+gh_land(diff1.pr_url)
+
+# go back to stack
+git("checkout", "gh/ezyang/2/orig")
+
+# update second pr
+amend("B2")
+
+# try to push
+assert_expected_raises_inline(
+    RuntimeError,
+    lambda: gh_submit("Run 2"),
+    """Cannot ghstack a stack with closed PR #500 whose branch was deleted.  If you were just trying to update a later PR in the stack, `git rebase` and try again.  Otherwise, you may have been trying to update a PR that was already closed. To disassociate your update from the old PR and open a new PR, run `ghstack unlink`, `git rebase` and then try again.""",
+)
+
+# show the remediation works
+git("rebase", "origin/master")
+gh_submit("Run 3")
+
+if is_direct():
+    assert_github_state("""""")
+else:
+    assert_github_state(
+        """\
+        [X] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+              (omitted)
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * __->__ #501
+
+            This is commit B
+
+            * 6528345 Run 3 on "Commit B"
+            * e93dd90 Initial 1 on "Commit B"
+
+        Repository state:
+
+            *   6528345 (gh/ezyang/2/head)
+            |\\     Run 3 on "Commit B"
+            | * 2c00bc7 (gh/ezyang/2/base)
+            | |    Update base for Run 3 on "Commit B"
+            * | e93dd90
+            |/     Initial 1 on "Commit B"
+            * 211ed82
+                 Update base for Initial 1 on "Commit B"
+        """
+    )
+
+ok()

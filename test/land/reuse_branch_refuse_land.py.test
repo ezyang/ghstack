@@ -1,0 +1,26 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# make a stack
+commit("A")
+(diff1,) = gh_submit("Initial 1")
+assert diff1 is not None
+
+# land first pr
+gh_land(diff1.pr_url)
+
+# make another stack
+commit("B")
+(diff2,) = gh_submit("Second 2")
+assert diff2 is not None
+
+# check the head number was reused
+assert_eq(diff1.ghnum, diff2.ghnum)
+
+# refuse to reland first pr
+assert_expected_raises_inline(
+    RuntimeError,
+    lambda: gh_land(diff1.pr_url),
+    """PR is already closed, cannot land it!""",
+)

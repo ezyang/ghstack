@@ -1,0 +1,89 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+A, B = gh_submit("Initial")
+
+checkout(GitCommitHash("HEAD~~"))
+cherry_pick(B)
+cherry_pick(A)
+B2, A2 = gh_submit("Reorder")
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/2/head)
+
+            This is commit A
+
+            * 3a17667 Reorder on "Commit A"
+
+        [O] #501 Commit B (gh/ezyang/2/head -> master)
+
+            This is commit B
+
+            * 5f812b3 Reorder on "Commit B"
+            * 60b80d9 Initial on "Commit B"
+            * 8bf3ca1 Initial on "Commit A"
+
+        Repository state:
+
+            *   3a17667 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |\\     Reorder on "Commit A"
+            | * 5f812b3 (gh/ezyang/2/next, gh/ezyang/2/head)
+            | |    Reorder on "Commit B"
+            | * 60b80d9
+            |/     Initial on "Commit B"
+            * 8bf3ca1
+            |    Initial on "Commit A"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+            * #501
+
+            This is commit A
+
+            * 5a11d6e Reorder on "Commit A"
+            * 30f6c01 Initial on "Commit A"
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * #500
+            * __->__ #501
+
+            This is commit B
+
+            * 28e7ae2 Reorder on "Commit B"
+            * 4d6d2a4 Initial on "Commit B"
+
+        Repository state:
+
+            *   5a11d6e (gh/ezyang/1/head)
+            |\\     Reorder on "Commit A"
+            | * 48df0b3 (gh/ezyang/1/base)
+            | |    Update base for Reorder on "Commit A"
+            * | 30f6c01
+            |/     Initial on "Commit A"
+            * 7e61353
+                 Update base for Initial on "Commit A"
+            *   28e7ae2 (gh/ezyang/2/head)
+            |\\     Reorder on "Commit B"
+            | * 7be762b (gh/ezyang/2/base)
+            | |    Update base for Reorder on "Commit B"
+            * | 4d6d2a4
+            |/     Initial on "Commit B"
+            * c9e5b0d
+                 Update base for Initial on "Commit B"
+        """
+    )

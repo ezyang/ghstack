@@ -1,0 +1,40 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+write_file_and_add("a", "asdf")
+git("commit", "-m", "Commit 1\n\nThis is my first commit")
+tick()
+gh_submit("Initial 1")
+
+git("checkout", "gh/ezyang/1/head")
+
+write_file_and_add("b", "asdf")
+git("commit", "-m", "Commit 2\n\nThis is my second commit")
+tick()
+
+if is_direct():
+    assert_expected_raises_inline(
+        RuntimeError,
+        lambda: gh_submit("Initial 2"),
+        """\
+This commit is poisoned: it is from a head or base branch--ghstack
+cannot validly submit it.  The most common situation for this to
+happen is if you checked out the head branch of a pull request that was
+previously submitted with ghstack (e.g., by using hub checkout).
+Making modifications on the head branch is not supported; instead,
+you should fetch the original commits in question by running:
+
+ghstack checkout $PR_URL
+
+Since we cannot proceed, ghstack will abort now.
+""",
+    )
+else:
+    assert_expected_raises_inline(
+        RuntimeError,
+        lambda: gh_submit("Initial 2"),
+        """The commit bf7ce671c293e697b02ea2e5b53c794305d9eb73 has 0 parents, which makes my head explode.  `git rebase -i` your diffs into a stack, then try again.""",
+    )
+
+# ------------------------------------------------------------------------- #
