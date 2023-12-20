@@ -1,0 +1,72 @@
+from ghstack.test_prelude import *
+import textwrap
+
+init_test()
+
+commit("TO_REPLACE")
+(A,) = gh_submit("Initial")
+git("commit", "--amend", "-m", A.commit_msg.replace("TO_REPLACE", "ARGLE"))
+(A2,) = gh_submit("Skip")
+if is_direct():
+    assert_expected_inline(
+        textwrap.indent(git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
+        """\
+        Commit ARGLE
+
+        This is commit ARGLE
+
+        ghstack-source-id: ac00f28640afe01e4299441bb5041cdf06d0b6b4
+        ghstack-comment-id: 1500
+        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+    )
+else:
+    assert_expected_inline(
+        textwrap.indent(git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
+        """\
+        Commit ARGLE
+
+        This is commit ARGLE
+
+        ghstack-source-id: ac00f28640afe01e4299441bb5041cdf06d0b6b4
+        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+    )
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit TO_REPLACE (gh/ezyang/1/head -> master)
+
+            This is commit TO_REPLACE
+
+            * 0d352e8 Initial on "Commit TO_REPLACE"
+
+        Repository state:
+
+            * 0d352e8 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial on "Commit TO_REPLACE"
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit TO_REPLACE (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit TO_REPLACE
+
+            * 37fd652 Initial on "Commit TO_REPLACE"
+
+        Repository state:
+
+            * 37fd652 (gh/ezyang/1/head)
+            |    Initial on "Commit TO_REPLACE"
+            * b6bd9bb (gh/ezyang/1/base)
+                 Update base for Initial on "Commit TO_REPLACE"
+        """
+    )
+
+ok()

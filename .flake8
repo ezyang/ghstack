@@ -14,7 +14,8 @@ max-line-length = 120
 # P208 is a duplicate of C403.
 # W503 talks about operator formatting which is too opinionated.
 # C901 I like long functions
-ignore = E127, E128, E203, E265, E266, E402, E501, E722, P207, P208, W503, C901
+# F403 should turn this on for ghstack/, lookup exclude format TODO
+ignore = E127, E128, E203, E265, E266, E402, E501, E722, P207, P208, W503, C901, F403, F405
 exclude =
   .git,
   .hg,

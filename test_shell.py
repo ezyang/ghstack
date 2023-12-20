@@ -34,6 +34,8 @@ class big_dump(ConsoleMsg):
 class TestShell(expecttest.TestCase):
     def setUp(self) -> None:
         self.sh = ghstack.shell.Shell()
+        # TODO: probably should make this scoped smh
+        logging.getLogger("asyncio").setLevel(logging.WARNING)
 
     def emit(self, *payload: ConsoleMsg, **kwargs: Any) -> ghstack.shell._SHELL_RET:
         args: List[str] = [sys.executable, "emitter.py"]

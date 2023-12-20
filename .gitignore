@@ -8,3 +8,6 @@ build
 .python-version
 .venv/
 .vscode
+tags
+*.log
+plan.txt

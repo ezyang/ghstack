@@ -1,0 +1,66 @@
+from ghstack.test_prelude import *
+import textwrap
+
+init_test()
+
+commit(
+    "A",
+    msg="Commit 1\n\nThis is my first commit, hello @foobar @Ivan\n\nSigned-off-by: foo@gmail.com",
+)
+
+(A,) = gh_submit("Initial")
+
+get_github().patch(
+    "repos/pytorch/pytorch/pulls/500",
+    body="""\
+Stack:
+* **#500 Commit 1**
+
+cc @foobar @Ivan
+
+Signed-off-by: foo@gmail.com""",
+    title="This is my first commit",
+)
+
+amend("A2")
+(A2,) = gh_submit("Update 1")
+
+# Ensure no mentions in the log
+assert_expected_inline(
+    git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"),
+    """\
+Update 1 on "Commit 1"
+
+[ghstack-poisoned]""",
+)
+if is_direct():
+    assert_expected_inline(
+        textwrap.indent(
+            git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
+        ),
+        """\
+        Commit 1
+
+        This is my first commit, hello foobar Ivan
+
+        Signed-off-by: foo@gmail.com
+
+        ghstack-source-id: ddf506901b8d3c2b4079ec39e564f19bd5468397
+        ghstack-comment-id: 1500
+        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+    )
+else:
+    assert_expected_inline(
+        textwrap.indent(
+            git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
+        ),
+        """\
+        Commit 1
+
+        This is my first commit, hello foobar Ivan
+
+        Signed-off-by: foo@gmail.com
+
+        ghstack-source-id: ddf506901b8d3c2b4079ec39e564f19bd5468397
+        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+    )

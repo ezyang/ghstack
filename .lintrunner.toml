@@ -2,7 +2,7 @@ merge_base_with = "origin/master"
 
 [[linter]]
 code = 'FLAKE8'
-include_patterns = ['**/*.py']
+include_patterns = ['**/*.py', '**/*.py.test']
 command = [
     'python3',
     'tools/linter/adapters/flake8_linter.py',
@@ -13,8 +13,8 @@ command = [
 
 [[linter]]
 code = 'MYPY'
-include_patterns = ['**/*.py']
-exclude_patterns = ['tools/**']
+include_patterns = ['**/*.py', '**/*.py.test']
+exclude_patterns = ['tools/**', 'conftest.py']
 command = [
     'python3',
     'tools/linter/adapters/mypy_linter.py',
@@ -25,7 +25,7 @@ command = [
 
 [[linter]]
 code = 'UFMT'
-include_patterns = ['**/*.py', '**/*.pyi']
+include_patterns = ['**/*.py', '**/*.pyi', '**/*.py.test']
 command = [
     'python3',
     'tools/linter/adapters/ufmt_linter.py',

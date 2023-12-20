@@ -1,0 +1,33 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# make a commit with non-standard author
+write_file_and_add("file1.txt", "A")
+git(
+    "commit",
+    "-m",
+    "Commit 1\n\nThis is my first commit",
+    env={
+        "GIT_AUTHOR_NAME": "Ben Bitdiddle",
+        "GIT_AUTHOR_EMAIL": "benbitdiddle@example.com",
+    },
+)
+tick()
+
+# ghstack
+(diff1,) = gh_submit("Initial 1")
+assert diff1 is not None
+assert_expected_inline(
+    git(
+        "log",
+        "--format=Author: %an <%ae>\nCommitter: %cn <%ce>",
+        "-n1",
+        "origin/gh/ezyang/1/orig",
+    ),
+    """\
+Author: Ben Bitdiddle <benbitdiddle@example.com>
+Committer: C O Mitter <committer@example.com>""",
+)
+
+ok()

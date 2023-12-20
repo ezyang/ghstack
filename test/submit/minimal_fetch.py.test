@@ -1,0 +1,18 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Narrow down the fetch on origin
+git(
+    "config",
+    "remote.origin.fetch",
+    "+refs/heads/master:refs/remotes/origin/master",
+)
+
+commit("A")
+gh_submit("Initial 1")
+
+amend("A2")
+gh_submit("Update 2")
+
+ok()

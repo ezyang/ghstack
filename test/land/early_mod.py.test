@@ -1,0 +1,22 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+(
+    diff1,
+    diff2,
+) = gh_submit("Initial")
+assert diff1 is not None
+assert diff2 is not None
+pr_url = diff2.pr_url
+
+# edit earlier commit
+git("checkout", "HEAD~")
+amend("A2")
+gh_submit("Update")
+
+gh_land(pr_url)
+assert_expected_inline(get_upstream_sh().git("show", "master:A2.txt"), """A""")
+assert_expected_inline(get_upstream_sh().git("show", "master:B.txt"), """A""")

@@ -1,0 +1,14 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+A, B = gh_submit("Initial")
+
+checkout(A)
+amend("A2")
+cherry_pick(B)
+(A2,) = gh_submit("Update base only", revs=["HEAD~"], stack=False)
+
+assert_eq(A.number, A2.number)
