@@ -26,7 +26,6 @@ click = "^8"
 
 [tool.poetry.dev-dependencies]
 black = "^22.12.0"
-expecttest = "^0.1"
 flake8 = "^6"
 graphql-core = "^3"
 hypothesis = "^6"
@@ -34,8 +33,6 @@ mypy = "^1"
 pytest = "^7"
 usort = "^1"
 ufmt = "^2"
-
-[tool.poetry.group.dev.dependencies]
 lintrunner = "^0.11.0"
 types-requests = "^2.31.0.10"
 pytest-xdist = "^3.5.0"
