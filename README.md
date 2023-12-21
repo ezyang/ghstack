@@ -6,7 +6,9 @@ Conveniently submit stacks of diffs to GitHub as separate pull requests.
 pip3 install ghstack
 ```
 
-Python 3.8.1 and greater only. For Python 3.12, dependencies might still need some fixing.
+ghstack is tested with 
+[several different Python versions](https://github.com/ezyang/ghstack/blob/master/.github/workflows/test.yml#L13). 
+It requires at least Python 3.8.1.
 
 ## How to setup
 
