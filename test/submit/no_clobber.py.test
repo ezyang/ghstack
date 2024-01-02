@@ -30,12 +30,12 @@ if is_direct():
 
             Directly updated message body
 
-            * aed2eaf Initial 1 on "Commit 1"
+            * 6c1d876 Initial 1
 
         Repository state:
 
-            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
+            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -50,14 +50,14 @@ else:
 
             Directly updated message body
 
-            * e0c08a4 Initial 1 on "Commit 1"
+            * 20ec3e0 Initial 1
 
         Repository state:
 
-            * e0c08a4 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
-            * bf7ce67 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit 1"
+            * 20ec3e0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 
@@ -77,15 +77,15 @@ if is_direct():
 
             Directly updated message body
 
-            * 8e58607 Update 1 on "Commit 1"
-            * aed2eaf Initial 1 on "Commit 1"
+            * 3c9d67f Update 1
+            * 6c1d876 Initial 1
 
         Repository state:
 
-            * 8e58607 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Update 1 on "Commit 1"
-            * aed2eaf
-            |    Initial 1 on "Commit 1"
+            * 3c9d67f (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Update 1
+            * 6c1d876
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -100,16 +100,16 @@ else:
 
             Directly updated message body
 
-            * 5c110bc Update 1 on "Commit 1"
-            * e0c08a4 Initial 1 on "Commit 1"
+            * 4300988 Update 1
+            * 20ec3e0 Initial 1
 
         Repository state:
 
-            * 5c110bc (gh/ezyang/1/head)
-            |    Update 1 on "Commit 1"
-            * e0c08a4
-            |    Initial 1 on "Commit 1"
-            * bf7ce67 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit 1"
+            * 4300988 (gh/ezyang/1/head)
+            |    Update 1
+            * 20ec3e0
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )

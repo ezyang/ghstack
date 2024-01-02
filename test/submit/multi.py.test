@@ -11,20 +11,20 @@ if is_direct():
 
             This is commit A
 
-            * c5b379e Initial 1 and 2 on "Commit A"
+            * 6eac261 Initial 1 and 2
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
             This is commit B
 
-            * fd9fc99 Initial 1 and 2 on "Commit B"
+            * 49a82f5 Initial 1 and 2
 
         Repository state:
 
-            * fd9fc99 (gh/ezyang/2/next, gh/ezyang/2/head)
-            |    Initial 1 and 2 on "Commit B"
-            * c5b379e (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 and 2 on "Commit A"
+            * 49a82f5 (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Initial 1 and 2
+            * 6eac261 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1 and 2
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """,
@@ -40,7 +40,7 @@ else:
 
             This is commit A
 
-            * 01a577e Initial 1 and 2 on "Commit A"
+            * 777af59 Initial 1 and 2
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -50,17 +50,17 @@ else:
 
             This is commit B
 
-            * 4bc08ea Initial 1 and 2 on "Commit B"
+            * 3c3426d Initial 1 and 2
 
         Repository state:
 
-            * 01a577e (gh/ezyang/1/head)
-            |    Initial 1 and 2 on "Commit A"
-            * 7557970 (gh/ezyang/1/base)
-                 Update base for Initial 1 and 2 on "Commit A"
-            * 4bc08ea (gh/ezyang/2/head)
-            |    Initial 1 and 2 on "Commit B"
-            * 0db1241 (gh/ezyang/2/base)
-                 Update base for Initial 1 and 2 on "Commit B"
+            * 777af59 (gh/ezyang/1/head)
+            |    Initial 1 and 2
+            * 873273a (gh/ezyang/1/base)
+                 Initial 1 and 2 (base update)
+            * 3c3426d (gh/ezyang/2/head)
+            |    Initial 1 and 2
+            * 9f0da86 (gh/ezyang/2/base)
+                 Initial 1 and 2 (base update)
         """
     )

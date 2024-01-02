@@ -38,12 +38,12 @@ if is_direct():
 
             This is commit TO_REPLACE
 
-            * 0d352e8 Initial on "Commit TO_REPLACE"
+            * 43ce90d Initial
 
         Repository state:
 
-            * 0d352e8 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial on "Commit TO_REPLACE"
+            * 43ce90d (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -58,14 +58,14 @@ else:
 
             This is commit TO_REPLACE
 
-            * 37fd652 Initial on "Commit TO_REPLACE"
+            * bfe45a3 Initial
 
         Repository state:
 
-            * 37fd652 (gh/ezyang/1/head)
-            |    Initial on "Commit TO_REPLACE"
-            * b6bd9bb (gh/ezyang/1/base)
-                 Update base for Initial on "Commit TO_REPLACE"
+            * bfe45a3 (gh/ezyang/1/head)
+            |    Initial
+            * 4e54cdd (gh/ezyang/1/base)
+                 Initial (base update)
         """
     )
 

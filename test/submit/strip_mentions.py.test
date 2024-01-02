@@ -29,7 +29,7 @@ amend("A2")
 assert_expected_inline(
     git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"),
     """\
-Update 1 on "Commit 1"
+Update 1
 
 [ghstack-poisoned]""",
 )

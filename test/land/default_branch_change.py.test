@@ -25,14 +25,14 @@ assert_github_state(
 
             This is commit A
 
-            * f4778ef Initial 1 on "Commit A"
+            * 36498d0 Initial 1
 
         Repository state:
 
-            * f4778ef (gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            * 6b23cb6 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit A"
+            * 36498d0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
 )
 
@@ -71,7 +71,7 @@ assert_github_state(
 
             This is commit A
 
-            * f4778ef Initial 1 on "Commit A"
+            * 36498d0 Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -80,18 +80,18 @@ assert_github_state(
 
             This is commit B
 
-            * f16bff9 Initial 2 on "Commit B"
+            * f30ebce Initial 2
 
         Repository state:
 
-            * f16bff9 (gh/ezyang/2/head)
-            |    Initial 2 on "Commit B"
-            * c7e3a0c (gh/ezyang/2/base)
-                 Update base for Initial 2 on "Commit B"
-            * f4778ef (gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            * 6b23cb6 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit A"
+            * f30ebce (gh/ezyang/2/head)
+            |    Initial 2
+            * 94673ed (gh/ezyang/2/base)
+                 Initial 2 (base update)
+            * 36498d0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
 )
 

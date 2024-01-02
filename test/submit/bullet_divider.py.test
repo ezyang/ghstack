@@ -22,12 +22,12 @@ if is_direct():
             * It starts with a fabulous
             * Bullet list
 
-            * c092307 Initial on "This is my commit"
+            * b167219 Initial
 
         Repository state:
 
-            * c092307 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial on "This is my commit"
+            * b167219 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -45,14 +45,14 @@ else:
             * It starts with a fabulous
             * Bullet list
 
-            * 840eb38 Initial on "This is my commit"
+            * 6ee2f33 Initial
 
         Repository state:
 
-            * 840eb38 (gh/ezyang/1/head)
-            |    Initial on "This is my commit"
-            * b059a32 (gh/ezyang/1/base)
-                 Update base for Initial on "This is my commit"
+            * 6ee2f33 (gh/ezyang/1/head)
+            |    Initial
+            * 4e54cdd (gh/ezyang/1/base)
+                 Initial (base update)
         """
     )
 

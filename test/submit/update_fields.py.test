@@ -23,12 +23,12 @@ if is_direct():
 
             Directly updated message body
 
-            * aed2eaf Initial 1 on "Commit 1"
+            * 6c1d876 Initial 1
 
         Repository state:
 
-            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
+            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -40,14 +40,14 @@ else:
 
             Directly updated message body
 
-            * e0c08a4 Initial 1 on "Commit 1"
+            * 20ec3e0 Initial 1
 
         Repository state:
 
-            * e0c08a4 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
-            * bf7ce67 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit 1"
+            * 20ec3e0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 
@@ -60,12 +60,12 @@ if is_direct():
 
             Original message
 
-            * aed2eaf Initial 1 on "Commit 1"
+            * 6c1d876 Initial 1
 
         Repository state:
 
-            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
+            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -80,14 +80,14 @@ else:
 
             Original message
 
-            * e0c08a4 Initial 1 on "Commit 1"
+            * 20ec3e0 Initial 1
 
         Repository state:
 
-            * e0c08a4 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
-            * bf7ce67 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit 1"
+            * 20ec3e0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 
