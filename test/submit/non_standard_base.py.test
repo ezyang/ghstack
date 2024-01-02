@@ -27,12 +27,12 @@ if is_direct():
 
             This is commit A
 
-            * 6ba7821 Initial 1 on "Commit A"
+            * 503142b Initial 1
 
         Repository state:
 
-            * 6ba7821 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
+            * 503142b (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * 9ac8806 (release)
             |    Commit R
             * dc8bfe4
@@ -49,14 +49,14 @@ else:
 
             This is commit A
 
-            * 60198a4 Initial 1 on "Commit A"
+            * dedc4f1 Initial 1
 
         Repository state:
 
-            * 60198a4 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            * 78d3774 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit A"
+            * dedc4f1 (gh/ezyang/1/head)
+            |    Initial 1
+            * ab82953 (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 

@@ -28,12 +28,12 @@ if is_direct():
             Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
 
-            * c3ca023 Initial 1 on "Commit A"
+            * 8c7d059 Initial 1
 
         Repository state:
 
-            * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
+            * 8c7d059 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -50,14 +50,14 @@ else:
             Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
 
-            * f4778ef Initial 1 on "Commit A"
+            * 36498d0 Initial 1
 
         Repository state:
 
-            * f4778ef (gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            * 6b23cb6 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit A"
+            * 36498d0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 
@@ -72,12 +72,12 @@ if is_direct():
 
             Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
-            * c3ca023 Initial 1 on "Commit A"
+            * 8c7d059 Initial 1
 
         Repository state:
 
-            * c3ca023 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
+            * 8c7d059 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -94,14 +94,14 @@ else:
 
             Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 
-            * f4778ef Initial 1 on "Commit A"
+            * 36498d0 Initial 1
 
         Repository state:
 
-            * f4778ef (gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            * 6b23cb6 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit A"
+            * 36498d0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 

@@ -17,13 +17,13 @@ else:
 
             This is commit B
 
-            * 0a47f30 Initial on "Commit B"
+            * 672cd30 Initial
 
         Repository state:
 
-            * 0a47f30 (gh/ezyang/1/head)
-            |    Initial on "Commit B"
-            * 481ab4c (gh/ezyang/1/base)
-                 Update base for Initial on "Commit B"
+            * 672cd30 (gh/ezyang/1/head)
+            |    Initial
+            * 4e54cdd (gh/ezyang/1/base)
+                 Initial (base update)
         """
     )

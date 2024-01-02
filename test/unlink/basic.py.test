@@ -18,13 +18,13 @@ if is_direct():
 
             This is commit A
 
-            * 13fa3c4 Initial 1 on "Commit A"
+            * b6f9660 Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
             This is commit B
 
-            * b293916 Initial 1 on "Commit B"
+            * 30b9f2a Initial 1
 
         [O] #502 Commit A (gh/ezyang/3/head -> master)
 
@@ -32,7 +32,7 @@ if is_direct():
 
 
 
-            * 2949b6b Initial 2 on "Commit A"
+            * 2193fd2 Initial 2
 
         [O] #503 Commit B (gh/ezyang/4/head -> gh/ezyang/3/head)
 
@@ -40,18 +40,18 @@ if is_direct():
 
 
 
-            * d8884f2 Initial 2 on "Commit B"
+            * ce2fa9b Initial 2
 
         Repository state:
 
-            * b293916 (gh/ezyang/2/next, gh/ezyang/2/head)
-            |    Initial 1 on "Commit B"
-            * 13fa3c4 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            | * d8884f2 (gh/ezyang/4/next, gh/ezyang/4/head)
-            | |    Initial 2 on "Commit B"
-            | * 2949b6b (gh/ezyang/3/next, gh/ezyang/3/head)
-            |/     Initial 2 on "Commit A"
+            * 30b9f2a (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Initial 1
+            * b6f9660 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
+            | * ce2fa9b (gh/ezyang/4/next, gh/ezyang/4/head)
+            | |    Initial 2
+            | * 2193fd2 (gh/ezyang/3/next, gh/ezyang/3/head)
+            |/     Initial 2
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -67,7 +67,7 @@ else:
 
             This is commit A
 
-            * 7373182 Initial 1 on "Commit A"
+            * 55ee788 Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -77,7 +77,7 @@ else:
 
             This is commit B
 
-            * e93dd90 Initial 1 on "Commit B"
+            * a3419f5 Initial 1
 
         [O] #502 Commit A (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -87,7 +87,7 @@ else:
 
             This is commit A
 
-            * 48cad68 Initial 2 on "Commit A"
+            * ab3db60 Initial 2
 
         [O] #503 Commit B (gh/ezyang/4/head -> gh/ezyang/4/base)
 
@@ -97,25 +97,25 @@ else:
 
             This is commit B
 
-            * f16bff9 Initial 2 on "Commit B"
+            * f30ebce Initial 2
 
         Repository state:
 
-            * 7373182 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit A"
-            * cc75c4a (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit A"
-            * e93dd90 (gh/ezyang/2/head)
-            |    Initial 1 on "Commit B"
-            * 211ed82 (gh/ezyang/2/base)
-                 Update base for Initial 1 on "Commit B"
-            * 48cad68 (gh/ezyang/3/head)
-            |    Initial 2 on "Commit A"
-            * adb13d7 (gh/ezyang/3/base)
-                 Update base for Initial 2 on "Commit A"
-            * f16bff9 (gh/ezyang/4/head)
-            |    Initial 2 on "Commit B"
-            * c7e3a0c (gh/ezyang/4/base)
-                 Update base for Initial 2 on "Commit B"
+            * 55ee788 (gh/ezyang/1/head)
+            |    Initial 1
+            * 5434862 (gh/ezyang/1/base)
+                 Initial 1 (base update)
+            * a3419f5 (gh/ezyang/2/head)
+            |    Initial 1
+            * c66825d (gh/ezyang/2/base)
+                 Initial 1 (base update)
+            * ab3db60 (gh/ezyang/3/head)
+            |    Initial 2
+            * e957508 (gh/ezyang/3/base)
+                 Initial 2 (base update)
+            * f30ebce (gh/ezyang/4/head)
+            |    Initial 2
+            * 94673ed (gh/ezyang/4/base)
+                 Initial 2 (base update)
         """
     )

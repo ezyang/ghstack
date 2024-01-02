@@ -34,7 +34,7 @@ else:
     assert_expected_raises_inline(
         RuntimeError,
         lambda: gh_submit("Initial 2"),
-        """The commit bf7ce671c293e697b02ea2e5b53c794305d9eb73 has 0 parents, which makes my head explode.  `git rebase -i` your diffs into a stack, then try again.""",
+        """The commit 3e4048c2f33782ae288f36f5fa10281ce0bdb6ec has 0 parents, which makes my head explode.  `git rebase -i` your diffs into a stack, then try again.""",
     )
 
 # ------------------------------------------------------------------------- #

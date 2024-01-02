@@ -44,14 +44,14 @@ else:
 
             This is commit A
 
-            * 856b1b6 New PR on "Commit A"
+            * 5f66713 New PR
 
         Repository state:
 
-            * 856b1b6 (gh/ezyang/1/head)
-            |    New PR on "Commit A"
-            * 787f322 (gh/ezyang/1/base)
-                 Update base for New PR on "Commit A"
+            * 5f66713 (gh/ezyang/1/head)
+            |    New PR
+            * dd7d794 (gh/ezyang/1/base)
+                 New PR (base update)
         """
     )
 
