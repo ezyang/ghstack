@@ -18,12 +18,12 @@ if is_direct():
 
             Original message
 
-            * aed2eaf Initial 1 on "Commit 1"
+            * 6c1d876 Initial 1
 
         Repository state:
 
-            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
+            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -38,14 +38,14 @@ else:
 
             Original message
 
-            * e0c08a4 Initial 1 on "Commit 1"
+            * 20ec3e0 Initial 1
 
         Repository state:
 
-            * e0c08a4 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
-            * bf7ce67 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit 1"
+            * 20ec3e0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )
 
@@ -78,20 +78,20 @@ if is_direct():
 
             Directly updated message body
 
-            * aed2eaf Initial 1 on "Commit 1"
+            * 6c1d876 Initial 1
 
         [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/1/head)
 
 
 
-            * 3b3a497 Initial 2 on "Commit 2"
+            * ea46774 Initial 2
 
         Repository state:
 
-            * 3b3a497 (gh/ezyang/2/next, gh/ezyang/2/head)
-            |    Initial 2 on "Commit 2"
-            * aed2eaf (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
+            * ea46774 (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Initial 2
+            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
@@ -107,7 +107,7 @@ else:
 
             Directly updated message body
 
-            * e0c08a4 Initial 1 on "Commit 1"
+            * 20ec3e0 Initial 1
 
         [O] #501 Commit 2 (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -117,17 +117,17 @@ else:
 
 
 
-            * 9357368 Initial 2 on "Commit 2"
+            * 43303fd Initial 2
 
         Repository state:
 
-            * 9357368 (gh/ezyang/2/head)
-            |    Initial 2 on "Commit 2"
-            * f1dde2f (gh/ezyang/2/base)
-                 Update base for Initial 2 on "Commit 2"
-            * e0c08a4 (gh/ezyang/1/head)
-            |    Initial 1 on "Commit 1"
-            * bf7ce67 (gh/ezyang/1/base)
-                 Update base for Initial 1 on "Commit 1"
+            * 43303fd (gh/ezyang/2/head)
+            |    Initial 2
+            * 7315319 (gh/ezyang/2/base)
+                 Initial 2 (base update)
+            * 20ec3e0 (gh/ezyang/1/head)
+            |    Initial 1
+            * 3e4048c (gh/ezyang/1/base)
+                 Initial 1 (base update)
         """
     )

@@ -24,13 +24,13 @@ if not is_direct():
 
             This is my first commit
 
-            * 8b630a1 Initial on "Commit 1"
+            * cfa2c39 Initial
 
         Repository state:
 
-            * 8b630a1 (gh/ezyang/1/head)
-            |    Initial on "Commit 1"
-            * 1658d0f (gh/ezyang/1/base)
-                 Update base for Initial on "Commit 1"
+            * cfa2c39 (gh/ezyang/1/head)
+            |    Initial
+            * bd0a7b9 (gh/ezyang/1/base)
+                 Initial (base update)
         """,
     )

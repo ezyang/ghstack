@@ -23,28 +23,28 @@ if is_direct():
 
             This is commit A
 
-            * dc45e07 Rebase on "Commit A"
-            * c3ca023 Initial 1 on "Commit A"
+            * b0558d8 Rebase
+            * 8c7d059 Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
             This is commit B
 
-            * 952418e Rebase on "Commit B"
-            * 09a6970 Initial 2 on "Commit B"
+            * 0f3659f Rebase
+            * 0243aa2 Initial 2
 
         Repository state:
 
-            *   952418e (gh/ezyang/2/next, gh/ezyang/2/head)
-            |\\     Rebase on "Commit B"
-            | *   dc45e07 (gh/ezyang/1/next, gh/ezyang/1/head)
-            | |\\     Rebase on "Commit A"
+            *   0f3659f (gh/ezyang/2/next, gh/ezyang/2/head)
+            |\\     Rebase
+            | *   b0558d8 (gh/ezyang/1/next, gh/ezyang/1/head)
+            | |\\     Rebase
             | | * 7ceeaa9 (HEAD -> master)
             | | |    Commit M
-            * | | 09a6970
-            |/ /     Initial 2 on "Commit B"
-            * / c3ca023
-            |/     Initial 1 on "Commit A"
+            * | | 0243aa2
+            |/ /     Initial 2
+            * / 8c7d059
+            |/     Initial 1
             * dc8bfe4
                  Initial commit
         """
@@ -60,8 +60,8 @@ else:
 
             This is commit A
 
-            * 51b1590 Rebase on "Commit A"
-            * f4778ef Initial 1 on "Commit A"
+            * 0ed6144 Rebase
+            * 36498d0 Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -71,26 +71,26 @@ else:
 
             This is commit B
 
-            * f33fe2b Rebase on "Commit B"
-            * f16bff9 Initial 2 on "Commit B"
+            * e92f0ac Rebase
+            * f30ebce Initial 2
 
         Repository state:
 
-            *   51b1590 (gh/ezyang/1/head)
-            |\\     Rebase on "Commit A"
-            | * 0c51c0c (gh/ezyang/1/base)
-            | |    Update base for Rebase on "Commit A"
-            * | f4778ef
-            |/     Initial 1 on "Commit A"
-            * 6b23cb6
-                 Update base for Initial 1 on "Commit A"
-            *   f33fe2b (gh/ezyang/2/head)
-            |\\     Rebase on "Commit B"
-            | * 96db6fb (gh/ezyang/2/base)
-            | |    Update base for Rebase on "Commit B"
-            * | f16bff9
-            |/     Initial 2 on "Commit B"
-            * c7e3a0c
-                 Update base for Initial 2 on "Commit B"
+            *   0ed6144 (gh/ezyang/1/head)
+            |\\     Rebase
+            | * a094338 (gh/ezyang/1/base)
+            | |    Rebase (base update)
+            * | 36498d0
+            |/     Initial 1
+            * 3e4048c
+                 Initial 1 (base update)
+            *   e92f0ac (gh/ezyang/2/head)
+            |\\     Rebase
+            | * c1ad9fe (gh/ezyang/2/base)
+            | |    Rebase (base update)
+            * | f30ebce
+            |/     Initial 2
+            * 94673ed
+                 Initial 2 (base update)
         """
     )

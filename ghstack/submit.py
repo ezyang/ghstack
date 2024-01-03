@@ -1199,9 +1199,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                         *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
                         *base_args,
                         base.tree,
-                        input='Update base for {} on "{}"\n\n[ghstack-poisoned]'.format(
-                            self.msg, diff.title
-                        ),
+                        input="{} (base update)\n\n[ghstack-poisoned]".format(self.msg),
                     )
                 )
                 head_args.extend(("-p", new_base))
@@ -1356,9 +1354,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                     *ghstack.gpg_sign.gpg_args_if_necessary(self.sh),
                     *head_args,
                     diff.tree,
-                    input='{} on "{}"\n\n[ghstack-poisoned]'.format(
-                        self.msg, diff.title
-                    ),
+                    input="{}\n\n[ghstack-poisoned]".format(self.msg),
                 )
             )
             if self.direct:
