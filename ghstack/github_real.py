@@ -17,11 +17,19 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
 
     # The URL of the GraphQL endpoint to connect to
-    graphql_endpoint: str = "https://api.{github_url}/graphql"
+    graphql_endpoint: str
+    if "{github_url}" == "github.com":
+        graphql_endpoint = "https://api.{github_url}/graphql"
+    else:
+        graphql_endpoint = "https://{github_url}/api/graphql"
 
     # The base URL of the REST endpoint to connect to (all REST requests
     # will be subpaths of this URL)
-    rest_endpoint: str = "https://api.{github_url}"
+    rest_endpoint: str
+    if "{github_url}" == "github.com":
+        rest_endpoint = "https://api.{github_url}"
+    else:
+        rest_endpoint = "https://{github_url}/api/v3"
 
     # The base URL of regular WWW website, in case we need to manually
     # interact with the real website

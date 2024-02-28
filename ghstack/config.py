@@ -140,8 +140,13 @@ def read_config(
     if config.has_option("ghstack", "github_username"):
         github_username = config.get("ghstack", "github_username")
     if github_username is None and github_oauth is not None:
+        request_url: str
+        if "{github_url}" == "github.com":
+            request_url = f"https://api.{github_url}/user"
+        else:
+            request_url = f"https://{github_url}/api/v3/user"
         res = requests.get(
-            f"https://api.{github_url}/user",
+            request_url,
             headers={
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {github_oauth}",
