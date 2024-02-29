@@ -100,7 +100,7 @@ def read_config(
         res = requests.post(
             f"https://{github_url}/login/device/code",
             headers={"Accept": "application/json"},
-            data={"client_id": CLIENT_ID, "scope": "public_repo"},
+            data={"client_id": CLIENT_ID, "scope": "repo"},
         )
         data = res.json()
         print(f"User verification code: {data['user_code']}")
