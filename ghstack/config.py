@@ -141,7 +141,7 @@ def read_config(
         github_username = config.get("ghstack", "github_username")
     if github_username is None and github_oauth is not None:
         request_url: str
-        if "{github_url}" == "github.com":
+        if github_url == "github.com":
             request_url = f"https://api.{github_url}/user"
         else:
             request_url = f"https://{github_url}/api/v3/user"
@@ -153,6 +153,7 @@ def read_config(
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
+        res.raise_for_status()
         github_username = res.json()["login"]
         config.set("ghstack", "github_username", github_username)
         write_back = True
