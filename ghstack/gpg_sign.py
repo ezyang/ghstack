@@ -11,6 +11,7 @@ This module will retain this behavior:
 We will attempt to sign as long as `commit.gpgsign` is true.
 If not key is configure, error will occur
 """
+
 from typing import Tuple, Union
 
 import ghstack.shell
