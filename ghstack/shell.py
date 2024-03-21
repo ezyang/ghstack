@@ -233,23 +233,16 @@ class Shell(object):
             return s
 
     @overload  # noqa: F811
-    def git(self, *args: str) -> str:
-        ...
+    def git(self, *args: str) -> str: ...
 
     @overload  # noqa: F811
-    def git(self, *args: str, input: str) -> str:
-
-        ...
+    def git(self, *args: str, input: str) -> str: ...
 
     @overload  # noqa: F811
-    def git(self, *args: str, input: str, env: Dict[str, str]) -> str:
-
-        ...
+    def git(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
 
     @overload  # noqa: F811
-    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET:
-
-        ...
+    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
 
     def git(self, *args: str, **kwargs: Any) -> _SHELL_RET:  # noqa: F811
         """
@@ -288,16 +281,13 @@ class Shell(object):
         return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
 
     @overload  # noqa: F811
-    def hg(self, *args: str) -> str:
-        ...
+    def hg(self, *args: str) -> str: ...
 
     @overload  # noqa: F811
-    def hg(self, *args: str, input: str) -> str:
-        ...
+    def hg(self, *args: str, input: str) -> str: ...
 
     @overload  # noqa: F811
-    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET:
-        ...
+    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
 
     def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET:  # noqa: F811
         """
