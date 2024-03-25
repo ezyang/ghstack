@@ -53,8 +53,8 @@ else:
 
             This is commit A
 
-            * 2c54930 Reorder
-            * ce752f6 Initial
+            * 56b24a9 Reorder
+            * 4afba7b Initial
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -64,26 +64,30 @@ else:
 
             This is commit B
 
-            * d85a07e Reorder
-            * 20d8f25 Initial
+            * a9a3f2b Reorder
+            * f420265 Initial
 
         Repository state:
 
-            *   2c54930 (gh/ezyang/1/head)
+            *   56b24a9 (gh/ezyang/1/head)
             |\\     Reorder
-            | * df39342 (gh/ezyang/1/base)
+            | * d4668d1 (gh/ezyang/1/base)
             | |    Reorder (base update)
-            * | ce752f6
+            * | 4afba7b
             |/     Initial
-            * 5a1c625
-                 Initial (base update)
-            *   d85a07e (gh/ezyang/2/head)
-            |\\     Reorder
-            | * 47b1e1f (gh/ezyang/2/base)
-            | |    Reorder (base update)
-            * | 20d8f25
-            |/     Initial
-            * 770af83
-                 Initial (base update)
+            * 13c3cb3
+            |    Initial (base update)
+            | *   a9a3f2b (gh/ezyang/2/head)
+            | |\\     Reorder
+            | | * 6d3e372 (gh/ezyang/2/base)
+            | | |    Reorder (base update)
+            | * | f420265
+            | |/     Initial
+            | * 8e45110
+            | |    Initial (base update)
+            | * c5f6953
+            |/     Commit A
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """
     )

@@ -54,7 +54,7 @@ else:
 
             This is commit A
 
-            * ab3db60 Initial 2
+            * 12d35d5 Initial 2
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -63,23 +63,25 @@ else:
 
             This is commit B
 
-            * 4c3b577 Cherry pick
-            * f30ebce Initial 2
+            * 2c3ea13 Cherry pick
+            * ca4399f Initial 2
 
         Repository state:
 
-            *   4c3b577 (gh/ezyang/2/head)
+            *   2c3ea13 (gh/ezyang/2/head)
             |\\     Cherry pick
-            | * f368920 (gh/ezyang/2/base)
+            | * a8c0a6e (gh/ezyang/2/base)
             | |    Cherry pick (base update)
-            * | f30ebce
+            * | ca4399f
             |/     Initial 2
-            * 94673ed
-                 Initial 2 (base update)
-            * ab3db60 (gh/ezyang/1/head)
-            |    Initial 2
-            * e957508 (gh/ezyang/1/base)
-                 Initial 2 (base update)
+            * c05297f
+            |    Initial 2 (base update)
+            | * 12d35d5 (gh/ezyang/1/head)
+            | |    Initial 2
+            | * f081adc (gh/ezyang/1/base)
+            |/     Initial 2 (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """
     )
 

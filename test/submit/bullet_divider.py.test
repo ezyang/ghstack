@@ -45,14 +45,16 @@ else:
             * It starts with a fabulous
             * Bullet list
 
-            * 6ee2f33 Initial
+            * 7e90855 Initial
 
         Repository state:
 
-            * 6ee2f33 (gh/ezyang/1/head)
+            * 7e90855 (gh/ezyang/1/head)
             |    Initial
-            * 4e54cdd (gh/ezyang/1/base)
-                 Initial (base update)
+            * 11e6d4d (gh/ezyang/1/base)
+            |    Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """
     )
 

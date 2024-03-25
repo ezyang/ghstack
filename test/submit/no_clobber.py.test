@@ -50,14 +50,16 @@ else:
 
             Directly updated message body
 
-            * 20ec3e0 Initial 1
+            * 54d43aa Initial 1
 
         Repository state:
 
-            * 20ec3e0 (gh/ezyang/1/head)
+            * 54d43aa (gh/ezyang/1/head)
             |    Initial 1
-            * 3e4048c (gh/ezyang/1/base)
-                 Initial 1 (base update)
+            * 5a32949 (gh/ezyang/1/base)
+            |    Initial 1 (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """
     )
 
@@ -100,16 +102,18 @@ else:
 
             Directly updated message body
 
-            * 4300988 Update 1
-            * 20ec3e0 Initial 1
+            * 66af150 Update 1
+            * 54d43aa Initial 1
 
         Repository state:
 
-            * 4300988 (gh/ezyang/1/head)
+            * 66af150 (gh/ezyang/1/head)
             |    Update 1
-            * 20ec3e0
+            * 54d43aa
             |    Initial 1
-            * 3e4048c (gh/ezyang/1/base)
-                 Initial 1 (base update)
+            * 5a32949 (gh/ezyang/1/base)
+            |    Initial 1 (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """
     )
