@@ -60,8 +60,8 @@ else:
 
             This is commit A
 
-            * 0ed6144 Rebase
-            * 36498d0 Initial 1
+            * cdf0f81 Rebase
+            * 36fcfdf Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -71,26 +71,32 @@ else:
 
             This is commit B
 
-            * e92f0ac Rebase
-            * f30ebce Initial 2
+            * d981090 Rebase
+            * ca4399f Initial 2
 
         Repository state:
 
-            *   0ed6144 (gh/ezyang/1/head)
+            *   cdf0f81 (gh/ezyang/1/head)
             |\\     Rebase
-            | * a094338 (gh/ezyang/1/base)
-            | |    Rebase (base update)
-            * | 36498d0
-            |/     Initial 1
-            * 3e4048c
-                 Initial 1 (base update)
-            *   e92f0ac (gh/ezyang/2/head)
-            |\\     Rebase
-            | * c1ad9fe (gh/ezyang/2/base)
-            | |    Rebase (base update)
-            * | f30ebce
-            |/     Initial 2
-            * 94673ed
-                 Initial 2 (base update)
+            | *   107d5ce (gh/ezyang/1/base)
+            | |\\     Rebase (base update)
+            * | | 36fcfdf
+            |/ /     Initial 1
+            * | 5a32949
+            | |    Initial 1 (base update)
+            | | *   d981090 (gh/ezyang/2/head)
+            | | |\\     Rebase
+            | | | *   d80b302 (gh/ezyang/2/base)
+            | | | |\\     Rebase (base update)
+            | | |_|/
+            | |/| |
+            | * | | 7ceeaa9 (HEAD -> master)
+            |/ / /     Commit M
+            | * / ca4399f
+            | |/     Initial 2
+            | * c05297f
+            |/     Initial 2 (base update)
+            * dc8bfe4
+                 Initial commit
         """
     )

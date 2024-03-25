@@ -58,14 +58,16 @@ else:
 
             This is commit TO_REPLACE
 
-            * bfe45a3 Initial
+            * 5bb1f7c Initial
 
         Repository state:
 
-            * bfe45a3 (gh/ezyang/1/head)
+            * 5bb1f7c (gh/ezyang/1/head)
             |    Initial
-            * 4e54cdd (gh/ezyang/1/base)
-                 Initial (base update)
+            * 11e6d4d (gh/ezyang/1/base)
+            |    Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """
     )
 
