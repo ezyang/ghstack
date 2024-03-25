@@ -23,10 +23,11 @@ python = "^3.8.1"
 requests = "^2"
 typing-extensions = ">=3 <5"
 click = "^8"
+flake8 = "^7.0.0"
 
 [tool.poetry.dev-dependencies]
-black = "^22.12.0"
-flake8 = "^6"
+black = "^24.3.0"
+flake8 = "^7"
 graphql-core = "^3"
 hypothesis = "^6"
 mypy = "^1"

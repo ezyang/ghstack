@@ -363,9 +363,9 @@ class Submitter:
     # did not exist on the stack at all), because they were associated
     # with a patch that contains no changes.  GhNumber may be false
     # if the diff was never associated with a PR.
-    ignored_diffs: List[
-        Tuple[ghstack.diff.Diff, Optional[DiffWithGitHubMetadata]]
-    ] = dataclasses.field(default_factory=list)
+    ignored_diffs: List[Tuple[ghstack.diff.Diff, Optional[DiffWithGitHubMetadata]]] = (
+        dataclasses.field(default_factory=list)
+    )
 
     # Set of seen ghnums
     seen_ghnums: Set[Tuple[str, GhNumber]] = dataclasses.field(default_factory=set)
@@ -692,9 +692,11 @@ class Submitter:
                 parent_commit,
                 parent_diff_meta,
                 diff,
-                self.elaborate_diff(diff)
-                if diff.pull_request_resolved is not None
-                else None,
+                (
+                    self.elaborate_diff(diff)
+                    if diff.pull_request_resolved is not None
+                    else None
+                ),
                 submit,
             )
             if diff_meta is not None:
@@ -952,9 +954,11 @@ to disassociate the commit with the pull request, and then try again.
                 [
                     f"{strip_mentions(diff.summary.rstrip())}\n\n",
                     f"ghstack-source-id: {diff.source_id}\n",
-                    f"ghstack-comment-id: {elab_diff.comment_id}\n"
-                    if self.direct
-                    else "",
+                    (
+                        f"ghstack-comment-id: {elab_diff.comment_id}\n"
+                        if self.direct
+                        else ""
+                    ),
                     f"Pull Request resolved: {pull_request_resolved.url()}",
                 ]
             )

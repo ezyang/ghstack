@@ -15,7 +15,8 @@ max-line-length = 120
 # W503 talks about operator formatting which is too opinionated.
 # C901 I like long functions
 # F403 should turn this on for ghstack/, lookup exclude format TODO
-ignore = E127, E128, E203, E265, E266, E402, E501, E722, P207, P208, W503, C901, F403, F405
+# E704 see https://github.com/PyCQA/flake8/issues/1925
+ignore = E127, E128, E203, E265, E266, E402, E501, E722, P207, P208, W503, C901, F403, F405, E704
 exclude =
   .git,
   .hg,

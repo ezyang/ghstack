@@ -116,11 +116,11 @@ def main() -> None:
 
     logging.basicConfig(
         format="<%(processName)s:%(levelname)s> %(message)s",
-        level=logging.NOTSET
-        if args.verbose
-        else logging.DEBUG
-        if len(args.filenames) < 1000
-        else logging.INFO,
+        level=(
+            logging.NOTSET
+            if args.verbose
+            else logging.DEBUG if len(args.filenames) < 1000 else logging.INFO
+        ),
         stream=sys.stderr,
     )
 
