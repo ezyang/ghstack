@@ -50,7 +50,7 @@ else:
 
             This is commit A
 
-            * 36498d0 Initial 1
+            * 36fcfdf Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -60,20 +60,24 @@ else:
 
             This is commit B
 
-            * 339d734 Update A
-            * f30ebce Initial 2
+            * 9a4a9ae Update A
+            * cfc0530 Initial 2
 
         Repository state:
 
-            * 339d734 (gh/ezyang/2/head)
+            * 9a4a9ae (gh/ezyang/2/head)
             |    Update A
-            * f30ebce
+            * cfc0530
             |    Initial 2
-            * 94673ed (gh/ezyang/2/base)
-                 Initial 2 (base update)
-            * 36498d0 (gh/ezyang/1/head)
-            |    Initial 1
-            * 3e4048c (gh/ezyang/1/base)
-                 Initial 1 (base update)
+            * bf457db (gh/ezyang/2/base)
+            |    Initial 2 (base update)
+            * 8b023bd
+            |    Commit A
+            | * 36fcfdf (gh/ezyang/1/head)
+            | |    Initial 1
+            | * 5a32949 (gh/ezyang/1/base)
+            |/     Initial 1 (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
         """,
     )
