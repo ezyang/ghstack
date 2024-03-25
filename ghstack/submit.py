@@ -1197,6 +1197,22 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 base_args: List[str] = []
                 if push_branches.base.commit is not None:
                     base_args.extend(("-p", push_branches.base.commit.commit_id))
+                # We don't technically need to do this, but often tooling
+                # relies on pull requests being able to compute merge-base
+                # with the main branch.  While the result you get here can be
+                # misleading (in particular, the merge-base will not
+                # incorporate changes on base, and if a ghstack has been
+                # rebased backwards in time, the merge-base will be stuck
+                # on the more recent commit), it is useful so we put it in.
+                extra_base = self.sh.git("merge-base", base.commit_id, self.base)
+                if push_branches.base.commit is None or not self.sh.git(
+                    "merge-base",
+                    "--is-ancestor",
+                    extra_base,
+                    push_branches.base.commit.commit_id,
+                    exitcode=True,
+                ):
+                    base_args.extend(("-p", extra_base))
                 new_base = GitCommitHash(
                     self.sh.git(
                         "commit-tree",
@@ -1676,7 +1692,9 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             # Direct commit parent typically have base, as it will be the
             # main branch
             if not self.direct:
-                assert not base_commit.parents
+                pass
+                # This is now set to the orig base
+                # assert not base_commit.parents
 
         # 8. Head branch is not malformed
         assert self.sh.git(

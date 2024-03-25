@@ -49,14 +49,18 @@ else:
 
             This is commit A
 
-            * dedc4f1 Initial 1
+            * 19687ac Initial 1
 
         Repository state:
 
-            * dedc4f1 (gh/ezyang/1/head)
+            * 19687ac (gh/ezyang/1/head)
             |    Initial 1
-            * ab82953 (gh/ezyang/1/base)
-                 Initial 1 (base update)
+            * 7687c36 (gh/ezyang/1/base)
+            |    Initial 1 (base update)
+            * 9ac8806 (release)
+            |    Commit R
+            * dc8bfe4
+                 Initial commit
         """
     )
 

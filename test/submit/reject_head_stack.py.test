@@ -34,7 +34,18 @@ else:
     assert_expected_raises_inline(
         RuntimeError,
         lambda: gh_submit("Initial 2"),
-        """The commit 3e4048c2f33782ae288f36f5fa10281ce0bdb6ec has 0 parents, which makes my head explode.  `git rebase -i` your diffs into a stack, then try again.""",
+        """\
+This commit is poisoned: it is from a head or base branch--ghstack
+cannot validly submit it.  The most common situation for this to
+happen is if you checked out the head branch of a pull request that was
+previously submitted with ghstack (e.g., by using hub checkout).
+Making modifications on the head branch is not supported; instead,
+you should fetch the original commits in question by running:
+
+ghstack checkout $PR_URL
+
+Since we cannot proceed, ghstack will abort now.
+""",
     )
 
 # ------------------------------------------------------------------------- #
