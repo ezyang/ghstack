@@ -119,16 +119,14 @@ else:
 
 
 
-            * 95915be Initial 2
+            * 95a2045 Initial 2
 
         Repository state:
 
-            * 95915be (gh/ezyang/2/head)
+            * 95a2045 (gh/ezyang/2/head)
             |    Initial 2
-            * 30049f9 (gh/ezyang/2/base)
+            * df3e13f (gh/ezyang/2/base)
             |    Initial 2 (base update)
-            * 6f81292
-            |    Commit 1
             | * 54d43aa (gh/ezyang/1/head)
             | |    Initial 1
             | * 5a32949 (gh/ezyang/1/base)
