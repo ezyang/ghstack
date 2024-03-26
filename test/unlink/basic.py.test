@@ -77,7 +77,7 @@ else:
 
             This is commit B
 
-            * d96fc53 Initial 1
+            * 16e1e12 Initial 1
 
         [O] #502 Commit A (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -97,7 +97,7 @@ else:
 
             This is commit B
 
-            * 9f380e7 Initial 2
+            * ca4399f Initial 2
 
         Repository state:
 
@@ -105,22 +105,18 @@ else:
             |    Initial 1
             * 73a877d (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            | * d96fc53 (gh/ezyang/2/head)
+            | * 16e1e12 (gh/ezyang/2/head)
             | |    Initial 1
-            | * 20df153 (gh/ezyang/2/base)
-            | |    Initial 1 (base update)
-            | * c5f6953
-            |/     Commit A
+            | * 9d4a439 (gh/ezyang/2/base)
+            |/     Initial 1 (base update)
             | * 12d35d5 (gh/ezyang/3/head)
             | |    Initial 2
             | * f081adc (gh/ezyang/3/base)
             |/     Initial 2 (base update)
-            | * 9f380e7 (gh/ezyang/4/head)
+            | * ca4399f (gh/ezyang/4/head)
             | |    Initial 2
-            | * 46cebf3 (gh/ezyang/4/base)
-            | |    Initial 2 (base update)
-            | * aefdf71
-            |/     Commit A
+            | * c05297f (gh/ezyang/4/base)
+            |/     Initial 2 (base update)
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """

@@ -50,7 +50,7 @@ else:
 
             This is commit B
 
-            * 9f28612 Initial 1 and 2
+            * 4b5463d Initial 1 and 2
 
         Repository state:
 
@@ -58,12 +58,10 @@ else:
             |    Initial 1 and 2
             * cc79b9e (gh/ezyang/1/base)
             |    Initial 1 and 2 (base update)
-            | * 9f28612 (gh/ezyang/2/head)
+            | * 4b5463d (gh/ezyang/2/head)
             | |    Initial 1 and 2
-            | * febf650 (gh/ezyang/2/base)
-            | |    Initial 1 and 2 (base update)
-            | * c5f6953
-            |/     Commit A
+            | * 954b129 (gh/ezyang/2/base)
+            |/     Initial 1 and 2 (base update)
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """
