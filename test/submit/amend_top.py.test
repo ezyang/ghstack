@@ -60,19 +60,17 @@ else:
 
             This is commit B
 
-            * 9a4a9ae Update A
-            * cfc0530 Initial 2
+            * 4bef30e Update A
+            * ca4399f Initial 2
 
         Repository state:
 
-            * 9a4a9ae (gh/ezyang/2/head)
+            * 4bef30e (gh/ezyang/2/head)
             |    Update A
-            * cfc0530
+            * ca4399f
             |    Initial 2
-            * bf457db (gh/ezyang/2/base)
+            * c05297f (gh/ezyang/2/base)
             |    Initial 2 (base update)
-            * 8b023bd
-            |    Commit A
             | * 36fcfdf (gh/ezyang/1/head)
             | |    Initial 1
             | * 5a32949 (gh/ezyang/1/base)

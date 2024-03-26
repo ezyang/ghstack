@@ -64,8 +64,8 @@ else:
 
             This is commit B
 
-            * a9a3f2b Reorder
-            * f420265 Initial
+            * b242138 Reorder
+            * c9f59d4 Initial
 
         Repository state:
 
@@ -77,16 +77,14 @@ else:
             |/     Initial
             * 13c3cb3
             |    Initial (base update)
-            | *   a9a3f2b (gh/ezyang/2/head)
+            | *   b242138 (gh/ezyang/2/head)
             | |\\     Reorder
-            | | * 6d3e372 (gh/ezyang/2/base)
+            | | * d082148 (gh/ezyang/2/base)
             | | |    Reorder (base update)
-            | * | f420265
+            | * | c9f59d4
             | |/     Initial
-            | * 8e45110
-            | |    Initial (base update)
-            | * c5f6953
-            |/     Commit A
+            | * 8e6f9ba
+            |/     Initial (base update)
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """

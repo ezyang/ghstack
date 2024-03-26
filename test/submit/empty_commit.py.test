@@ -17,16 +17,14 @@ else:
 
             This is commit B
 
-            * 50f7665 Initial
+            * ea3fb27 Initial
 
         Repository state:
 
-            * 50f7665 (gh/ezyang/1/head)
+            * ea3fb27 (gh/ezyang/1/head)
             |    Initial
-            * 23298b8 (gh/ezyang/1/base)
+            * 11e6d4d (gh/ezyang/1/base)
             |    Initial (base update)
-            * 31a6b65
-            |    Commit 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """

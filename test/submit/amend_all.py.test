@@ -67,8 +67,8 @@ else:
 
             This is commit B
 
-            * 3fb0bed Update A
-            * cfc0530 Initial 2
+            * 4050cf9 Update A
+            * ca4399f Initial 2
 
         Repository state:
 
@@ -78,16 +78,14 @@ else:
             |    Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            | *   3fb0bed (gh/ezyang/2/head)
+            | *   4050cf9 (gh/ezyang/2/head)
             | |\\     Update A
-            | | * edd4564 (gh/ezyang/2/base)
+            | | * 390391f (gh/ezyang/2/base)
             | | |    Update A (base update)
-            | * | cfc0530
+            | * | ca4399f
             | |/     Initial 2
-            | * bf457db
-            | |    Initial 2 (base update)
-            | * 8b023bd
-            |/     Commit A
+            | * c05297f
+            |/     Initial 2 (base update)
             * dc8bfe4 (HEAD -> master)
                  Initial commit
         """

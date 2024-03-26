@@ -1204,7 +1204,9 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 # incorporate changes on base, and if a ghstack has been
                 # rebased backwards in time, the merge-base will be stuck
                 # on the more recent commit), it is useful so we put it in.
-                extra_base = self.sh.git("merge-base", base.commit_id, self.base)
+                extra_base = self.sh.git(
+                    "merge-base", base.commit_id, f"{self.remote_name}/{self.base}"
+                )
                 if push_branches.base.commit is None or not self.sh.git(
                     "merge-base",
                     "--is-ancestor",
