@@ -27,7 +27,7 @@ def get_github_repo_name_with_owner(
     # Grovel in remotes to figure it out
     remote_url = sh.git("remote", "get-url", remote_name)
     while True:
-        match = r"^git@{github_url}:([^/]+)/(.+?)(?:\.git)?$".format(
+        match = r"^git@{github_url}:/?([^/]+)/(.+?)(?:\.git)?$".format(
             github_url=github_url
         )
         m = re.match(match, remote_url)
