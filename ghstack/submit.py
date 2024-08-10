@@ -406,7 +406,14 @@ class Submitter:
             default_branch = repo["default_branch"]
 
         object.__setattr__(self, "base", default_branch)
-        object.__setattr__(self, "direct", bool(self.direct_opt))
+
+        # Check if direct should be used, if the user didn't explicitly
+        # specify an option
+        direct = self.direct_opt
+        if direct is None:
+            direct = self.sh.git("cat-file", "-e", "HEAD:.github/ghstack_direct", exitcode=True)
+
+        object.__setattr__(self, "direct", direct)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # The main algorithm
