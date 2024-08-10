@@ -341,8 +341,8 @@ class Submitter:
 
     # Instead of merging into base branch, merge directly into the appropriate
     # main or head branch.  Change merge targets appropriately as PRs get
-    # merged
-    direct: bool = False
+    # merged.  If None, infer whether or not the PR should be direct or not.
+    direct_opt: Optional[bool] = None
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
@@ -355,6 +355,8 @@ class Submitter:
     repo_name: str = dataclasses.field(init=False)
 
     base: str = dataclasses.field(init=False)
+
+    direct: bool = dataclasses.field(init=False)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Mutable state; TODO: remove me
@@ -404,6 +406,7 @@ class Submitter:
             default_branch = repo["default_branch"]
 
         object.__setattr__(self, "base", default_branch)
+        object.__setattr__(self, "direct", bool(self.direct_opt))
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # The main algorithm

@@ -201,7 +201,7 @@ def gh_submit(
         repo_owner_opt="pytorch",
         repo_name_opt="pytorch",
         short=short,
-        direct=self.direct,
+        direct_opt=self.direct,
         no_skip=no_skip,
         github_url="github.com",
         remote_name="origin",
