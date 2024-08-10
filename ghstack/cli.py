@@ -57,7 +57,9 @@ def cli_context(
 @click.option("--force", is_flag=True, hidden=True)
 @click.option("--no-skip", is_flag=True, hidden=True)
 @click.option("--draft", is_flag=True, hidden=True)
-@click.option("--direct", is_flag=True, hidden=True)
+@click.option(
+    "--direct/--no-direct", "direct_opt", is_flag=True, hidden=True, default=None
+)
 @click.option("--base", "-B", default=None, hidden=True)
 @click.option("--stack/--no-stack", "-s/-S", is_flag=True, default=True, hidden=True)
 def main(
@@ -67,7 +69,7 @@ def main(
     update_fields: bool,
     short: bool,
     force: bool,
-    direct: bool,
+    direct_opt: Optional[bool],
     no_skip: bool,
     draft: bool,
     base: Optional[str],
@@ -89,7 +91,7 @@ def main(
             draft=draft,
             base=base,
             stack=stack,
-            direct=direct,
+            direct_opt=direct_opt,
         )
 
 
@@ -226,7 +228,11 @@ def status(pull_request: str) -> None:
     "listed in the command line.",
 )
 @click.option(
-    "--direct", is_flag=True, help="Create stack that directly merges into master"
+    "--direct/--no-direct",
+    "direct_opt",
+    default=None,
+    is_flag=True,
+    help="Create stack that directly merges into master",
 )
 @click.argument(
     "revs",
@@ -240,7 +246,7 @@ def submit(
     force: bool,
     no_skip: bool,
     draft: bool,
-    direct: bool,
+    direct_opt: Optional[bool],
     base: Optional[str],
     revs: Tuple[str, ...],
     stack: bool,
@@ -264,7 +270,7 @@ def submit(
             base_opt=base,
             revs=revs,
             stack=stack,
-            direct=direct,
+            direct_opt=direct_opt,
         )
 
 
