@@ -411,7 +411,11 @@ class Submitter:
         # specify an option
         direct = self.direct_opt
         if direct is None:
-            direct = self.sh.git("cat-file", "-e", "HEAD:.github/ghstack_direct", exitcode=True)
+            direct_r = self.sh.git(
+                "cat-file", "-e", "HEAD:.github/ghstack_direct", exitcode=True
+            )
+            assert isinstance(direct_r, bool)
+            direct = direct_r
 
         object.__setattr__(self, "direct", direct)
 
@@ -674,7 +678,6 @@ class Submitter:
         commits_to_submit: List[ghstack.git.CommitHeader],
         commits_to_rebase: List[ghstack.git.CommitHeader],
     ) -> Tuple[Dict[GitCommitHash, DiffMeta], Dict[GitCommitHash, GitCommitHash]]:
-
         # Prepare diffs in reverse topological order.
         # (Reverse here is important because we must have processed parents
         # first.)
