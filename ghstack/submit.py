@@ -406,7 +406,18 @@ class Submitter:
             default_branch = repo["default_branch"]
 
         object.__setattr__(self, "base", default_branch)
-        object.__setattr__(self, "direct", bool(self.direct_opt))
+
+        # Check if direct should be used, if the user didn't explicitly
+        # specify an option
+        direct = self.direct_opt
+        if direct is None:
+            direct_r = self.sh.git(
+                "cat-file", "-e", "HEAD:.github/ghstack_direct", exitcode=True
+            )
+            assert isinstance(direct_r, bool)
+            direct = direct_r
+
+        object.__setattr__(self, "direct", direct)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # The main algorithm
@@ -667,7 +678,6 @@ class Submitter:
         commits_to_submit: List[ghstack.git.CommitHeader],
         commits_to_rebase: List[ghstack.git.CommitHeader],
     ) -> Tuple[Dict[GitCommitHash, DiffMeta], Dict[GitCommitHash, GitCommitHash]]:
-
         # Prepare diffs in reverse topological order.
         # (Reverse here is important because we must have processed parents
         # first.)
