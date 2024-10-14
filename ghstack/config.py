@@ -69,7 +69,7 @@ def read_config(
 
     write_back = False
     if config_path is None:
-        config_path = str(get_path_from_env_var(GHSTACKRC_PATH_VAR)) or str(DEFAULT_GHSTACKRC_PATH)
+        config_path = str(get_path_from_env_var(GHSTACKRC_PATH_VAR) or (DEFAULT_GHSTACKRC_PATH))
         write_back = True
 
     logging.debug(f"config_path = {config_path}")
