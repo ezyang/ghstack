@@ -12,6 +12,9 @@ import requests
 
 import ghstack.logs
 
+DEFAULT_GHSTACKRC_PATH = Path.home() / ".ghstackrc"
+GHSTACKRC_PATH_VAR = "GHSTACKRC_PATH"
+
 Config = NamedTuple(
     "Config",
     [
@@ -41,6 +44,12 @@ Config = NamedTuple(
 )
 
 
+def get_path_from_env_var(var_name: str) -> Optional[Path]:
+    if (path := os.environ.get(var_name)) is not None:
+        return Path(path).expanduser().resolve()
+    return None
+
+
 def read_config(
     *,
     request_circle_token: bool = False,
@@ -60,7 +69,9 @@ def read_config(
 
     write_back = False
     if config_path is None:
-        config_path = os.path.expanduser("~/.ghstackrc")
+        config_path = str(
+            get_path_from_env_var(GHSTACKRC_PATH_VAR) or DEFAULT_GHSTACKRC_PATH
+        )
         write_back = True
 
     logging.debug(f"config_path = {config_path}")
