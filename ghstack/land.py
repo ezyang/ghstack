@@ -57,7 +57,7 @@ def main(
     # Furthermore, the parent commits of PR are ignored: we always
     # take the canonical version of the patch from any given pr
 
-    params = ghstack.github_utils.parse_pull_request(pull_request)
+    params = ghstack.github_utils.parse_pull_request(pull_request, sh=sh, remote_name=remote_name)
     default_branch = ghstack.github_utils.get_github_repo_info(
         github=github,
         sh=sh,

@@ -51,7 +51,8 @@ branch, and start working on a fresh branch.
 
 **WARNING.**  You will NOT be able to merge these commits using the
 normal GitHub UI, as their branch bases won't be master.  Use
-`ghstack land $PR_URL` to land a ghstack'ed pull request.
+`ghstack land $PR_URL` (or alternatively `ghtstack land #PR_NUM`) to land
+a ghstack'ed pull request.
 
 ## Structure of submitted pull requests
 
