@@ -116,10 +116,10 @@ GitHubPullRequestParams = TypedDict(
 
 
 def parse_pull_request(
-        pull_request: str,
-        *,
-        sh: Optional[ghstack.shell.Shell] = None,
-        remote_name: Optional[str] = None,
+    pull_request: str,
+    *,
+    sh: Optional[ghstack.shell.Shell] = None,
+    remote_name: Optional[str] = None,
 ) -> GitHubPullRequestParams:
     m = RE_PR_URL.match(pull_request)
     if not m:
