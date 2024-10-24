@@ -115,9 +115,23 @@ GitHubPullRequestParams = TypedDict(
 )
 
 
-def parse_pull_request(pull_request: str) -> GitHubPullRequestParams:
+def parse_pull_request(
+    pull_request: str,
+    *,
+    sh: Optional[ghstack.shell.Shell] = None,
+    remote_name: Optional[str] = None,
+) -> GitHubPullRequestParams:
     m = RE_PR_URL.match(pull_request)
     if not m:
+        # We can reconstruct the URL if just a PR number is passed
+        if sh is not None and remote_name is not None:
+            remote_url = sh.git("remote", "get-url", remote_name)
+            # Do not pass the shell to avoid infinite loop
+            try:
+                return parse_pull_request(remote_url + "/pull/" + pull_request)
+            except RuntimeError:
+                # Fall back on original error message
+                pass
         raise RuntimeError("Did not understand PR argument.  PR must be URL")
 
     github_url = m.group("github_url")
