@@ -15,7 +15,9 @@ def main(
     remote_name: str,
 ) -> None:
 
-    params = ghstack.github_utils.parse_pull_request(pull_request)
+    params = ghstack.github_utils.parse_pull_request(
+        pull_request, sh=sh, remote_name=remote_name
+    )
     head_ref = github.get_head_ref(**params)
     orig_ref = re.sub(r"/head$", "/orig", head_ref)
     if orig_ref == head_ref:
