@@ -63,7 +63,7 @@ assert_eq(
     ),
     {"owner": "ezyang", "name": "ghstack.dotted"},
 )
-git("remote", "add", "with-leading-slash", "git@github.com/ezyang/ghstack.git")
+git("remote", "add", "with-leading-slash", "git@github.com:/ezyang/ghstack.git")
 assert_eq(
     ghstack.github_utils.get_github_repo_name_with_owner(
         sh=sh, github_url="github.com", remote_name="with-leading-slash"
