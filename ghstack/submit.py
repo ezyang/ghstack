@@ -471,7 +471,9 @@ class Submitter:
             raise RuntimeError(
                 "Cowardly refusing to handle a stack with more than eight PRs.  "
                 "You are likely to get rate limited by GitHub if you try to create or "
-                "manipulate this many PRs.  You can bypass this throttle using --force"
+                "manipulate this many PRs.  To submit a single diff from your stack, "
+                "run `ghstack --no-stack HEAD` (replace HEAD with the desired commit ID). "
+                "To YOLO the entire stack, pass --force"
             )
 
         # This is not really accurate if you're doing a fancy pattern;
