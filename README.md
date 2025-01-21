@@ -40,6 +40,16 @@ run `ghstack` again.  If the commit is at the top of your stack,
 you can edit it with `git commit --amend`; otherwise, you'll have
 to use `git rebase -i` to edit the commit directly.
 
+**How do I interleave a new commit between two existing ones?** You can use
+`git rebase -i` to interleave a new commit between two existing ones. Start
+by running `git rebase -i <hash>`, where `<hash>` is the parent commit of
+where you want to insert the new commit. In the interactive rebase menu, mark
+the commit that should come after your new commit as `edit`. Save and close the
+editor. Git will stop at the marked commit, allowing you to make your changes.
+After making your edits, use `git add ...` and `git commit -m "New commit"`. Finally,
+run `git rebase --continue` to complete the rebase process, and `ghstack` will
+interleave a new PR where needed.
+
 **How do I rebase?**  The obvious way: `git rebase origin/master`.
 Don't do a `git merge`; `ghstack` will throw a hissy fit if you
 do that.  (There's also a more fundamental reason why this
