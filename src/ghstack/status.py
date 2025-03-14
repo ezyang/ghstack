@@ -77,7 +77,7 @@ async def main(
         }
     }
     """,
-        **params
+        **params,
     )
     contexts = r["data"]["repository"]["pullRequest"]["commits"]["nodes"][0]["commit"][
         "status"

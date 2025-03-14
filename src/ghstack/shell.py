@@ -92,7 +92,7 @@ class Shell(object):
         stdin: _HANDLE = None,
         stdout: _HANDLE = subprocess.PIPE,
         exitcode: bool = False,
-        tick: bool = False
+        tick: bool = False,
     ) -> _SHELL_RET:
         """
         Run a command specified by args, and return string representing

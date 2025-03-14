@@ -38,7 +38,7 @@ class GitHubEndpoint(metaclass=ABCMeta):
                 }
             }
         """,
-            **params
+            **params,
         )
         r = pr_result["data"]["repository"]["pullRequest"]["headRefName"]
         assert isinstance(r, str), type(r)

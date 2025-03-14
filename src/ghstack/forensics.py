@@ -73,7 +73,7 @@ async def main(
         }
     }
     """,
-        **params
+        **params,
     )
     nodes = r["data"]["repository"]["pullRequest"]["commits"]["nodes"]
 
