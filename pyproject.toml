@@ -1,44 +1,45 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Edward Z. Yang", email = "ezyang@mit.edu"},
+]
+license = {text = "MIT"}
+requires-python = "<4.0.0,>=3.8.1"
+dependencies = [
+    "aiohttp<4,>=3",
+    "importlib-metadata>=1.4; python_version < \"3.8\"",
+    "requests<3,>=2",
+    "typing-extensions>=3",
+    "click<9,>=8",
+    "flake8<8.0.0,>=7.0.0",
+]
 name = "ghstack"
 version = "0.9.4"
-authors = ["Edward Z. Yang <ezyang@mit.edu>"]
 description = "Stack diff support for GitHub"
 readme = "README.md"
-repository = "https://github.com/ezyang/ghstack"
-include = ["ghstack/py.typed"]
-license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
-[tool.poetry.scripts]
+[project.urls]
+repository = "https://github.com/ezyang/ghstack"
+
+[project.scripts]
 ghstack = "ghstack.cli:main"
 
-[tool.poetry.dependencies]
-aiohttp = "^3"
-importlib-metadata = { version = ">=1.4", python = "<3.8" }
-python = "^3.8.1"
-requests = "^2"
-typing-extensions = ">=3 <5"
-click = "^8"
-flake8 = "^7.0.0"
-
-[tool.poetry.dev-dependencies]
-black = "^24.3.0"
-flake8 = "^7"
-graphql-core = "^3"
-hypothesis = "^6"
-mypy = "^1"
-pytest = "^7"
-usort = "^1"
-ufmt = "^2"
-lintrunner = "^0.11.0"
-types-requests = "^2.31.0.10"
-pytest-xdist = "^3.5.0"
-expecttest = "^0.2.0"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+    "black<25.0.0,>=24.3.0",
+    "flake8<8,>=7",
+    "graphql-core<4,>=3",
+    "hypothesis<7,>=6",
+    "mypy<2,>=1",
+    "pytest<8,>=7",
+    "usort<2,>=1",
+    "ufmt<3,>=2",
+    "lintrunner<1.0.0,>=0.11.0",
+    "types-requests<3.0.0.0,>=2.31.0.10",
+    "pytest-xdist<4.0.0,>=3.5.0",
+    "expecttest<1.0.0,>=0.2.0",
+]
