@@ -26,7 +26,7 @@ def main(
             }
         }
     """,
-        **params
+        **params,
     )
     pr_id = pr_result["data"]["repository"]["pullRequest"]["id"]
 
