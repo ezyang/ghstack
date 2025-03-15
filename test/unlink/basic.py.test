@@ -31,13 +31,11 @@ if is_direct():
             This is commit A
 
 
-
             * 2193fd2 Initial 2
 
         [O] #503 Commit B (gh/ezyang/4/head -> gh/ezyang/3/head)
 
             This is commit B
-
 
 
             * ce2fa9b Initial 2
