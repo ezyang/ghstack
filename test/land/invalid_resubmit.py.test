@@ -11,7 +11,7 @@ pr_url = diff.pr_url
 gh_land(pr_url)
 
 write_file_and_add("file2.txt", "A")
-git("commit", "--amend")
+git("commit", "--amend", "--no-edit")
 assert_expected_raises_inline(
     RuntimeError,
     lambda: gh_submit("Update"),
@@ -44,15 +44,15 @@ else:
 
             This is commit A
 
-            * edc8acf New PR
+            * 15fe144 New PR
 
         Repository state:
 
-            * edc8acf (gh/ezyang/1/head)
+            * 15fe144 (gh/ezyang/1/head)
             |    New PR
-            * b38da4f (gh/ezyang/1/base)
+            * 50a39a3 (gh/ezyang/1/base)
             |    New PR (base update)
-            * 8b023bd (HEAD -> master)
+            * 4b1919a (HEAD -> master)
             |    Commit A
             * dc8bfe4
                  Initial commit
