@@ -17,7 +17,7 @@ if is_direct():
 
         ghstack-source-id: ac00f28640afe01e4299441bb5041cdf06d0b6b4
         ghstack-comment-id: 1500
-        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+        Pull-Request-resolved: https://github.com/pytorch/pytorch/pull/500""",
     )
 else:
     assert_expected_inline(
@@ -28,7 +28,7 @@ else:
         This is commit ARGLE
 
         ghstack-source-id: ac00f28640afe01e4299441bb5041cdf06d0b6b4
-        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+        Pull-Request-resolved: https://github.com/pytorch/pytorch/pull/500""",
     )
 
 if is_direct():
