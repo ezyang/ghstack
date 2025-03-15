@@ -44,10 +44,9 @@ if is_direct():
         This is my first commit, hello foobar Ivan
 
         Signed-off-by: foo@gmail.com
-
         ghstack-source-id: ddf506901b8d3c2b4079ec39e564f19bd5468397
         ghstack-comment-id: 1500
-        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+        Pull-Request-resolved: https://github.com/pytorch/pytorch/pull/500""",
     )
 else:
     assert_expected_inline(
@@ -60,7 +59,6 @@ else:
         This is my first commit, hello foobar Ivan
 
         Signed-off-by: foo@gmail.com
-
         ghstack-source-id: ddf506901b8d3c2b4079ec39e564f19bd5468397
-        Pull Request resolved: https://github.com/pytorch/pytorch/pull/500""",
+        Pull-Request-resolved: https://github.com/pytorch/pytorch/pull/500""",
     )
