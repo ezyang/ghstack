@@ -815,7 +815,7 @@ as it supports bidirectional syncing.  However, there is no way to
 convert a pre-existing PR in the old style to the new format which
 supports bidirectional syncing.  If you would like to blow away the old
 PR and start anew, edit the Summary in the Phabricator diff to delete
-the line 'Pull Request resolved' and then run ghexport again.
+the line 'Pull-Request-resolved' and then run ghexport again.
 """
             )
 
@@ -832,7 +832,7 @@ the Phabricator diff page?  If so, please continue to use that button
 to export your diff.
 
 If you think this is in error, edit the Summary in the Phabricator diff
-to delete the line 'Pull Request resolved' and then run ghexport again.
+to delete the line 'Pull-Request-resolved' and then run ghexport again.
 """
                 )
             else:
@@ -963,17 +963,14 @@ to disassociate the commit with the pull request, and then try again.
             commit_msg = self._update_source_id(diff.summary, elab_diff)
         else:
             # Need to insert metadata for the first time
-            commit_msg = "".join(
-                [
-                    f"{strip_mentions(diff.summary.rstrip())}\n\n",
-                    f"ghstack-source-id: {diff.source_id}\n",
-                    (
-                        f"ghstack-comment-id: {elab_diff.comment_id}\n"
-                        if self.direct
-                        else ""
-                    ),
-                    f"Pull Request resolved: {pull_request_resolved.url()}",
-                ]
+            # TODO: Probably quicker if we reimplement reinterpret-trailers
+            # in Python
+            commit_msg = self.sh.git(
+                "interpret-trailers",
+                "--trailer", f"ghstack-source-id: {diff.source_id}",
+                *(["--trailer", f"ghstack-comment-id: {elab_diff.comment_id}"] if self.direct else []),
+                "--trailer", f"Pull-Request-resolved: {pull_request_resolved.url()}",
+                input=strip_mentions(diff.summary.rstrip())
             )
 
         return DiffMeta(
