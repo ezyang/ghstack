@@ -54,6 +54,9 @@ normal GitHub UI, as their branch bases won't be master.  Use
 `ghstack land $PR_URL` (or alternatively `ghstack land #PR_NUM`) to land
 a ghstack'ed pull request.
 
+You can also setup a GitHub action to allow a bot land.
+https://github.com/Chillee/ghstack_land_example/blob/main/.github/workflows/issue_comment.yml is an end-to-end example of how to do this.
+
 ## Structure of submitted pull requests
 
 Every commit in your local commit stack gets submitted into a separate
