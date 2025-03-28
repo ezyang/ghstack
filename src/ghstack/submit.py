@@ -1480,6 +1480,30 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         force_push_branches: List[str] = []
 
         for s in reversed(diffs_to_submit):
+            # It is VERY important that we do base updates BEFORE real
+            # head updates, otherwise GitHub will spuriously think that
+            # the user pushed a number of patches as part of the PR,
+            # when actually they were just from the (new) upstream
+            # branch
+
+            for diff, b in s.push_branches:
+                if b == "orig":
+                    q = force_push_branches
+                elif b == "base":
+                    q = base_push_branches
+                else:
+                    q = push_branches
+                q.append(push_spec(diff, branch(s.username, s.ghnum, b)))
+        # Careful!  Don't push master.
+        # TODO: These pushes need to be atomic (somehow)
+        if base_push_branches:
+            self._git_push(base_push_branches)
+        if push_branches:
+            self._git_push(push_branches, force=self.force)
+        if force_push_branches:
+            self._git_push(force_push_branches, force=True)
+
+        for s in reversed(diffs_to_submit):
             # NB: GraphQL API does not support modifying PRs
             assert not s.closed
             logging.info(
@@ -1515,29 +1539,6 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                     f"repos/{self.repo_owner}/{self.repo_name}/issues/comments/{s.elab_diff.comment_id}",
                     body=stack_desc,
                 )
-
-            # It is VERY important that we do base updates BEFORE real
-            # head updates, otherwise GitHub will spuriously think that
-            # the user pushed a number of patches as part of the PR,
-            # when actually they were just from the (new) upstream
-            # branch
-
-            for diff, b in s.push_branches:
-                if b == "orig":
-                    q = force_push_branches
-                elif b == "base":
-                    q = base_push_branches
-                else:
-                    q = push_branches
-                q.append(push_spec(diff, branch(s.username, s.ghnum, b)))
-        # Careful!  Don't push master.
-        # TODO: These pushes need to be atomic (somehow)
-        if base_push_branches:
-            self._git_push(base_push_branches)
-        if push_branches:
-            self._git_push(push_branches)
-        if force_push_branches:
-            self._git_push(force_push_branches, force=True)
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
