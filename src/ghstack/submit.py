@@ -1801,6 +1801,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             self.sh.git(
                 "push",
                 self.remote_name,
+                "--no-verify",
                 *(["--force"] if force else []),
                 *branches,
             )
