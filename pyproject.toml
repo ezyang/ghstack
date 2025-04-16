@@ -13,7 +13,7 @@ dependencies = [
     "flake8<8.0.0,>=7.0.0",
 ]
 name = "ghstack"
-version = "0.9.4"
+version = "0.9.5"
 description = "Stack diff support for GitHub"
 readme = "README.md"
 classifiers = [
