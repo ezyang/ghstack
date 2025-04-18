@@ -3,7 +3,7 @@
 Conveniently submit stacks of diffs to GitHub as separate pull requests.
 
 ```
-pip3 install ghstack
+uv tool install ghstack
 ```
 
 ghstack is tested with 
