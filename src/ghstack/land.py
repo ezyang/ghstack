@@ -168,7 +168,7 @@ to complain to the ghstack authors."""
             # TODO: regex here so janky
             base_ref = re.sub(r"/orig$", "/base", orig_ref)
             head_ref = re.sub(r"/orig$", "/head", orig_ref)
-            sh.git("push", remote_name, f"{remote_name}/{head_ref}:{base_ref}")
+            sh.git("push", remote_name, f"{remote_name}/{head_ref}:refs/heads/{base_ref}")
             github.notify_merged(pr_resolved)
 
         # All good! Push!
