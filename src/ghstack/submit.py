@@ -15,6 +15,7 @@ import ghstack.github_utils
 import ghstack.gpg_sign
 import ghstack.logs
 import ghstack.shell
+import ghstack.trailers
 from ghstack.types import GhNumber, GitCommitHash, GitHubNumber, GitHubRepositoryId
 
 # Either "base", "head" or "orig"; which of the ghstack generated
@@ -963,20 +964,18 @@ to disassociate the commit with the pull request, and then try again.
             commit_msg = self._update_source_id(diff.summary, elab_diff)
         else:
             # Need to insert metadata for the first time
-            # TODO: Probably quicker if we reimplement reinterpret-trailers
-            # in Python
-            commit_msg = self.sh.git(
-                "interpret-trailers",
-                "--trailer",
-                f"ghstack-source-id: {diff.source_id}",
-                *(
-                    ["--trailer", f"ghstack-comment-id: {elab_diff.comment_id}"]
-                    if self.direct
-                    else []
-                ),
-                "--trailer",
-                f"Pull-Request-resolved: {pull_request_resolved.url()}",
-                input=strip_mentions(diff.summary.rstrip()),
+            # Using our Python implementation of interpret-trailers
+            trailers_to_add = [f"ghstack-source-id: {diff.source_id}"]
+
+            if self.direct:
+                trailers_to_add.append(f"ghstack-comment-id: {elab_diff.comment_id}")
+
+            trailers_to_add.append(
+                f"Pull-Request-resolved: {pull_request_resolved.url()}"
+            )
+
+            commit_msg = ghstack.trailers.interpret_trailers(
+                strip_mentions(diff.summary.rstrip()), trailers_to_add
             )
 
         return DiffMeta(
