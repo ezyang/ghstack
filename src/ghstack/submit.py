@@ -970,11 +970,12 @@ to disassociate the commit with the pull request, and then try again.
             if self.direct:
                 trailers_to_add.append(f"ghstack-comment-id: {elab_diff.comment_id}")
 
-            trailers_to_add.append(f"Pull-Request-resolved: {pull_request_resolved.url()}")
+            trailers_to_add.append(
+                f"Pull-Request-resolved: {pull_request_resolved.url()}"
+            )
 
             commit_msg = ghstack.trailers.interpret_trailers(
-                strip_mentions(diff.summary.rstrip()),
-                trailers_to_add
+                strip_mentions(diff.summary.rstrip()), trailers_to_add
             )
 
         return DiffMeta(
