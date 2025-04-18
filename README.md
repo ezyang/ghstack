@@ -55,7 +55,8 @@ normal GitHub UI, as their branch bases won't be master.  Use
 a ghstack'ed pull request.
 
 You can also setup a GitHub action to allow a bot land.
-https://github.com/Chillee/ghstack_land_example/blob/main/.github/workflows/issue_comment.yml is an end-to-end example of how to do this.
+[ghstack_land_example](https://github.com/Chillee/ghstack_land_example/blob/main/.github/workflows/issue_comment.yml)
+is an end-to-end example of how to do this.
 
 ## Structure of submitted pull requests
 
