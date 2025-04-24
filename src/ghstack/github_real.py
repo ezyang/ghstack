@@ -189,15 +189,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             if resp.status_code in (403, 429):
                 remaining_count = resp.headers.get("x-ratelimit-remaining")
                 reset_time = resp.headers.get("x-ratelimit-reset")
-                error_msg = r.get("message", "")
 
                 if remaining_count == "0" and reset_time:
                     sleep_time = int(reset_time) - int(time.time())
                     logging.warning(f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds.")
                     time.sleep(sleep_time)
                     continue
-
-                if "secondary rate limit" in error_msg.lower():
+                else:
                     retry_after_seconds = resp.headers.get("retry-after")
                     if retry_after_seconds:
                         sleep_time = int(retry_after_seconds)
