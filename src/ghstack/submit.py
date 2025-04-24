@@ -468,12 +468,6 @@ class Submitter:
             raise RuntimeError(
                 "There appears to be no commits to process, based on the revs you passed me."
             )
-        elif commit_count > 8 and not self.force:
-            raise RuntimeError(
-                "Cowardly refusing to handle a stack with more than eight PRs.  "
-                "You are likely to get rate limited by GitHub if you try to create or "
-                "manipulate this many PRs.  You can bypass this throttle using --force"
-            )
 
         # This is not really accurate if you're doing a fancy pattern;
         # if this is a problem file us a bug.
