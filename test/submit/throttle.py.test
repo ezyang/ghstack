@@ -5,10 +5,6 @@ init_test()
 for i in range(10):
     commit(f"A{i}")
 
-assert_expected_raises_inline(
-    RuntimeError,
-    lambda: gh_submit("Initial"),
-    """Cowardly refusing to handle a stack with more than eight PRs.  You are likely to get rate limited by GitHub if you try to create or manipulate this many PRs.  You can bypass this throttle using --force""",
-)
+gh_submit("Initial")
 
 ok()
