@@ -2,10 +2,9 @@
 
 import json
 import logging
-import time
 import re
+import time
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
-from datetime import datetime
 
 import requests
 
@@ -13,6 +12,7 @@ import ghstack.github
 
 MAX_RETRIES = 5
 INITIAL_BACKOFF_SECONDS = 60
+
 
 class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
@@ -192,33 +192,39 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
                 if remaining_count == "0" and reset_time:
                     sleep_time = int(reset_time) - int(time.time())
-                    logging.warning(f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds.")
+                    logging.warning(
+                        f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
+                    )
                     time.sleep(sleep_time)
                     continue
                 else:
                     retry_after_seconds = resp.headers.get("retry-after")
                     if retry_after_seconds:
                         sleep_time = int(retry_after_seconds)
-                        logging.warning(f"Secondary rate limit hit. Sleeping for {sleep_time} seconds.")
+                        logging.warning(
+                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
+                        )
                     else:
                         sleep_time = backoff_seconds
-                        logging.warning(f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff).")
+                        logging.warning(
+                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
+                        )
                         backoff_seconds *= 2
                     time.sleep(sleep_time)
-                    continue    
+                    continue
 
             if resp.status_code == 404:
                 raise ghstack.github.NotFoundError(
                     """\
-    GitHub raised a 404 error on the request for
-    {url}.
-    Usually, this doesn't actually mean the page doesn't exist; instead, it
-    usually means that you didn't configure your OAuth token with enough
-    permissions.  Please create a new OAuth token at
-    https://{github_url}/settings/tokens and DOUBLE CHECK that you checked
-    "public_repo" for permissions, and update ~/.ghstackrc with your new
-    value.
-    """.format(
+GitHub raised a 404 error on the request for
+{url}.
+Usually, this doesn't actually mean the page doesn't exist; instead, it
+usually means that you didn't configure your OAuth token with enough
+permissions.  Please create a new OAuth token at
+https://{github_url}/settings/tokens and DOUBLE CHECK that you checked
+"public_repo" for permissions, and update ~/.ghstackrc with your new
+value.
+""".format(
                         url=url, github_url=self.github_url
                     )
                 )
@@ -229,5 +235,5 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 raise RuntimeError(pretty_json)
 
             return r
-        
-        raise RuntimeError(f"Exceeded maximum retries due to GitHub rate limiting")
+
+        raise RuntimeError("Exceeded maximum retries due to GitHub rate limiting")
