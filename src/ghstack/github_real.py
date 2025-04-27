@@ -3,11 +3,15 @@
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import requests
 
 import ghstack.github
+
+MAX_RETRIES = 5
+INITIAL_BACKOFF_SECONDS = 60
 
 
 class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
@@ -155,32 +159,63 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         }
 
         url = self.rest_endpoint.format(github_url=self.github_url) + "/" + path
-        logging.debug("# {} {}".format(method, url))
-        logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
-        resp: requests.Response = getattr(requests, method)(
-            url,
-            json=kwargs,
-            headers=headers,
-            proxies=self._proxies(),
-            verify=self.verify,
-            cert=self.cert,
-        )
+        backoff_seconds = INITIAL_BACKOFF_SECONDS
+        for attempt in range(0, MAX_RETRIES):
+            logging.debug("# {} {}".format(method, url))
+            logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
-        logging.debug("Response status: {}".format(resp.status_code))
+            resp: requests.Response = getattr(requests, method)(
+                url,
+                json=kwargs,
+                headers=headers,
+                proxies=self._proxies(),
+                verify=self.verify,
+                cert=self.cert,
+            )
 
-        try:
-            r = resp.json()
-        except ValueError:
-            logging.debug("Response body:\n{}".format(r.text))
-            raise
-        else:
-            pretty_json = json.dumps(r, indent=1)
-            logging.debug("Response JSON:\n{}".format(pretty_json))
+            logging.debug("Response status: {}".format(resp.status_code))
 
-        if resp.status_code == 404:
-            raise ghstack.github.NotFoundError(
-                """\
+            try:
+                r = resp.json()
+            except ValueError:
+                logging.debug("Response body:\n{}".format(r.text))
+                raise
+            else:
+                pretty_json = json.dumps(r, indent=1)
+                logging.debug("Response JSON:\n{}".format(pretty_json))
+
+            # Per Github rate limiting: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+            if resp.status_code in (403, 429):
+                remaining_count = resp.headers.get("x-ratelimit-remaining")
+                reset_time = resp.headers.get("x-ratelimit-reset")
+
+                if remaining_count == "0" and reset_time:
+                    sleep_time = int(reset_time) - int(time.time())
+                    logging.warning(
+                        f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
+                    )
+                    time.sleep(sleep_time)
+                    continue
+                else:
+                    retry_after_seconds = resp.headers.get("retry-after")
+                    if retry_after_seconds:
+                        sleep_time = int(retry_after_seconds)
+                        logging.warning(
+                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
+                        )
+                    else:
+                        sleep_time = backoff_seconds
+                        logging.warning(
+                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
+                        )
+                        backoff_seconds *= 2
+                    time.sleep(sleep_time)
+                    continue
+
+            if resp.status_code == 404:
+                raise ghstack.github.NotFoundError(
+                    """\
 GitHub raised a 404 error on the request for
 {url}.
 Usually, this doesn't actually mean the page doesn't exist; instead, it
@@ -190,13 +225,15 @@ https://{github_url}/settings/tokens and DOUBLE CHECK that you checked
 "public_repo" for permissions, and update ~/.ghstackrc with your new
 value.
 """.format(
-                    url=url, github_url=self.github_url
+                        url=url, github_url=self.github_url
+                    )
                 )
-            )
 
-        try:
-            resp.raise_for_status()
-        except requests.HTTPError:
-            raise RuntimeError(pretty_json)
+            try:
+                resp.raise_for_status()
+            except requests.HTTPError:
+                raise RuntimeError(pretty_json)
 
-        return r
+            return r
+
+        raise RuntimeError("Exceeded maximum retries due to GitHub rate limiting")
