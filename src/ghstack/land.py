@@ -187,7 +187,13 @@ to complain to the ghstack authors."""
             base_ref = re.sub(r"/orig$", "/base", orig_ref)
             head_ref = re.sub(r"/orig$", "/head", orig_ref)
             try:
-                sh.git("push", remote_name, "--delete", orig_ref, base_ref, head_ref)
+                sh.git("push", remote_name, "--delete", orig_ref, base_ref)
+            except RuntimeError:
+                # Whatever, keep going
+                logging.warning("Failed to delete branch, continuing", exc_info=True)
+            # Try deleting head_ref separately since often after it's merged it doesn't exist anymore
+            try:
+                sh.git("push", remote_name, "--delete", head_ref)
             except RuntimeError:
                 # Whatever, keep going
                 logging.warning("Failed to delete branch, continuing", exc_info=True)
