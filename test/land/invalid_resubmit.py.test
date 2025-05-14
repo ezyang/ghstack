@@ -44,15 +44,15 @@ else:
 
             This is commit A
 
-            * c461f2f New PR
+            * 98fcb03 New PR
 
         Repository state:
 
-            * c461f2f (gh/ezyang/1/head)
+            * 98fcb03 (gh/ezyang/1/head)
             |    New PR
-            * 58e6f57 (gh/ezyang/1/base)
+            * 0d09e7d (gh/ezyang/1/base)
             |    New PR (base update)
-            * 19fa5fa (HEAD -> master)
+            * 8927014 (HEAD -> master)
             |    Commit A
             * dc8bfe4
                  Initial commit
