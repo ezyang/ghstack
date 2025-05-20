@@ -14,7 +14,7 @@ RE_GH_METADATA = re.compile(
 
 
 RAW_PULL_REQUEST_RESOLVED = (
-    r"(Pull Request resolved|Pull-Request-resolved): "
+    r"(Pull Request resolved|Pull-Request-resolved|Pull-Request): "
     r"https://{github_url}/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>[0-9]+)"
 )
 
@@ -93,7 +93,7 @@ class Diff:
     # be the same.
     source_id: str
 
-    # The contents of 'Pull-Request-resolved'.  This is None for
+    # The contents of 'Pull-Request'.  This is None for
     # diffs that haven't been submitted by ghstack.  For BC reasons,
     # this also accepts gh-metadata.
     pull_request_resolved: Optional[PullRequestResolved]
