@@ -49,13 +49,13 @@ resolve conflicts in *each* PR, not just for the entire stack.)
 **How do I start a new feature?**  Just checkout master on a new
 branch, and start working on a fresh branch.
 
-**WARNING.**  You will NOT be able to merge these commits using the
-normal GitHub UI, as their branch bases won't be master.  Use
-`ghstack land $PR_URL` (or alternatively `ghstack land #PR_NUM`) to land
+**How do I merge my changes?**  Warning: You will NOT be able to merge these 
+commits using the normal GitHub UI, as their branch bases won't be master.  
+Use `ghstack land $PR_URL` (or alternatively `ghstack land #PR_NUM`) to land
 a ghstack'ed pull request.
 
 You can also setup a GitHub action to allow a bot land.
-[ghstack_land_example](https://github.com/Chillee/ghstack_land_example/blob/main/.github/workflows/issue_comment.yml)
+[ghstack_land_example](https://github.com/Chillee/ghstack_land_example/blob/main/.github/workflows/ghstack_land.yml)
 is an end-to-end example of how to do this.
 
 ## Structure of submitted pull requests
