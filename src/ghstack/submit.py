@@ -167,9 +167,7 @@ def strip_mentions(body: str) -> str:
     return RE_MENTION.sub(r"\1", body)
 
 
-STACK_HEADER = (
-    f"Stack from [ghstack](https://github.com/ezyang/ghstack) {ghstack.__version__} (oldest at bottom)"
-)
+STACK_HEADER = f"Stack from [ghstack](https://github.com/ezyang/ghstack/tree/{ghstack.__version__}) (oldest at bottom)"
 
 
 def starts_with_bullet(body: str) -> bool:
