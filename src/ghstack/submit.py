@@ -168,7 +168,7 @@ def strip_mentions(body: str) -> str:
 
 
 STACK_HEADER = (
-    "Stack from [ghstack](https://github.com/ezyang/ghstack) (oldest at bottom)"
+    f"Stack from [ghstack](https://github.com/ezyang/ghstack) {ghstack.__version__} (oldest at bottom)"
 )
 
 
