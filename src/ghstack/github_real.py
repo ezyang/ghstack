@@ -224,6 +224,10 @@ permissions.  Please create a new OAuth token at
 https://{github_url}/settings/tokens and DOUBLE CHECK that you checked
 "public_repo" for permissions, and update ~/.ghstackrc with your new
 value.
+
+Another possible reason for this error is if the repository has moved
+to a new location or been renamed. Check that the repository URL is
+still correct.
 """.format(
                         url=url, github_url=self.github_url
                     )
