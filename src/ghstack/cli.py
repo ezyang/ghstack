@@ -141,6 +141,7 @@ def land(force: bool, pull_request: str) -> None:
             github_url=config.github_url,
             remote_name=config.remote_name,
             force=force,
+            repo_default_branch_opt=config.repo_default_branch,
         )
 
 
@@ -271,6 +272,11 @@ def submit(
             revs=revs,
             stack=stack,
             direct_opt=direct_opt,
+            repo_name_opt=config.repo_name,
+            repo_owner_opt=config.repo_owner,
+            repo_is_fork_opt=config.repo_is_fork,
+            repo_id_opt=config.repo_id,
+            repo_default_branch_opt=config.repo_default_branch,
         )
 
 
@@ -287,4 +293,5 @@ def unlink(commits: List[str]) -> None:
             sh=shell,
             github_url=config.github_url,
             remote_name=config.remote_name,
+            repo_default_branch_opt=config.repo_default_branch,
         )

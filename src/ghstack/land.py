@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import ghstack.git
 import ghstack.github
@@ -50,6 +50,7 @@ def main(
     github_url: str,
     *,
     force: bool = False,
+    repo_default_branch_opt: Optional[str] = None,
 ) -> None:
 
     # We land the entire stack pointed to by a URL.
@@ -60,14 +61,16 @@ def main(
     params = ghstack.github_utils.parse_pull_request(
         pull_request, sh=sh, remote_name=remote_name
     )
-    default_branch = ghstack.github_utils.get_github_repo_info(
-        github=github,
-        sh=sh,
-        repo_owner=params["owner"],
-        repo_name=params["name"],
-        github_url=github_url,
-        remote_name=remote_name,
-    )["default_branch"]
+    default_branch = repo_default_branch_opt
+    if default_branch is None:
+        default_branch = ghstack.github_utils.get_github_repo_info(
+            github=github,
+            sh=sh,
+            repo_owner=params["owner"],
+            repo_name=params["name"],
+            github_url=github_url,
+            remote_name=remote_name,
+        )["default_branch"]
 
     needs_force = False
     try:
