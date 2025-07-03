@@ -1,0 +1,499 @@
+#!/usr/bin/env python3
+
+import os.path
+import re
+from dataclasses import dataclass
+from typing import Any, cast, Dict, List, NewType, Optional, Sequence
+
+import graphql
+from typing_extensions import TypedDict
+
+import ghstack.diff
+import ghstack.github
+import ghstack.shell
+
+GraphQLId = NewType("GraphQLId", str)
+GitHubNumber = NewType("GitHubNumber", int)
+GitObjectID = NewType("GitObjectID", str)
+
+# https://stackoverflow.com/a/55250601
+SetDefaultBranchInput = TypedDict(
+    "SetDefaultBranchInput",
+    {
+        "name": str,
+        "default_branch": str,
+    },
+)
+
+UpdatePullRequestInput = TypedDict(
+    "UpdatePullRequestInput",
+    {
+        "base": Optional[str],
+        "title": Optional[str],
+        "body": Optional[str],
+    },
+)
+
+CreatePullRequestInput = TypedDict(
+    "CreatePullRequestInput",
+    {
+        "base": str,
+        "head": str,
+        "title": str,
+        "body": str,
+        "maintainer_can_modify": bool,
+    },
+)
+
+CreateIssueCommentInput = TypedDict(
+    "CreateIssueCommentInput",
+    {"body": str},
+)
+
+CreateIssueCommentPayload = TypedDict(
+    "CreateIssueCommentPayload",
+    {
+        "id": int,
+    },
+)
+
+UpdateIssueCommentInput = TypedDict(
+    "UpdateIssueCommentInput",
+    {"body": str},
+)
+
+CreatePullRequestPayload = TypedDict(
+    "CreatePullRequestPayload",
+    {
+        "number": int,
+    },
+)
+
+
+# The "database" for our mock instance
+class GitHubState:
+    repositories: Dict[GraphQLId, "Repository"]
+    pull_requests: Dict[GraphQLId, "PullRequest"]
+    # This is very inefficient but whatever
+    issue_comments: Dict[GraphQLId, "IssueComment"]
+    _next_id: int
+    # These are indexed by repo id
+    _next_pull_request_number: Dict[GraphQLId, int]
+    _next_issue_comment_full_database_id: Dict[GraphQLId, int]
+    root: "Root"
+    upstream_sh: Optional[ghstack.shell.Shell]
+
+    def repository(self, owner: str, name: str) -> "Repository":
+        nameWithOwner = "{}/{}".format(owner, name)
+        for r in self.repositories.values():
+            if r.nameWithOwner == nameWithOwner:
+                return r
+        raise RuntimeError("unknown repository {}".format(nameWithOwner))
+
+    def pull_request(self, repo: "Repository", number: GitHubNumber) -> "PullRequest":
+        for pr in self.pull_requests.values():
+            if repo.id == pr._repository and pr.number == number:
+                return pr
+        raise RuntimeError(
+            "unrecognized pull request #{} in repository {}".format(
+                number, repo.nameWithOwner
+            )
+        )
+
+    def issue_comment(self, repo: "Repository", comment_id: int) -> "IssueComment":
+        for comment in self.issue_comments.values():
+            if repo.id == comment._repository and comment.fullDatabaseId == comment_id:
+                return comment
+        raise RuntimeError(
+            f"unrecognized issue comment {comment_id} in repository {repo.nameWithOwner}"
+        )
+
+    def next_id(self) -> GraphQLId:
+        r = GraphQLId(str(self._next_id))
+        self._next_id += 1
+        return r
+
+    def next_pull_request_number(self, repo_id: GraphQLId) -> GitHubNumber:
+        r = GitHubNumber(self._next_pull_request_number[repo_id])
+        self._next_pull_request_number[repo_id] += 1
+        return r
+
+    def next_issue_comment_full_database_id(self, repo_id: GraphQLId) -> int:
+        r = self._next_issue_comment_full_database_id[repo_id]
+        self._next_issue_comment_full_database_id[repo_id] += 1
+        return r
+
+    def push_hook(self, refs: Sequence[str]) -> None:
+        # updated_refs = set(refs)
+        # for pr in self.pull_requests:
+        #    # TODO: this assumes only origin repository
+        #    # if pr.headRefName in updated_refs:
+        #    #    pr.headRef =
+        #    pass
+        pass
+
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
+        repo = self.repository(pr_resolved.owner, pr_resolved.repo)
+        pr = self.pull_request(repo, GitHubNumber(pr_resolved.number))
+        pr.closed = True
+        # TODO: model merged too
+
+    def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
+        self.repositories = {}
+        self.pull_requests = {}
+        self.issue_comments = {}
+        self._next_id = 5000
+        self._next_pull_request_number = {}
+        self._next_issue_comment_full_database_id = {}
+        self.root = Root()
+
+        # Populate it with the most important repo ;)
+        repo = Repository(
+            id=GraphQLId("1000"),
+            name="pytorch",
+            nameWithOwner="pytorch/pytorch",
+            isFork=False,
+            defaultBranchRef=None,
+        )
+        self.repositories[GraphQLId("1000")] = repo
+        self._next_pull_request_number[GraphQLId("1000")] = 500
+        self._next_issue_comment_full_database_id[GraphQLId("1000")] = 1500
+
+        self.upstream_sh = upstream_sh
+        if self.upstream_sh is not None:
+            # Setup upstream Git repository representing the
+            # pytorch/pytorch repository in the directory specified
+            # by upstream_sh.  This is useful because some GitHub API
+            # operations depend on repository state (e.g., what
+            # the headRef is at the time a PR is created), so
+            # we need this information
+            self.upstream_sh.git("init", "--bare", "-b", "master")
+            tree = self.upstream_sh.git("write-tree")
+            commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
+            self.upstream_sh.git("branch", "-f", "master", commit)
+
+            # We only update this when a PATCH changes the default
+            # branch; hopefully that's fine?  In any case, it should
+            # work for now since currently we only ever access the name
+            # of the default branch rather than other parts of its ref.
+            repo.defaultBranchRef = repo._make_ref(self, "master")
+
+
+@dataclass
+class Node:
+    id: GraphQLId
+
+
+GraphQLResolveInfo = Any  # for now
+
+
+def github_state(info: GraphQLResolveInfo) -> GitHubState:
+    context = info.context
+    assert isinstance(context, GitHubState)
+    return context
+
+
+@dataclass
+class Repository(Node):
+    name: str
+    nameWithOwner: str
+    isFork: bool
+    defaultBranchRef: Optional["Ref"]
+
+    def pullRequest(
+        self, info: GraphQLResolveInfo, number: GitHubNumber
+    ) -> "PullRequest":
+        return github_state(info).pull_request(self, number)
+
+    def pullRequests(self, info: GraphQLResolveInfo) -> "PullRequestConnection":
+        return PullRequestConnection(
+            nodes=list(
+                filter(
+                    lambda pr: self == pr.repository(info),
+                    github_state(info).pull_requests.values(),
+                )
+            )
+        )
+
+    # TODO: This should take which repository the ref is in
+    # This only works if you have upstream_sh
+    def _make_ref(self, state: GitHubState, refName: str) -> "Ref":
+        # TODO: Probably should preserve object identity here when
+        # you call this with refName/oid that are the same
+        assert state.upstream_sh
+        gitObject = GitObject(
+            id=state.next_id(),
+            # TODO: this upstream_sh hardcode wrong, but ok for now
+            # because we only have one repo
+            oid=GitObjectID(state.upstream_sh.git("rev-parse", refName)),
+            _repository=self.id,
+        )
+        ref = Ref(
+            id=state.next_id(),
+            name=refName,
+            _repository=self.id,
+            target=gitObject,
+        )
+        return ref
+
+
+@dataclass
+class GitObject(Node):
+    oid: GitObjectID
+    _repository: GraphQLId
+
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+
+@dataclass
+class Ref(Node):
+    name: str
+    _repository: GraphQLId
+    target: GitObject
+
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+
+@dataclass
+class PullRequest(Node):
+    baseRef: Optional[Ref]
+    baseRefName: str
+    body: str
+    closed: bool
+    headRef: Optional[Ref]
+    headRefName: str
+    # headRepository: Optional[Repository]
+    # maintainerCanModify: bool
+    number: GitHubNumber
+    _repository: GraphQLId  # cycle breaker
+    # state: PullRequestState
+    title: str
+    url: str
+
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+
+@dataclass
+class IssueComment(Node):
+    body: str
+    fullDatabaseId: int
+    _repository: GraphQLId
+
+    def repository(self, info: GraphQLResolveInfo) -> Repository:
+        return github_state(info).repositories[self._repository]
+
+
+@dataclass
+class PullRequestConnection:
+    nodes: List[PullRequest]
+
+
+class Root:
+    def repository(self, info: GraphQLResolveInfo, owner: str, name: str) -> Repository:
+        return github_state(info).repository(owner, name)
+
+    def node(self, info: GraphQLResolveInfo, id: GraphQLId) -> Node:
+        if id in github_state(info).repositories:
+            return github_state(info).repositories[id]
+        elif id in github_state(info).pull_requests:
+            return github_state(info).pull_requests[id]
+        elif id in github_state(info).issue_comments:
+            return github_state(info).issue_comments[id]
+        else:
+            raise RuntimeError("unknown id {}".format(id))
+
+
+with open(
+    os.path.join(os.path.dirname(__file__), "github_schema.graphql"), encoding="utf-8"
+) as f:
+    GITHUB_SCHEMA = graphql.build_schema(f.read())
+
+
+# Ummm.  I thought there would be a way to stick these on the objects
+# themselves (in the same way resolvers can be put on resolvers) but
+# after a quick read of default_resolve_type_fn it doesn't look like
+# we ever actually look to value for type of information.  This is
+# pretty clunky lol.
+def set_is_type_of(name: str, cls: Any) -> None:
+    # Can't use a type ignore on the next line because fbcode
+    # and us don't agree that it's necessary hmm.
+    o: Any = GITHUB_SCHEMA.get_type(name)
+    o.is_type_of = lambda obj, info: isinstance(obj, cls)
+
+
+set_is_type_of("Repository", Repository)
+set_is_type_of("PullRequest", PullRequest)
+set_is_type_of("IssueComment", IssueComment)
+
+
+class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
+    state: GitHubState
+
+    def __init__(self, upstream_sh: Optional[ghstack.shell.Shell] = None) -> None:
+        self.state = GitHubState(upstream_sh)
+
+    def graphql(self, query: str, **kwargs: Any) -> Any:
+        r = graphql.graphql_sync(
+            schema=GITHUB_SCHEMA,
+            source=query,
+            root_value=self.state.root,
+            context_value=self.state,
+            variable_values=kwargs,
+        )
+        if r.errors:
+            # The GraphQL implementation loses all the stack traces!!!
+            # D:  You can 'recover' them by deleting the
+            # 'except Exception as error' from GraphQL-core-next; need
+            # to file a bug report
+            raise RuntimeError(
+                "GraphQL query failed with errors:\n\n{}".format(
+                    "\n".join(str(e) for e in r.errors)
+                )
+            )
+        # The top-level object isn't indexable by strings, but
+        # everything underneath is, oddly enough
+        return {"data": r.data}
+
+    def push_hook(self, refNames: Sequence[str]) -> None:
+        self.state.push_hook(refNames)
+
+    def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
+        self.state.notify_merged(pr_resolved)
+
+    def _create_pull(
+        self, owner: str, name: str, input: CreatePullRequestInput
+    ) -> CreatePullRequestPayload:
+        state = self.state
+        id = state.next_id()
+        repo = state.repository(owner, name)
+        number = state.next_pull_request_number(repo.id)
+        baseRef = None
+        headRef = None
+        # TODO: When we support forks, this needs rewriting to stop
+        # hard coded the repo we opened the pull request on
+        if state.upstream_sh:
+            baseRef = repo._make_ref(state, input["base"])
+            headRef = repo._make_ref(state, input["head"])
+        pr = PullRequest(
+            id=id,
+            _repository=repo.id,
+            number=number,
+            closed=False,
+            url="https://github.com/{}/pull/{}".format(repo.nameWithOwner, number),
+            baseRef=baseRef,
+            baseRefName=input["base"],
+            headRef=headRef,
+            headRefName=input["head"],
+            title=input["title"],
+            body=input["body"],
+        )
+        # TODO: compute files changed
+        state.pull_requests[id] = pr
+        # This is only a subset of what the actual REST endpoint
+        # returns.
+        return {
+            "number": number,
+        }
+
+    # NB: This technically does have a payload, but we don't
+    # use it so I didn't bother constructing it.
+    def _update_pull(
+        self, owner: str, name: str, number: GitHubNumber, input: UpdatePullRequestInput
+    ) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        pr = state.pull_request(repo, number)
+        # If I say input.get('title') is not None, mypy
+        # is unable to infer input['title'] is not None
+        if "title" in input and input["title"] is not None:
+            pr.title = input["title"]
+        if "base" in input and input["base"] is not None:
+            pr.baseRefName = input["base"]
+            pr.baseRef = repo._make_ref(state, pr.baseRefName)
+        if "body" in input and input["body"] is not None:
+            pr.body = input["body"]
+
+    def _create_issue_comment(
+        self, owner: str, name: str, comment_id: int, input: CreateIssueCommentInput
+    ) -> CreateIssueCommentPayload:
+        state = self.state
+        id = state.next_id()
+        repo = state.repository(owner, name)
+        comment_id = state.next_issue_comment_full_database_id(repo.id)
+        comment = IssueComment(
+            id=id,
+            _repository=repo.id,
+            fullDatabaseId=comment_id,
+            body=input["body"],
+        )
+        state.issue_comments[id] = comment
+        # This is only a subset of what the actual REST endpoint
+        # returns.
+        return {
+            "id": comment_id,
+        }
+
+    def _update_issue_comment(
+        self, owner: str, name: str, comment_id: int, input: UpdateIssueCommentInput
+    ) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        comment = state.issue_comment(repo, comment_id)
+        if (r := input.get("body")) is not None:
+            comment.body = r
+
+    # NB: This may have a payload, but we don't
+    # use it so I didn't bother constructing it.
+    def _set_default_branch(
+        self, owner: str, name: str, input: SetDefaultBranchInput
+    ) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        repo.defaultBranchRef = repo._make_ref(state, input["default_branch"])
+
+    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+        if method == "get":
+            m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
+            if m:
+                # For now, pretend all branches are not protected
+                raise ghstack.github.NotFoundError()
+
+        elif method == "post":
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
+                return self._create_pull(
+                    m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
+                )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/comments", path):
+                return self._create_issue_comment(
+                    m.group(1),
+                    m.group(2),
+                    GitHubNumber(int(m.group(3))),
+                    cast(CreateIssueCommentInput, kwargs),
+                )
+        elif method == "patch":
+            if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):
+                owner, name, number = m.groups()
+                if number is not None:
+                    return self._update_pull(
+                        owner,
+                        name,
+                        GitHubNumber(int(number)),
+                        cast(UpdatePullRequestInput, kwargs),
+                    )
+                elif "default_branch" in kwargs:
+                    return self._set_default_branch(
+                        owner, name, cast(SetDefaultBranchInput, kwargs)
+                    )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
+                return self._update_issue_comment(
+                    m.group(1),
+                    m.group(2),
+                    int(m.group(3)),
+                    cast(UpdateIssueCommentInput, kwargs),
+                )
+        raise NotImplementedError(
+            "FakeGitHubEndpoint REST {} {} not implemented".format(method.upper(), path)
+        )
