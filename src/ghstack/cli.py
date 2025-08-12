@@ -7,6 +7,7 @@ import click
 import ghstack
 import ghstack.action
 import ghstack.checkout
+import ghstack.cherry_pick
 import ghstack.circleci_real
 import ghstack.config
 import ghstack.github_real
@@ -123,6 +124,28 @@ def checkout(pull_request: str) -> None:
             github=github,
             sh=shell,
             remote_name=config.remote_name,
+        )
+
+
+@main.command("cherry-pick")
+@click.option(
+    "--stack",
+    "-s",
+    is_flag=True,
+    help="Cherry-pick all commits from the commit to the merge-base with main branch",
+)
+@click.argument("pull_request", metavar="PR")
+def cherry_pick(stack: bool, pull_request: str) -> None:
+    """
+    Cherry-pick a PR
+    """
+    with cli_context(request_github_token=False) as (shell, config, github):
+        ghstack.cherry_pick.main(
+            pull_request=pull_request,
+            github=github,
+            sh=shell,
+            remote_name=config.remote_name,
+            stack=stack,
         )
 
 

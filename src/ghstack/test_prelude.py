@@ -12,6 +12,8 @@ from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Uni
 
 from expecttest import assert_expected_inline
 
+import ghstack.cherry_pick
+
 import ghstack.github
 import ghstack.github_fake
 import ghstack.github_utils
@@ -29,6 +31,7 @@ __all__ = [
     "gh_submit",
     "gh_land",
     "gh_unlink",
+    "gh_cherry_pick",
     "GitCommitHash",
     "checkout",
     "amend",
@@ -234,6 +237,17 @@ def gh_unlink() -> None:
         repo_name="pytorch",
         github_url="github.com",
         remote_name="origin",
+    )
+
+
+def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
+    self = CTX
+    return ghstack.cherry_pick.main(
+        pull_request=pull_request,
+        github=self.github,
+        sh=self.sh,
+        remote_name="origin",
+        stack=stack,
     )
 
 

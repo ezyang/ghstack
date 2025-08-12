@@ -1,0 +1,27 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create a PR to cherry-pick from on a separate branch
+git("checkout", "-b", "feature")
+commit("A")
+(A,) = gh_submit("Initial commit")
+
+# Switch to master and add another commit
+git("checkout", "master")
+commit("M")
+
+# Before cherry-pick, "Commit A" should NOT be in recent master history
+log_before = git("log", "--oneline", "-n", "2")
+assert "Commit A" not in log_before
+assert "Commit M" in log_before
+
+# Now cherry-pick the PR commit
+gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{A.number}")
+
+# After cherry-pick, "Commit A" SHOULD be in recent master history
+log_after = git("log", "--oneline", "-n", "3")
+assert "Commit A" in log_after
+assert "Commit M" in log_after
+
+ok()
