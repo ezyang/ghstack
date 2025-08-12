@@ -77,20 +77,43 @@ def get_github_repo_info(
         name_with_owner = {"owner": repo_owner, "name": repo_name}
 
     # TODO: Cache this guy
-    repo = github.graphql(
-        """
-        query ($owner: String!, $name: String!) {
-            repository(name: $name, owner: $owner) {
-                id
-                isFork
-                defaultBranchRef {
-                    name
+    try:
+        repo = github.graphql(
+            """
+            query ($owner: String!, $name: String!) {
+                repository(name: $name, owner: $owner) {
+                    id
+                    isFork
+                    defaultBranchRef {
+                        name
+                    }
                 }
-            }
-        }""",
-        owner=name_with_owner["owner"],
-        name=name_with_owner["name"],
-    )["data"]["repository"]
+            }""",
+            owner=name_with_owner["owner"],
+            name=name_with_owner["name"],
+        )["data"]["repository"]
+    except RuntimeError as e:
+        # Check if this is a repository access error (NOT_FOUND)
+        error_msg = str(e)
+        if (
+            "Could not resolve to a Repository" in error_msg
+            and "NOT_FOUND" in error_msg
+        ):
+            raise RuntimeError(
+                f"Original error: {error_msg}\n\n"
+                f"Could not access repository '{name_with_owner['owner']}/{name_with_owner['name']}'. "
+                f"This usually means:\n"
+                f"1. The repository is private and your OAuth token doesn't have access\n"
+                f"2. The repository is in a different organization that hasn't granted access\n"
+                f"3. The repository doesn't exist or has been moved\n\n"
+                f"If this is a private repository or in a separate organization, you can grant access by:\n"
+                f"1. Delete the 'github_oauth' entry from your .ghstackrc file\n"
+                f"2. Run ghstack again to redo the OAuth flow\n"
+                f"3. Make sure to grant access to the appropriate organizations when prompted"
+            )
+        else:
+            # Re-raise the original error if it's not the repository access issue
+            raise
 
     return {
         "name_with_owner": name_with_owner,
