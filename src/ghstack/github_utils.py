@@ -95,7 +95,10 @@ def get_github_repo_info(
     except RuntimeError as e:
         # Check if this is a repository access error (NOT_FOUND)
         error_msg = str(e)
-        if "Could not resolve to a Repository" in error_msg and "NOT_FOUND" in error_msg:
+        if (
+            "Could not resolve to a Repository" in error_msg
+            and "NOT_FOUND" in error_msg
+        ):
             raise RuntimeError(
                 f"Original error: {error_msg}\n\n"
                 f"Could not access repository '{name_with_owner['owner']}/{name_with_owner['name']}'. "
