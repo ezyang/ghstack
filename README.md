@@ -8,7 +8,7 @@ uv tool install ghstack
 
 ghstack is tested with 
 [several different Python versions](https://github.com/ezyang/ghstack/blob/master/.github/workflows/test.yml#L13). 
-It requires at least Python 3.8.1.
+It requires at least Python 3.9.1.
 
 ## How to setup
 
