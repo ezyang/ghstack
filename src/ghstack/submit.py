@@ -308,6 +308,11 @@ class Submitter:
     # Presents as repo_name kwarg in main
     repo_name_opt: Optional[str] = None
 
+    # allow configuration to optionally define repo details
+    repo_is_fork_opt: Optional[str] = None
+    repo_id_opt: Optional[str] = None
+    repo_default_branch_opt: Optional[str] = None
+
     # Print only PR URL to stdout
     short: bool = False
 
@@ -375,17 +380,32 @@ class Submitter:
     # Post initialization
 
     def __post_init__(self) -> None:
-        # Network call in the constructor, help me father, for I have sinned
-        repo = ghstack.github_utils.get_github_repo_info(
-            github=self.github,
-            sh=self.sh,
-            repo_owner=self.repo_owner_opt,
-            repo_name=self.repo_name_opt,
-            github_url=self.github_url,
-            remote_name=self.remote_name,
-        )
-        object.__setattr__(self, "repo_owner", repo["name_with_owner"]["owner"])
-        object.__setattr__(self, "repo_name", repo["name_with_owner"]["name"])
+        repo = {}
+        if (
+            self.repo_id_opt is not None
+            and self.repo_owner_opt is not None
+            and self.repo_name_opt is not None
+            and self.repo_is_fork_opt is not None
+            and self.repo_default_branch_opt is not None
+        ):
+            repo["is_fork"] = self.repo_is_fork_opt
+            repo["id"] = self.repo_id_opt
+            repo["default_branch"] = self.repo_default_branch_opt
+            repo["name_with_owner"] = {}
+            repo["name_with_owner"]["owner"] = self.repo_owner_opt
+            repo["name_with_owner"]["name"] = self.repo_name_opt
+        else:
+            # Network call in the constructor, help me father, for I have sinned
+            repo = ghstack.github_utils.get_github_repo_info(
+                github=self.github,
+                sh=self.sh,
+                repo_owner=self.repo_owner_opt,
+                repo_name=self.repo_name_opt,
+                github_url=self.github_url,
+                remote_name=self.remote_name,
+            )
+            object.__setattr__(self, "repo_owner", repo["name_with_owner"]["owner"])
+            object.__setattr__(self, "repo_name", repo["name_with_owner"]["name"])
 
         if repo["is_fork"]:
             raise RuntimeError(

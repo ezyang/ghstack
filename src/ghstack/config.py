@@ -40,6 +40,16 @@ Config = NamedTuple(
         ("github_url", str),
         # Name of the upstream remote
         ("remote_name", str),
+        # Repository name 
+        ("repo_name", Optional[str]),
+        # Repository owner / organisation
+        ("repo_owner", Optional[str]),
+        # Whether the repo is a fork
+        ("repo_is_fork", Optional[str]),
+        # Numeric GitHub repository ID
+        ("repo_id", Optional[str]),
+        # Default branch name (e.g. "main")
+        ("repo_default_branch", Optional[str]),
     ],
 )
 
@@ -208,6 +218,26 @@ def read_config(
             config.write(f)
         logging.info("NB: configuration saved to {}".format(config_path))
 
+    repo_name = None
+    if config.has_option("repo", "name"):
+        repo_name = config.get("repo", "name")
+
+    repo_owner = None
+    if config.has_option("repo", "owner"):
+        repo_owner = config.get("repo", "owner")
+
+    repo_is_fork = None
+    if config.has_option("repo", "is_fork"):
+        repo_is_fork = config.getboolean("repo", "is_fork")
+
+    repo_id = None
+    if config.has_option("repo", "id"):
+         repo_id = config.get("repo", "id")
+
+    repo_default_branch = None
+    if config.has_option("repo", "default_branch"):
+         repo_default_branch = config.get("repo", "default_branch")
+
     conf = Config(
         github_oauth=github_oauth,
         circle_token=circle_token,
@@ -218,6 +248,11 @@ def read_config(
         default_project_dir=default_project_dir,
         github_url=github_url,
         remote_name=remote_name,
+        repo_name=repo_name,
+        repo_owner=repo_owner,
+        repo_is_fork=repo_is_fork,
+        repo_id=repo_id,
+        repo_default_branch=repo_default_branch,
     )
     logging.debug(f"conf = {conf}")
     return conf
