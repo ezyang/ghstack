@@ -16,11 +16,14 @@ if is_direct():
 
             This is commit AAA
 
+            * 1774f4b Update A
             * 5cd944b Initial 1
 
         Repository state:
 
-            * 5cd944b (gh/ezyang/1/next, gh/ezyang/1/head)
+            * 1774f4b (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Update A
+            * 5cd944b
             |    Initial 1
             * dc8bfe4 (HEAD -> master)
                  Initial commit
@@ -36,11 +39,14 @@ else:
 
             This is commit AAA
 
+            * fa3f7db Update A
             * 1081a5b Initial 1
 
         Repository state:
 
-            * 1081a5b (gh/ezyang/1/head)
+            * fa3f7db (gh/ezyang/1/head)
+            |    Update A
+            * 1081a5b
             |    Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)

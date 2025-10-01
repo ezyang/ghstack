@@ -189,9 +189,11 @@ def gh_submit(
     update_fields: bool = False,
     short: bool = False,
     no_skip: bool = False,
+    force: bool = False,
     base: Optional[str] = None,
     revs: Sequence[str] = (),
     stack: bool = True,
+    check_invariants: bool = True,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
     r = ghstack.submit.main(
@@ -204,6 +206,7 @@ def gh_submit(
         repo_owner_opt="pytorch",
         repo_name_opt="pytorch",
         short=short,
+        force=force,
         direct_opt=self.direct,
         no_skip=no_skip,
         github_url="github.com",
@@ -211,9 +214,10 @@ def gh_submit(
         base_opt=base,
         revs=revs,
         stack=stack,
-        check_invariants=True,
+        check_invariants=check_invariants,
     )
-    self.check_global_github_invariants(self.direct)
+    if check_invariants:
+        self.check_global_github_invariants(self.direct)
     return r
 
 
