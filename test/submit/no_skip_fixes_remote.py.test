@@ -1,0 +1,78 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("AAA")
+(A,) = gh_submit("Initial")
+
+# Record the correct state before corruption
+correct_head = git("rev-parse", "origin/gh/ezyang/1/head")
+
+# Corrupt the remote head branch by pushing a wrong commit to it
+# We'll push an unrelated commit (just the tree, no proper parents)
+corrupted_commit = git("commit-tree", git("rev-parse", "master^{tree}"), "-m", "Corrupted")
+git("push", "origin", "--force", f"{corrupted_commit}:gh/ezyang/1/head")
+
+# Verify the branch is actually corrupted
+assert git("rev-parse", "origin/gh/ezyang/1/head") == corrupted_commit
+
+# Now submit with --no-skip --force and no local changes
+# This should fix the corrupted remote branch
+(A2,) = gh_submit("Fix", no_skip=True, force=True, check_invariants=False)
+
+# Verify the head branch was restored to a valid state
+# It should have been updated (new commit), not rolled back
+fixed_head = git("rev-parse", "origin/gh/ezyang/1/head")
+assert fixed_head != corrupted_commit
+assert fixed_head != correct_head  # Should be a new commit due to --no-skip
+
+# Verify that the diff between head and base matches the diff in orig
+# This ensures the fix properly maintains diff integrity
+if is_direct():
+    head_base_diff = git("diff", "origin/master", "origin/gh/ezyang/1/head")
+else:
+    head_base_diff = git("diff", "origin/gh/ezyang/1/base", "origin/gh/ezyang/1/head")
+orig_diff = git("diff", "origin/gh/ezyang/1/orig~", "origin/gh/ezyang/1/orig")
+assert head_base_diff == orig_diff, "head/base diff should match orig/orig~ diff"
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit AAA (gh/ezyang/1/head -> master)
+
+            This is commit AAA
+
+            * 889632c Fix
+            * 94870d6 Corrupted
+
+        Repository state:
+
+            * 889632c (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Fix
+            * 94870d6
+                 Corrupted
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit AAA (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit AAA
+
+            * 889632c Fix
+            * 94870d6 Corrupted
+
+        Repository state:
+
+            * 889632c (gh/ezyang/1/head)
+            |    Fix
+            * 94870d6
+                 Corrupted
+        """
+    )
+
+ok()
