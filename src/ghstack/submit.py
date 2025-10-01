@@ -1374,6 +1374,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             push_branches.head.commit is None
             or updated_base
             or push_branches.head.commit.tree != diff.tree
+            or self.no_skip
         ):
             new_head = GitCommitHash(
                 self.sh.git(
