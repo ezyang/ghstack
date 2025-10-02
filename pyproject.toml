@@ -2,7 +2,10 @@
 authors = [
     {name = "Edward Z. Yang", email = "ezyang@mit.edu"},
 ]
-license = {text = "MIT"}
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
 requires-python = "<4.0.0,>=3.9.1"
 dependencies = [
     "aiohttp<4,>=3",
