@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import sys
 from typing import Generator, List, Optional, Tuple
 
 import click
@@ -79,6 +80,12 @@ def main(
     """
     Submit stacks of diffs to Github
     """
+    if sys.version_info >= (3, 14):
+        # Create new event loop as asyncio.get_event_loop() throws runtime error in 3.14
+        import asyncio as _asyncio
+
+        _asyncio.set_event_loop(_asyncio.new_event_loop())
+
     EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
 
     if not ctx.invoked_subcommand:
