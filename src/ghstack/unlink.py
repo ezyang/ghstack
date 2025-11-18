@@ -25,6 +25,7 @@ def main(
     repo_name: Optional[str] = None,
     github_url: str,
     remote_name: str,
+    repo_default_branch_opt: Optional[str] = None,
 ) -> GitCommitHash:
     # If commits is empty, we unlink the entire stack
     #
@@ -36,14 +37,16 @@ def main(
         # Use CWD
         sh = ghstack.shell.Shell()
 
-    default_branch = ghstack.github_utils.get_github_repo_info(
-        github=github,
-        sh=sh,
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-        github_url=github_url,
-        remote_name=remote_name,
-    )["default_branch"]
+    default_branch = repo_default_branch_opt
+    if default_branch is None:
+        default_branch = ghstack.github_utils.get_github_repo_info(
+            github=github,
+            sh=sh,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            github_url=github_url,
+            remote_name=remote_name,
+        )["default_branch"]
 
     # Parse the commits
     parsed_commits: Optional[Set[GitCommitHash]] = None
