@@ -120,8 +120,13 @@ def action(close: bool, pull_request: str) -> None:
 
 
 @main.command("checkout")
+@click.option(
+    "--same-base",
+    is_flag=True,
+    help="Only checkout if merge-base with main branch would remain the same",
+)
 @click.argument("pull_request", metavar="PR")
-def checkout(pull_request: str) -> None:
+def checkout(same_base: bool, pull_request: str) -> None:
     """
     Checkout a PR
     """
@@ -131,6 +136,7 @@ def checkout(pull_request: str) -> None:
             github=github,
             sh=shell,
             remote_name=config.remote_name,
+            same_base=same_base,
         )
 
 

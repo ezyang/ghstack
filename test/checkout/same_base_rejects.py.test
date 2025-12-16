@@ -1,0 +1,35 @@
+import pytest
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create first PR based on initial master
+commit("A")
+(A,) = gh_submit("First PR")
+
+# Go back to master and advance it
+git("checkout", "master")
+commit("B")
+git("push", "origin", "master")
+
+# Create second PR based on new master (different merge-base)
+commit("C")
+(C,) = gh_submit("Second PR")
+
+# Checkout first PR
+gh_checkout(f"https://github.com/pytorch/pytorch/pull/{A.number}")
+
+# Verify we're on PR A
+current_log = git("log", "--oneline", "-n", "1")
+assert "Commit A" in current_log
+
+# Try to checkout second PR with --same-base
+# This should fail because merge-base would change from initial commit to commit B
+with pytest.raises(RuntimeError, match="would change merge-base"):
+    gh_checkout(f"https://github.com/pytorch/pytorch/pull/{C.number}", same_base=True)
+
+# Verify we're still on PR A (checkout was aborted)
+current_log = git("log", "--oneline", "-n", "1")
+assert "Commit A" in current_log
+
+ok()

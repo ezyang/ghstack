@@ -12,6 +12,7 @@ from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Uni
 
 from expecttest import assert_expected_inline
 
+import ghstack.checkout
 import ghstack.cherry_pick
 
 import ghstack.github
@@ -32,6 +33,7 @@ __all__ = [
     "gh_land",
     "gh_unlink",
     "gh_cherry_pick",
+    "gh_checkout",
     "GitCommitHash",
     "checkout",
     "amend",
@@ -248,6 +250,17 @@ def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
         sh=self.sh,
         remote_name="origin",
         stack=stack,
+    )
+
+
+def gh_checkout(pull_request: str, same_base: bool = False) -> None:
+    self = CTX
+    return ghstack.checkout.main(
+        pull_request=pull_request,
+        github=self.github,
+        sh=self.sh,
+        remote_name="origin",
+        same_base=same_base,
     )
 
 

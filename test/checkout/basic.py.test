@@ -1,0 +1,24 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create a PR to checkout
+commit("A")
+(A,) = gh_submit("Initial commit")
+
+# Move to master and create another commit
+git("checkout", "master")
+commit("B")
+
+# Verify we're on master with commit B
+current_log = git("log", "--oneline", "-n", "1")
+assert "Commit B" in current_log
+
+# Checkout the PR
+gh_checkout(f"https://github.com/pytorch/pytorch/pull/{A.number}")
+
+# After checkout, we should be on the PR commit
+current_log = git("log", "--oneline", "-n", "1")
+assert "Commit A" in current_log
+
+ok()
