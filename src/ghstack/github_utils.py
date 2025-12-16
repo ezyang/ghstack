@@ -123,8 +123,19 @@ def get_github_repo_info(
     }
 
 
+# Matches GitHub PR URLs like:
+#   https://github.com/owner/repo/pull/123
+#   https://github.com/owner/repo/pull/123/
+#   https://github.com/owner/repo/pull/123/files
+#   https://github.com/owner/repo/pull/123/commits
 RE_PR_URL = re.compile(
-    r"^https://(?P<github_url>[^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)/?$"
+    r"^https://(?P<github_url>[^/]+)/(?P<owner>[^/]+)/(?P<name>[^/]+)/pull/(?P<number>[0-9]+)(?:/.*)?$"
+)
+
+# Matches PyTorch HUD URLs like:
+#   https://hud.pytorch.org/pr/169404
+RE_PYTORCH_HUD_URL = re.compile(
+    r"^https://hud\.pytorch\.org/pr/(?P<number>[0-9]+)/?$"
 )
 
 GitHubPullRequestParams = TypedDict(
@@ -144,6 +155,17 @@ def parse_pull_request(
     sh: Optional[ghstack.shell.Shell] = None,
     remote_name: Optional[str] = None,
 ) -> GitHubPullRequestParams:
+    # Check for PyTorch HUD URL first (hud.pytorch.org/pr/NUMBER)
+    hud_match = RE_PYTORCH_HUD_URL.match(pull_request)
+    if hud_match:
+        number = int(hud_match.group("number"))
+        return {
+            "github_url": "github.com",
+            "owner": "pytorch",
+            "name": "pytorch",
+            "number": number,
+        }
+
     m = RE_PR_URL.match(pull_request)
     if not m:
         # We can reconstruct the URL if just a PR number is passed
