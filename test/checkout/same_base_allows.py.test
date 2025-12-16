@@ -1,0 +1,31 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create two PRs in a stack - they'll have the same base
+commit("A")
+commit("B")
+diffs = gh_submit("Stack of two commits")
+
+# Should have two PRs
+assert len(diffs) == 2
+A = diffs[0]  # First commit (A)
+B = diffs[1]  # Second commit (B)
+
+# Both PRs should have the same merge-base with master (initial commit)
+# Checkout PR A
+gh_checkout(f"https://github.com/pytorch/pytorch/pull/{A.number}")
+
+# Verify we're on PR A
+current_log = git("log", "--oneline", "-n", "1")
+assert "Commit A" in current_log
+
+# Now checkout PR B with --same-base
+# Since both have the same merge-base (initial commit), this should succeed
+gh_checkout(f"https://github.com/pytorch/pytorch/pull/{B.number}", same_base=True)
+
+# Verify we successfully checked out PR B
+current_log = git("log", "--oneline", "-n", "1")
+assert "Commit B" in current_log
+
+ok()
