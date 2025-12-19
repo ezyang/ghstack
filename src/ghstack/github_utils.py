@@ -138,12 +138,22 @@ GitHubPullRequestParams = TypedDict(
 )
 
 
+def _normalize_remote_url(remote_url: str) -> str:
+    """Convert SSH remote URL to HTTPS format, strip .git suffix."""
+    # git@github.com:owner/repo.git -> https://github.com/owner/repo
+    m = re.match(r"^git@([^:]+):/?(.+?)(?:\.git)?$", remote_url)
+    if m:
+        return f"https://{m.group(1)}/{m.group(2)}"
+    return re.sub(r"\.git$", "", remote_url)
+
+
 def parse_pull_request(
     pull_request: str,
     *,
     sh: Optional[ghstack.shell.Shell] = None,
     remote_name: Optional[str] = None,
 ) -> GitHubPullRequestParams:
+    pull_request = pull_request.lstrip("#")
     m = RE_PR_URL.match(pull_request)
     if not m:
         # We can reconstruct the URL if just a PR number is passed
@@ -151,7 +161,9 @@ def parse_pull_request(
             remote_url = sh.git("remote", "get-url", remote_name)
             # Do not pass the shell to avoid infinite loop
             try:
-                return parse_pull_request(remote_url + "/pull/" + pull_request)
+                return parse_pull_request(
+                    _normalize_remote_url(remote_url) + "/pull/" + pull_request
+                )
             except RuntimeError:
                 # Fall back on original error message
                 pass
