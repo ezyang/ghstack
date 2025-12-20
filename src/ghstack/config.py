@@ -72,7 +72,9 @@ def get_gh_cli_credentials(
         if username_result.returncode == 0:
             username = username_result.stdout.strip()
 
-        logging.debug(f"Successfully retrieved credentials from gh CLI for {github_url}")
+        logging.debug(
+            f"Successfully retrieved credentials from gh CLI for {github_url}"
+        )
         return token, username, github_url
 
     except Exception as e:
