@@ -51,6 +51,8 @@ __all__ = [
     "get_sh",
     "get_upstream_sh",
     "get_github",
+    "get_pr_reviewers",
+    "get_pr_labels",
     "tick",
     "captured_output",
 ]
@@ -390,6 +392,26 @@ def is_direct() -> bool:
     return CTX.direct
 
 
+def get_github() -> ghstack.github_fake.FakeGitHubEndpoint:
+    return CTX.github
+
+
+def get_pr_reviewers(pr_number: int) -> List[str]:
+    """Get the reviewers for a PR number."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    return pr.reviewers
+
+
+def get_pr_labels(pr_number: int) -> List[str]:
+    """Get the labels for a PR number."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    return pr.labels
+
+
 def assert_eq(a: Any, b: Any) -> None:
     assert a == b, f"{a} != {b}"
 
@@ -421,10 +443,6 @@ def get_sh() -> ghstack.shell.Shell:
 
 def get_upstream_sh() -> ghstack.shell.Shell:
     return CTX.upstream_sh
-
-
-def get_github() -> ghstack.github.GitHubEndpoint:
-    return CTX.github
 
 
 def tick() -> None:

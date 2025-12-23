@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import dataclasses
 import os.path
 import re
 from dataclasses import dataclass
@@ -271,6 +272,8 @@ class PullRequest(Node):
     # state: PullRequestState
     title: str
     url: str
+    reviewers: List[str] = dataclasses.field(default_factory=list)
+    labels: List[str] = dataclasses.field(default_factory=list)
 
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
@@ -476,10 +479,20 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             if m := re.match(
                 r"^repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers", path
             ):
-                # Handle adding reviewers - just return success for testing
+                # Handle adding reviewers
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
+                reviewers = kwargs.get("reviewers", [])
+                pr.reviewers.extend(reviewers)
                 return {}
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels", path):
-                # Handle adding labels - just return success for testing
+                # Handle adding labels
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
+                labels = kwargs.get("labels", [])
+                pr.labels.extend(labels)
                 return {}
         elif method == "patch":
             if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):

@@ -3,7 +3,13 @@ from ghstack.test_prelude import *
 init_test()
 
 commit("A")
-(A,) = gh_submit("Initial commit", reviewer="reviewer1,reviewer2", label="bug,enhancement")
+(A,) = gh_submit(
+    "Initial commit", reviewer="reviewer1,reviewer2", label="bug,enhancement"
+)
+
+# Verify reviewers and labels were added
+assert_eq(get_pr_reviewers(500), ["reviewer1", "reviewer2"])
+assert_eq(get_pr_labels(500), ["bug", "enhancement"])
 
 if is_direct():
     assert_github_state(

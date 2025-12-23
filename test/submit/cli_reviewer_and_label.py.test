@@ -6,9 +6,19 @@ init_test()
 commit("A")
 (A,) = gh_submit("Initial commit", reviewer="reviewer1", label="bug")
 
+# Verify first PR has correct reviewers and labels
+assert_eq(get_pr_reviewers(500), ["reviewer1"])
+assert_eq(get_pr_labels(500), ["bug"])
+
 # Create second commit with different reviewers/labels
 commit("B")
-(A2, B) = gh_submit("Add B", reviewer="reviewer2,reviewer3", label="enhancement,priority-high")
+(A2, B) = gh_submit(
+    "Add B", reviewer="reviewer2,reviewer3", label="enhancement,priority-high"
+)
+
+# Verify second PR has correct reviewers and labels
+assert_eq(get_pr_reviewers(501), ["reviewer2", "reviewer3"])
+assert_eq(get_pr_labels(501), ["enhancement", "priority-high"])
 
 if is_direct():
     assert_github_state(
