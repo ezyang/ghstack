@@ -194,6 +194,8 @@ def gh_submit(
     base: Optional[str] = None,
     revs: Sequence[str] = (),
     stack: bool = True,
+    reviewer: Optional[str] = None,
+    label: Optional[str] = None,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
     r = ghstack.submit.main(
@@ -214,6 +216,8 @@ def gh_submit(
         revs=revs,
         stack=stack,
         check_invariants=True,
+        reviewer=reviewer,
+        label=label,
     )
     self.check_global_github_invariants(self.direct)
     return r

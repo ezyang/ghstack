@@ -1,0 +1,46 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+(A,) = gh_submit("Initial commit", reviewer="reviewer1,reviewer2", label="bug,enhancement")
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> master)
+
+            This is commit A
+
+            * 9cb2ede Initial commit
+
+        Repository state:
+
+            * 9cb2ede (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial commit
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit A
+
+            * 62602bd Initial commit
+
+        Repository state:
+
+            * 62602bd (gh/ezyang/1/head)
+            |    Initial commit
+            * 5956f18 (gh/ezyang/1/base)
+            |    Initial commit (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """,
+    )

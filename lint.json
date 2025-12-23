@@ -1,0 +1,1 @@
+{"path":"/home/oulgen/dev/ghstack/src/ghstack/submit.py","line":1458,"char":37,"code":"FLAKE8","severity":"warning","name":"E741","description":"ambiguous variable name 'l'\nSee https://www.flake8rules.com/rules/E741.html"}

@@ -473,6 +473,14 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     GitHubNumber(int(m.group(3))),
                     cast(CreateIssueCommentInput, kwargs),
                 )
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers", path
+            ):
+                # Handle adding reviewers - just return success for testing
+                return {}
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels", path):
+                # Handle adding labels - just return success for testing
+                return {}
         elif method == "patch":
             if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):
                 owner, name, number = m.groups()

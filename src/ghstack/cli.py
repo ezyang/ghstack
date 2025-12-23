@@ -264,6 +264,18 @@ def status(pull_request: str) -> None:
     "listed in the command line.",
 )
 @click.option(
+    "--reviewer",
+    default=None,
+    help="Comma-separated list of GitHub usernames to add as reviewers to new PRs "
+    "(overrides .ghstackrc setting)",
+)
+@click.option(
+    "--label",
+    default=None,
+    help="Comma-separated list of labels to add to new PRs "
+    "(overrides .ghstackrc setting)",
+)
+@click.option(
     "--direct/--no-direct",
     "direct_opt",
     default=None,
@@ -286,6 +298,8 @@ def submit(
     base: Optional[str],
     revs: Tuple[str, ...],
     stack: bool,
+    reviewer: Optional[str],
+    label: Optional[str],
 ) -> None:
     """
     Submit or update a PR stack
@@ -307,6 +321,8 @@ def submit(
             revs=revs,
             stack=stack,
             direct_opt=direct_opt,
+            reviewer=reviewer if reviewer is not None else config.reviewer,
+            label=label if label is not None else config.label,
         )
 
 
