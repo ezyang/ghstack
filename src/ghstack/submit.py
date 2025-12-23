@@ -343,6 +343,12 @@ class Submitter:
     # merged.  If None, infer whether or not the PR should be direct or not.
     direct_opt: Optional[bool] = None
 
+    # Default reviewers to add to new pull requests (comma-separated usernames)
+    reviewer: Optional[str] = None
+
+    # Default labels to add to new pull requests (comma-separated labels)
+    label: Optional[str] = None
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
 
@@ -1433,6 +1439,32 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 body=f"{self.stack_header}:\n* (to be filled)",
             )
             comment_id = rc["id"]
+
+        # Add reviewers if specified
+        if self.reviewer:
+            reviewers = [r.strip() for r in self.reviewer.split(",") if r.strip()]
+            if reviewers:
+                try:
+                    self.github.post(
+                        f"repos/{self.repo_owner}/{self.repo_name}/pulls/{number}/requested_reviewers",
+                        reviewers=reviewers,
+                    )
+                    logging.info(f"Added reviewers: {', '.join(reviewers)}")
+                except Exception as e:
+                    logging.warning(f"Failed to add reviewers: {e}")
+
+        # Add labels if specified
+        if self.label:
+            labels = [label.strip() for label in self.label.split(",") if label.strip()]
+            if labels:
+                try:
+                    self.github.post(
+                        f"repos/{self.repo_owner}/{self.repo_name}/issues/{number}/labels",
+                        labels=labels,
+                    )
+                    logging.info(f"Added labels: {', '.join(labels)}")
+                except Exception as e:
+                    logging.warning(f"Failed to add labels: {e}")
 
         logging.info("Opened PR #{}".format(number))
 
