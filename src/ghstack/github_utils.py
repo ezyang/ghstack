@@ -25,7 +25,9 @@ def get_github_repo_name_with_owner(
     remote_name: str,
 ) -> GitHubRepoNameWithOwner:
     # Grovel in remotes to figure it out
-    remote_url = sh.git("remote", "get-url", remote_name)
+    # Use --push to get the push URL, which is what matters for determining
+    # where commits will actually be pushed to
+    remote_url = sh.git("remote", "get-url", "--push", remote_name)
     while True:
         match = r"^git@{github_url}:/?([^/]+)/(.+?)(?:\.git)?$".format(
             github_url=github_url
@@ -158,7 +160,7 @@ def parse_pull_request(
     if not m:
         # We can reconstruct the URL if just a PR number is passed
         if sh is not None and remote_name is not None:
-            remote_url = sh.git("remote", "get-url", remote_name)
+            remote_url = sh.git("remote", "get-url", "--push", remote_name)
             # Do not pass the shell to avoid infinite loop
             try:
                 return parse_pull_request(
