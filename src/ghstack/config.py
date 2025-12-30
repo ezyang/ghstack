@@ -107,6 +107,10 @@ Config = NamedTuple(
         ("github_url", str),
         # Name of the upstream remote
         ("remote_name", str),
+        # Default reviewers to add to new pull requests (comma-separated usernames)
+        ("reviewer", Optional[str]),
+        # Default labels to add to new pull requests (comma-separated labels)
+        ("label", Optional[str]),
     ],
 )
 
@@ -287,6 +291,16 @@ def read_config(
     else:
         remote_name = "origin"
 
+    if config.has_option("ghstack", "reviewer"):
+        reviewer = config.get("ghstack", "reviewer")
+    else:
+        reviewer = None
+
+    if config.has_option("ghstack", "label"):
+        label = config.get("ghstack", "label")
+    else:
+        label = None
+
     if write_back:
         with open(config_path, "w") as f:
             config.write(f)
@@ -302,6 +316,8 @@ def read_config(
         default_project_dir=default_project_dir,
         github_url=github_url,
         remote_name=remote_name,
+        reviewer=reviewer,
+        label=label,
     )
     logging.debug(f"conf = {conf}")
     return conf

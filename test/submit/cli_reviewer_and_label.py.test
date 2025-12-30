@@ -1,0 +1,84 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create first commit with one set of reviewers/labels
+commit("A")
+(A,) = gh_submit("Initial commit", reviewer="reviewer1", label="bug")
+
+# Verify first PR has correct reviewers and labels
+assert_eq(get_pr_reviewers(500), ["reviewer1"])
+assert_eq(get_pr_labels(500), ["bug"])
+
+# Create second commit with different reviewers/labels
+commit("B")
+(A2, B) = gh_submit(
+    "Add B", reviewer="reviewer2,reviewer3", label="enhancement,priority-high"
+)
+
+# Verify second PR has correct reviewers and labels
+assert_eq(get_pr_reviewers(501), ["reviewer2", "reviewer3"])
+assert_eq(get_pr_labels(501), ["enhancement", "priority-high"])
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> master)
+
+            This is commit A
+
+            * 9cb2ede Initial commit
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
+
+            This is commit B
+
+            * d012f5c Add B
+
+        Repository state:
+
+            * d012f5c (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Add B
+            * 9cb2ede (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial commit
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+            * 62602bd Initial commit
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * __->__ #501
+            * #500
+
+            This is commit B
+
+            * afd9aaf Add B
+
+        Repository state:
+
+            * afd9aaf (gh/ezyang/2/head)
+            |    Add B
+            * 5d2de57 (gh/ezyang/2/base)
+            |    Add B (base update)
+            | * 62602bd (gh/ezyang/1/head)
+            | |    Initial commit
+            | * 5956f18 (gh/ezyang/1/base)
+            |/     Initial commit (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """,
+    )
