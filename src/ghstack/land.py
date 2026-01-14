@@ -151,7 +151,7 @@ to complain to the ghstack authors."""
             except BaseException:
                 sh.git("cherry-pick", "--abort")
                 raise
-            
+
             # Add PR number to commit message like GitHub does
             commit_msg = sh.git("log", "-1", "--pretty=%B")
             # Get the original author and committer dates to preserve the commit hash
