@@ -885,7 +885,9 @@ to disassociate the commit with the pull request, and then try again.
         else:
             remote_summary = ghstack.git.split_header(rev_list)[0]
             m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
-            remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
+            remote_source_id = (
+                m_remote_source_id.group(1) if m_remote_source_id else None
+            )
             m_comment_id = RE_GHSTACK_COMMENT_ID.search(remote_summary.commit_msg)
             comment_id = int(m_comment_id.group(1)) if m_comment_id else None
 
@@ -932,7 +934,8 @@ to disassociate the commit with the pull request, and then try again.
                         "log",
                         "--format=%H %T",
                         f"{self.remote_name}/{self.base}",
-                        "-n", "100",  # Check last 100 commits
+                        "-n",
+                        "100",  # Check last 100 commits
                     )
                     for line in master_commits.split("\n"):
                         if not line.strip():
