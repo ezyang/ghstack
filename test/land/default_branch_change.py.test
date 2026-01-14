@@ -107,8 +107,8 @@ gh_land(diff2.pr_url)
 assert_expected_inline(
     get_upstream_sh().git("log", "--oneline", "master"),
     """\
-d779d84 Commit B
-542f79d Commit A
+838086c Commit B (#501)
+da05922 Commit A (#500)
 dc8bfe4 Initial commit""",
 )
 assert_expected_inline(
