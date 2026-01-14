@@ -172,8 +172,9 @@ to complain to the ghstack authors."""
                     "git",
                     "commit",
                     "--amend",
-                    "-m",
-                    new_msg,
+                    "-F",
+                    "-",
+                    input=new_msg,
                     env={
                         "GIT_AUTHOR_DATE": author_date,
                         "GIT_COMMITTER_DATE": committer_date,
