@@ -16,7 +16,7 @@ gh_land(pr_url)
 assert_expected_inline(
     get_upstream_sh().git("log", "--oneline", "master"),
     """\
-34cfe12 Commit B (#501)
-049a42c Commit A (#500)
+4099517 Commit B (#501)
+c28edd5 Commit A (#500)
 dc8bfe4 Initial commit""",
 )

@@ -168,8 +168,7 @@ to complain to the ghstack authors."""
                 lines[0] = subject
                 new_msg = "\n".join(lines)
                 # Preserve dates to keep the commit hash consistent
-                sh.sh(
-                    "git",
+                sh.git(
                     "commit",
                     "--amend",
                     "-F",
