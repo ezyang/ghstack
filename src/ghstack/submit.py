@@ -487,18 +487,20 @@ class Submitter:
                 d = ghstack.git.convert_header(h, self.github_url)
                 if d.pull_request_resolved is not None:
                     ed = self.elaborate_diff(d)
-                    pre_branch_state_index[h.commit_id] = PreBranchState(
-                        head_commit_id=GitCommitHash(
-                            self.sh.git(
-                                "rev-parse", f"{self.remote_name}/{ed.head_ref}"
-                            )
-                        ),
-                        base_commit_id=GitCommitHash(
-                            self.sh.git(
-                                "rev-parse", f"{self.remote_name}/{ed.base_ref}"
-                            )
-                        ),
-                    )
+                    # Skip closed PRs (e.g., after landing) where branches have been deleted
+                    if not ed.closed:
+                        pre_branch_state_index[h.commit_id] = PreBranchState(
+                            head_commit_id=GitCommitHash(
+                                self.sh.git(
+                                    "rev-parse", f"{self.remote_name}/{ed.head_ref}"
+                                )
+                            ),
+                            base_commit_id=GitCommitHash(
+                                self.sh.git(
+                                    "rev-parse", f"{self.remote_name}/{ed.base_ref}"
+                                )
+                            ),
+                        )
 
         # NB: deduplicates
         commit_index = {
@@ -870,21 +872,24 @@ to disassociate the commit with the pull request, and then try again.
                 "--header",
                 self.remote_name + "/" + branch_orig(username, gh_number),
             )
-        except RuntimeError as e:
+        except RuntimeError:
             if r["closed"]:
-                raise RuntimeError(
-                    f"Cannot ghstack a stack with closed PR #{number} whose branch was deleted.  "
-                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
-                    "Otherwise, you may have been trying to update a PR that was already closed. "
-                    "To disassociate your update from the old PR and open a new PR, "
-                    "run `ghstack unlink`, `git rebase` and then try again."
-                ) from e
-            raise
-        remote_summary = ghstack.git.split_header(rev_list)[0]
-        m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
-        remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
-        m_comment_id = RE_GHSTACK_COMMENT_ID.search(remote_summary.commit_msg)
-        comment_id = int(m_comment_id.group(1)) if m_comment_id else None
+                # If the PR is closed and the branch is deleted (e.g., after landing),
+                # we can't get the remote source ID. Return None for it, which will
+                # signal to process_commit that this commit has been landed and should
+                # be skipped (not updated).
+                remote_source_id = None
+                comment_id = None
+            else:
+                raise
+        else:
+            remote_summary = ghstack.git.split_header(rev_list)[0]
+            m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
+            remote_source_id = (
+                m_remote_source_id.group(1) if m_remote_source_id else None
+            )
+            m_comment_id = RE_GHSTACK_COMMENT_ID.search(remote_summary.commit_msg)
+            comment_id = int(m_comment_id.group(1)) if m_comment_id else None
 
         return DiffWithGitHubMetadata(
             diff=diff,
@@ -917,6 +922,48 @@ to disassociate the commit with the pull request, and then try again.
         if elab_diff is not None and elab_diff.closed:
             if self.direct:
                 self._raise_needs_rebase()
+            # If we're trying to submit a closed commit, check if it has been modified
+            if elab_diff.remote_source_id is None:
+                # The branch was deleted (e.g., after landing). Check if the commit has been
+                # modified by comparing source_ids. If the commit is reachable from master with
+                # the same source_id (tree hash), it means it was landed and we should skip it.
+                # Otherwise, it's been modified and we should raise an error.
+                try:
+                    # Check if there's a commit on master with the same tree (source_id)
+                    master_commits = self.sh.git(
+                        "log",
+                        "--format=%H %T",
+                        f"{self.remote_name}/{self.base}",
+                        "-n",
+                        "100",  # Check last 100 commits
+                    )
+                    for line in master_commits.split("\n"):
+                        if not line.strip():
+                            continue
+                        commit_hash, tree_hash = line.split()
+                        if tree_hash == diff.source_id:
+                            # Found a commit on master with the same tree, so this commit
+                            # was landed (just with a different commit message/hash)
+                            return None
+                except Exception:
+                    pass
+                # Didn't find a matching commit on master, so this is a modified closed commit
+                raise RuntimeError(
+                    f"Cannot ghstack a stack with closed PR #{elab_diff.number} whose branch was deleted.  "
+                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
+                    "Otherwise, you may have been trying to update a PR that was already closed. "
+                    "To disassociate your update from the old PR and open a new PR, "
+                    "run `ghstack unlink`, `git rebase` and then try again."
+                )
+            elif diff.source_id != elab_diff.remote_source_id:
+                # The commit has been modified locally
+                raise RuntimeError(
+                    f"Cannot ghstack a stack with closed PR #{elab_diff.number} whose branch was deleted.  "
+                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
+                    "Otherwise, you may have been trying to update a PR that was already closed. "
+                    "To disassociate your update from the old PR and open a new PR, "
+                    "run `ghstack unlink`, `git rebase` and then try again."
+                )
             return None
 
         # Edge case: check if the commit is empty; if so skip submitting

@@ -145,12 +145,40 @@ to complain to the ghstack authors."""
             stack_orig_refs.append((ref, pr_resolved))
 
         # OK, actually do the land now
-        for orig_ref, _ in stack_orig_refs:
+        for orig_ref, pr_resolved in stack_orig_refs:
             try:
                 sh.git("cherry-pick", f"{remote_name}/{orig_ref}")
             except BaseException:
                 sh.git("cherry-pick", "--abort")
                 raise
+
+            # Add PR number to commit message like GitHub does
+            commit_msg = sh.git("log", "-1", "--pretty=%B")
+            # Get the original author and committer dates to preserve the commit hash
+            author_date = sh.git("log", "-1", "--pretty=%aD")
+            committer_date = sh.git("log", "-1", "--pretty=%cD")
+            lines = commit_msg.split("\n")
+            if lines:
+                # Add PR number to the subject line (first line)
+                subject = lines[0].rstrip()
+                # Only add if not already present
+                pr_tag = f"(#{pr_resolved.number})"
+                if pr_tag not in subject:
+                    subject = f"{subject} {pr_tag}"
+                lines[0] = subject
+                new_msg = "\n".join(lines)
+                # Preserve dates to keep the commit hash consistent
+                sh.git(
+                    "commit",
+                    "--amend",
+                    "-F",
+                    "-",
+                    input=new_msg,
+                    env={
+                        "GIT_AUTHOR_DATE": author_date,
+                        "GIT_COMMITTER_DATE": committer_date,
+                    },
+                )
 
         # All good! Push!
         maybe_force_arg = []
