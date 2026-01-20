@@ -206,15 +206,25 @@ class Repository(Node):
     ) -> "PullRequest":
         return github_state(info).pull_request(self, number)
 
-    def pullRequests(self, info: GraphQLResolveInfo) -> "PullRequestConnection":
-        return PullRequestConnection(
-            nodes=list(
-                filter(
-                    lambda pr: self == pr.repository(info),
-                    github_state(info).pull_requests.values(),
-                )
+    def pullRequests(
+        self,
+        info: GraphQLResolveInfo,
+        headRefName: Optional[str] = None,
+        first: Optional[int] = None,
+    ) -> "PullRequestConnection":
+        prs = list(
+            filter(
+                lambda pr: self == pr.repository(info),
+                github_state(info).pull_requests.values(),
             )
         )
+        # Filter by headRefName if specified
+        if headRefName is not None:
+            prs = [pr for pr in prs if pr.headRefName == headRefName]
+        # Limit results if first is specified
+        if first is not None:
+            prs = prs[:first]
+        return PullRequestConnection(nodes=prs)
 
     # TODO: This should take which repository the ref is in
     # This only works if you have upstream_sh

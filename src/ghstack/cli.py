@@ -10,6 +10,7 @@ import ghstack.action
 import ghstack.checkout
 import ghstack.cherry_pick
 import ghstack.circleci_real
+import ghstack.clean
 import ghstack.config
 import ghstack.github_real
 import ghstack.land
@@ -137,6 +138,48 @@ def checkout(same_base: bool, pull_request: str) -> None:
             sh=shell,
             remote_name=config.remote_name,
             same_base=same_base,
+        )
+
+
+@main.command("clean")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="List orphan branches without deleting them",
+)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Skip confirmation prompt before deleting",
+)
+@click.option(
+    "--local",
+    is_flag=True,
+    help="Also prune local tracking branches after cleaning remote",
+)
+@click.option(
+    "--user",
+    default=None,
+    help="Only clean branches for a specific GitHub username",
+)
+def clean(dry_run: bool, force: bool, local: bool, user: Optional[str]) -> None:
+    """
+    Clean up orphan ghstack branches
+
+    Identifies and deletes ghstack-managed branches whose associated PRs
+    have been closed (either merged or manually closed).
+    """
+    with cli_context() as (shell, config, github):
+        ghstack.clean.main(
+            github=github,
+            sh=shell,
+            github_url=config.github_url,
+            remote_name=config.remote_name,
+            dry_run=dry_run,
+            clean_local=local,
+            username=user,
+            force=force,
         )
 
 
