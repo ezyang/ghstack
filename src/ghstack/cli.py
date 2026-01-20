@@ -48,7 +48,10 @@ def cli_context(
         yield shell, config, github
 
 
-@click.group(invoke_without_command=True)
+@click.group(
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 @click.pass_context
 @click.version_option(ghstack.__version__, "--version", "-V")
 @click.option("--debug", is_flag=True, help="Log debug information to stderr")
