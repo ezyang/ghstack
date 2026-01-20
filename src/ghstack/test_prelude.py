@@ -14,7 +14,7 @@ from expecttest import assert_expected_inline
 
 import ghstack.checkout
 import ghstack.cherry_pick
-
+import ghstack.clean
 import ghstack.github
 import ghstack.github_fake
 import ghstack.github_utils
@@ -32,6 +32,7 @@ __all__ = [
     "gh_submit",
     "gh_land",
     "gh_unlink",
+    "gh_clean",
     "gh_cherry_pick",
     "gh_checkout",
     "GitCommitHash",
@@ -53,6 +54,7 @@ __all__ = [
     "get_github",
     "get_pr_reviewers",
     "get_pr_labels",
+    "close_pr",
     "tick",
     "captured_output",
 ]
@@ -268,6 +270,38 @@ def gh_checkout(pull_request: str, same_base: bool = False) -> None:
         remote_name="origin",
         same_base=same_base,
     )
+
+
+def gh_clean(
+    dry_run: bool = False,
+    clean_local: bool = False,
+    username: Optional[str] = None,
+    force: bool = True,  # Default to True in tests to skip confirmation prompt
+) -> List[str]:
+    """Clean up orphan ghstack branches."""
+    self = CTX
+    return ghstack.clean.main(
+        github=self.github,
+        sh=self.sh,
+        github_url="github.com",
+        remote_name="origin",
+        dry_run=dry_run,
+        clean_local=clean_local,
+        username=username,
+        repo_owner="pytorch",
+        repo_name="pytorch",
+        force=force,
+    )
+
+
+def close_pr(pr_number: int) -> None:
+    """Close a PR (for testing orphan branch cleanup)."""
+    self = CTX
+    repo = self.github.state.repository("pytorch", "pytorch")
+    pr = self.github.state.pull_request(
+        repo, ghstack.github_fake.GitHubNumber(pr_number)
+    )
+    pr.closed = True
 
 
 def write_file_and_add(filename: str, contents: str) -> None:
