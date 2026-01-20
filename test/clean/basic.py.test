@@ -21,7 +21,9 @@ with captured_output() as (out, err):
     deleted_dry = gh_clean(dry_run=True)
 
 # Branches should still exist after dry run
-refs_after_dry = upstream_sh.git("for-each-ref", "refs/heads/gh/", "--format=%(refname)")
+refs_after_dry = upstream_sh.git(
+    "for-each-ref", "refs/heads/gh/", "--format=%(refname)"
+)
 assert "gh/ezyang/1/" in refs_after_dry, "Branches should still exist after dry run"
 
 # Verify dry run found the right branches
@@ -38,10 +40,14 @@ with captured_output() as (out, err):
 
 # Verify the closed PR branches were deleted
 refs_after = upstream_sh.git("for-each-ref", "refs/heads/gh/", "--format=%(refname)")
-assert "gh/ezyang/1/" not in refs_after, f"Expected branches for PR 1 to be deleted, got: {refs_after}"
+assert (
+    "gh/ezyang/1/" not in refs_after
+), f"Expected branches for PR 1 to be deleted, got: {refs_after}"
 
 # Verify the open PR branches still exist
-assert "gh/ezyang/2/" in refs_after, f"Expected branches for PR 2 to still exist, got: {refs_after}"
+assert (
+    "gh/ezyang/2/" in refs_after
+), f"Expected branches for PR 2 to still exist, got: {refs_after}"
 
 # Clean again - should find nothing to clean
 with captured_output() as (out, err):

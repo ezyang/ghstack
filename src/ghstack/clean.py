@@ -14,7 +14,9 @@ from ghstack.types import GhNumber
 
 
 # Regex to match ghstack branch names: gh/{username}/{number}/{kind}
-RE_GHSTACK_BRANCH = re.compile(r"^(?:refs/(?:heads|remotes/[^/]+)/)?gh/([^/]+)/([0-9]+)/(.+)$")
+RE_GHSTACK_BRANCH = re.compile(
+    r"^(?:refs/(?:heads|remotes/[^/]+)/)?gh/([^/]+)/([0-9]+)/(.+)$"
+)
 
 
 def parse_ghstack_branch(ref: str) -> Optional[Tuple[str, GhNumber, str]]:
@@ -257,10 +259,14 @@ def main(
             pr_number, is_closed = pr_info
             pr_closed_cache[pr_number] = is_closed
             if is_closed:
-                logging.info(f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is closed")
+                logging.info(
+                    f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is closed"
+                )
                 orphan_branches.extend(branches)
             else:
-                logging.debug(f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is still open")
+                logging.debug(
+                    f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is still open"
+                )
             continue
 
         # Check cache first (handles multiple ghnums mapping to same PR)
@@ -275,7 +281,9 @@ def main(
             logging.info(f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is closed")
             orphan_branches.extend(branches)
         else:
-            logging.debug(f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is still open")
+            logging.debug(
+                f"PR #{pr_number} (gh/{branch_username}/{ghnum}) is still open"
+            )
 
     if not orphan_branches:
         logging.info("No orphan branches found.")
@@ -317,7 +325,7 @@ def main(
     deleted_branches: List[str] = []
 
     for i in range(0, len(orphan_branches), batch_size):
-        batch = orphan_branches[i:i + batch_size]
+        batch = orphan_branches[i : i + batch_size]
         try:
             sh.git("push", remote_name, "--delete", *batch)
             deleted_branches.extend(batch)
