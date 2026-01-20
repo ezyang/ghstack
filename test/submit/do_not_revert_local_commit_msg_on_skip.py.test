@@ -11,7 +11,7 @@ if is_direct():
     assert_expected_inline(
         textwrap.indent(git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
         """\
-        Commit ARGLE
+        Commit ARGLE (#500)
 
         This is commit ARGLE
 
@@ -23,7 +23,7 @@ else:
     assert_expected_inline(
         textwrap.indent(git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
         """\
-        Commit ARGLE
+        Commit ARGLE (#500)
 
         This is commit ARGLE
 

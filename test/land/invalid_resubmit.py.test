@@ -37,22 +37,22 @@ else:
 
               (omitted)
 
-        [O] #501 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+        [O] #501 Commit A (#500) (gh/ezyang/1/head -> gh/ezyang/1/base)
 
             Stack:
             * __->__ #501
 
             This is commit A
 
-            * d1c3c7e New PR
+            * 5f15948 New PR
 
         Repository state:
 
-            * d1c3c7e (gh/ezyang/1/head)
+            * 5f15948 (gh/ezyang/1/head)
             |    New PR
-            * 5f392f5 (gh/ezyang/1/base)
+            * e54a43e (gh/ezyang/1/base)
             |    New PR (base update)
-            * d518c9f (HEAD -> master)
+            * 47df7ee (HEAD -> master)
             |    Commit A (#500)
             * dc8bfe4
                  Initial commit
