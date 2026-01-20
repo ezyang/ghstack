@@ -1017,9 +1017,18 @@ to disassociate the commit with the pull request, and then try again.
 
             trailers_to_add.append(f"Pull-Request: {pull_request_resolved.url()}")
 
-            commit_msg = ghstack.trailers.interpret_trailers(
-                strip_mentions(diff.summary.rstrip()), trailers_to_add
-            )
+            # Add PR number to the commit subject line, like GitHub does
+            summary = strip_mentions(diff.summary.rstrip())
+            lines = summary.split("\n")
+            if lines:
+                subject = lines[0].rstrip()
+                pr_tag = f"(#{elab_diff.number})"
+                if pr_tag not in subject:
+                    subject = f"{subject} {pr_tag}"
+                lines[0] = subject
+                summary = "\n".join(lines)
+
+            commit_msg = ghstack.trailers.interpret_trailers(summary, trailers_to_add)
 
         return DiffMeta(
             elab_diff=elab_diff,

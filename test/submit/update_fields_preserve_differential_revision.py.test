@@ -68,7 +68,7 @@ gh_submit("Update 1", update_fields=True)
 if is_direct():
     assert_github_state(
         """\
-        [O] #500 Commit A (gh/ezyang/1/head -> master)
+        [O] #500 Commit A (#500) (gh/ezyang/1/head -> master)
 
             This is commit A
 
@@ -87,7 +87,7 @@ if is_direct():
 else:
     assert_github_state(
         """\
-        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+        [O] #500 Commit A (#500) (gh/ezyang/1/head -> gh/ezyang/1/base)
 
             Stack:
             * __->__ #500
