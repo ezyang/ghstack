@@ -1,0 +1,89 @@
+name: ghstack merge
+
+on:
+  workflow_call:
+    inputs:
+      pull_request_number:
+        description: 'The pull request number to land'
+        required: true
+        type: number
+      python_version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.11'
+      ghstack_version:
+        description: 'ghstack version to install (e.g., "ghstack", "ghstack==0.14.0", "git+https://github.com/ezyang/ghstack.git")'
+        required: false
+        type: string
+        default: 'ghstack'
+      validate_rules:
+        description: 'Whether to validate against merge rules'
+        required: false
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Validate only, do not actually merge'
+        required: false
+        type: boolean
+        default: false
+      comment_on_failure:
+        description: 'Post validation errors as PR comment'
+        required: false
+        type: boolean
+        default: true
+      runs_on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+    secrets:
+      github_token:
+        description: 'GitHub token with contents:write and pull-requests:write permissions'
+        required: true
+
+jobs:
+  merge:
+    runs-on: ${{ inputs.runs_on }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.github_token }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install ghstack
+        run: pip install '${{ inputs.ghstack_version }}'
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Build ghstack land command
+        id: build-command
+        run: |
+          CMD="ghstack land"
+          if [ "${{ inputs.validate_rules }}" = "true" ]; then
+            CMD="$CMD --validate-rules"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+          if [ "${{ inputs.comment_on_failure }}" = "true" ]; then
+            CMD="$CMD --comment-on-failure"
+          fi
+          CMD="$CMD ${{ inputs.pull_request_number }}"
+          echo "command=$CMD" >> $GITHUB_OUTPUT
+
+      - name: Run ghstack land
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+        run: ${{ steps.build-command.outputs.command }}
