@@ -131,8 +131,6 @@ class GitHubEndpoint(metaclass=ABCMeta):
             return base64.b64decode(content).decode("utf-8")
         return content
 
-    def post_issue_comment(
-        self, owner: str, repo: str, number: int, body: str
-    ) -> Any:
+    def post_issue_comment(self, owner: str, repo: str, number: int, body: str) -> Any:
         """Post a comment on an issue or pull request."""
         return self.post(f"repos/{owner}/{repo}/issues/{number}/comments", body=body)
