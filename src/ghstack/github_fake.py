@@ -487,8 +487,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 repo = state.repository(m.group(1), m.group(2))
                 pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
                 return [
-                    {"user": {"login": r.user}, "state": r.state}
-                    for r in pr.reviews
+                    {"user": {"login": r.user}, "state": r.state} for r in pr.reviews
                 ]
 
             # GET /repos/{owner}/{repo}/pulls/{number}/files
@@ -515,7 +514,9 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 }
 
             # GET /repos/{owner}/{repo}/commits/{ref}/check-runs
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/commits/([^/]+)/check-runs$", path):
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/commits/([^/]+)/check-runs$", path
+            ):
                 # For the fake endpoint, we need to find the PR by head SHA
                 # and return its check runs
                 state = self.state
@@ -543,7 +544,9 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 return []
 
             # GET /repos/{owner}/{repo}/contents/{path}
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/contents/(.+?)(?:\?ref=(.+))?$", path):
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/contents/(.+?)(?:\?ref=(.+))?$", path
+            ):
                 # Return a NotFoundError for the fake endpoint
                 raise ghstack.github.NotFoundError()
 
