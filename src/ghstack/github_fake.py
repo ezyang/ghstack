@@ -258,6 +258,19 @@ class Ref(Node):
 
 
 @dataclass
+class PullRequestReview:
+    user: str
+    state: str  # APPROVED, CHANGES_REQUESTED, COMMENTED, etc.
+
+
+@dataclass
+class CheckRun:
+    name: str
+    status: str  # queued, in_progress, completed
+    conclusion: Optional[str]  # success, failure, neutral, cancelled, skipped, etc.
+
+
+@dataclass
 class PullRequest(Node):
     baseRef: Optional[Ref]
     baseRefName: str
@@ -274,6 +287,10 @@ class PullRequest(Node):
     url: str
     reviewers: List[str] = dataclasses.field(default_factory=list)
     labels: List[str] = dataclasses.field(default_factory=list)
+    # Merge rules related fields
+    files: List[str] = dataclasses.field(default_factory=list)
+    reviews: List[PullRequestReview] = dataclasses.field(default_factory=list)
+    check_runs: List[CheckRun] = dataclasses.field(default_factory=list)
 
     def repository(self, info: GraphQLResolveInfo) -> Repository:
         return github_state(info).repositories[self._repository]
@@ -462,6 +479,75 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
             if m:
                 # For now, pretend all branches are not protected
+                raise ghstack.github.NotFoundError()
+
+            # GET /repos/{owner}/{repo}/pulls/{number}/reviews
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls/(\d+)/reviews$", path):
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
+                return [
+                    {"user": {"login": r.user}, "state": r.state} for r in pr.reviews
+                ]
+
+            # GET /repos/{owner}/{repo}/pulls/{number}/files
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls/(\d+)/files$", path):
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
+                return [{"filename": f} for f in pr.files]
+
+            # GET /repos/{owner}/{repo}/pulls/{number}
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls/(\d+)$", path):
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
+                head_sha = ""
+                if pr.headRef:
+                    head_sha = pr.headRef.target.oid
+                return {
+                    "number": pr.number,
+                    "title": pr.title,
+                    "body": pr.body,
+                    "head": {"sha": head_sha},
+                    "base": {"ref": pr.baseRefName},
+                }
+
+            # GET /repos/{owner}/{repo}/commits/{ref}/check-runs
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/commits/([^/]+)/check-runs$", path
+            ):
+                # For the fake endpoint, we need to find the PR by head SHA
+                # and return its check runs
+                state = self.state
+                ref = m.group(3)
+                # Search for PR with matching head ref
+                for pr in state.pull_requests.values():
+                    if pr.headRef and pr.headRef.target.oid == ref:
+                        return {
+                            "total_count": len(pr.check_runs),
+                            "check_runs": [
+                                {
+                                    "name": c.name,
+                                    "status": c.status,
+                                    "conclusion": c.conclusion,
+                                }
+                                for c in pr.check_runs
+                            ],
+                        }
+                # No matching PR found
+                return {"total_count": 0, "check_runs": []}
+
+            # GET /orgs/{org}/teams/{team_slug}/members
+            if m := re.match(r"^orgs/([^/]+)/teams/([^/]+)/members$", path):
+                # Return empty list for fake endpoint
+                return []
+
+            # GET /repos/{owner}/{repo}/contents/{path}
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/contents/(.+?)(?:\?ref=(.+))?$", path
+            ):
+                # Return a NotFoundError for the fake endpoint
                 raise ghstack.github.NotFoundError()
 
         elif method == "post":
