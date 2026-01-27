@@ -152,9 +152,7 @@ class MergeValidator:
     def get_pr_check_statuses(self, pr_number: int) -> Dict[str, str]:
         """Get CI check statuses for a PR's head commit."""
         # First get the PR to find the head SHA
-        pr_info = self.github.get(
-            f"repos/{self.owner}/{self.repo}/pulls/{pr_number}"
-        )
+        pr_info = self.github.get(f"repos/{self.owner}/{self.repo}/pulls/{pr_number}")
         head_sha = pr_info.get("head", {}).get("sha", "")
         if not head_sha:
             return {}
@@ -212,9 +210,7 @@ class MergeValidator:
                         return rule
         return None
 
-    def validate_pr(
-        self, pr_number: int, rules: List[MergeRule]
-    ) -> ValidationResult:
+    def validate_pr(self, pr_number: int, rules: List[MergeRule]) -> ValidationResult:
         """
         Validate a PR against the provided merge rules.
 
