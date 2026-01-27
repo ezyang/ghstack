@@ -14,6 +14,7 @@ def main(
     sh: ghstack.shell.Shell,
     remote_name: str,
     stack: bool = False,
+    keep_redundant_commits: bool = False,
 ) -> None:
 
     params = ghstack.github_utils.parse_pull_request(
@@ -56,10 +57,18 @@ def main(
 
         logging.info(f"Cherry-picking {len(commit_list)} commits from stack")
         for commit in commit_list:
-            sh.git("cherry-pick", commit)
+            args = ["cherry-pick"]
+            if keep_redundant_commits:
+                args.append("--keep-redundant-commits")
+            args.append(commit)
+            sh.git(*args)
             logging.info(f"Cherry-picked {commit}")
     else:
         # Cherry-pick just the single commit
         remote_orig_ref = remote_name + "/" + orig_ref
-        sh.git("cherry-pick", remote_orig_ref)
+        args = ["cherry-pick"]
+        if keep_redundant_commits:
+            args.append("--keep-redundant-commits")
+        args.append(remote_orig_ref)
+        sh.git(*args)
         logging.info(f"Cherry-picked {orig_ref}")

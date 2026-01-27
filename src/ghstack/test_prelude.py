@@ -248,7 +248,7 @@ def gh_unlink() -> None:
     )
 
 
-def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
+def gh_cherry_pick(pull_request: str, stack: bool = False, keep_redundant_commits: bool = False) -> None:
     self = CTX
     return ghstack.cherry_pick.main(
         pull_request=pull_request,
@@ -256,6 +256,7 @@ def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
         sh=self.sh,
         remote_name="origin",
         stack=stack,
+        keep_redundant_commits=keep_redundant_commits,
     )
 
 
