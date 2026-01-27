@@ -164,8 +164,29 @@ def cherry_pick(stack: bool, pull_request: str) -> None:
 
 @main.command("land")
 @click.option("--force", is_flag=True, help="force land even if the PR is closed")
+@click.option(
+    "--validate-rules",
+    is_flag=True,
+    help="validate against merge rules defined in .github/merge_rules.yaml",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="validate merge rules but don't actually merge",
+)
+@click.option(
+    "--comment-on-failure",
+    is_flag=True,
+    help="post validation errors as a PR comment",
+)
 @click.argument("pull_request", metavar="PR")
-def land(force: bool, pull_request: str) -> None:
+def land(
+    force: bool,
+    validate_rules: bool,
+    dry_run: bool,
+    comment_on_failure: bool,
+    pull_request: str,
+) -> None:
     """
     Land a PR stack
     """
@@ -177,6 +198,9 @@ def land(force: bool, pull_request: str) -> None:
             github_url=config.github_url,
             remote_name=config.remote_name,
             force=force,
+            validate_rules=validate_rules,
+            dry_run=dry_run,
+            comment_on_failure=comment_on_failure,
         )
 
 
