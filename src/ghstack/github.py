@@ -95,3 +95,44 @@ class GitHubEndpoint(metaclass=ABCMeta):
         Returns: parsed JSON response
         """
         pass
+
+    # Merge rules related API methods
+
+    def get_pr_reviews(self, owner: str, repo: str, number: int) -> Any:
+        """Get reviews for a pull request."""
+        return self.get(f"repos/{owner}/{repo}/pulls/{number}/reviews")
+
+    def get_pr_files(self, owner: str, repo: str, number: int) -> Any:
+        """Get files changed in a pull request."""
+        return self.get(f"repos/{owner}/{repo}/pulls/{number}/files")
+
+    def get_check_runs(self, owner: str, repo: str, ref: str) -> Any:
+        """Get check runs for a commit ref."""
+        return self.get(f"repos/{owner}/{repo}/commits/{ref}/check-runs")
+
+    def get_team_members(self, org: str, team_slug: str) -> Any:
+        """Get members of a team."""
+        return self.get(f"orgs/{org}/teams/{team_slug}/members")
+
+    def get_file_contents(
+        self, owner: str, repo: str, path: str, ref: str = "HEAD"
+    ) -> str:
+        """
+        Get the contents of a file from the repository.
+
+        Returns the decoded file contents as a string.
+        """
+        import base64
+
+        result = self.get(f"repos/{owner}/{repo}/contents/{path}?ref={ref}")
+        content = result.get("content", "")
+        encoding = result.get("encoding", "")
+        if encoding == "base64":
+            return base64.b64decode(content).decode("utf-8")
+        return content
+
+    def post_issue_comment(
+        self, owner: str, repo: str, number: int, body: str
+    ) -> Any:
+        """Post a comment on an issue or pull request."""
+        return self.post(f"repos/{owner}/{repo}/issues/{number}/comments", body=body)
