@@ -1,0 +1,24 @@
+# Example with dry-run mode
+#
+# This workflow validates the PR stack without actually merging.
+# Useful for testing merge rules configuration or CI integration.
+
+name: ghstack merge dry-run
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  validate:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@ghstack check')
+    uses: ezyang/ghstack/.github/workflows/ghstack-merge.yml@master
+    with:
+      pull_request_number: ${{ github.event.issue.number }}
+      validate_rules: true
+      dry_run: true
+      comment_on_failure: true
+    secrets:
+      github_token: ${{ secrets.GITHUB_TOKEN }}
