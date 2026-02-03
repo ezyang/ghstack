@@ -1,0 +1,64 @@
+from ghstack.test_prelude import *
+
+import ghstack.merge_rules
+
+init_test()
+
+# Test basic YAML parsing with all fields
+loader = ghstack.merge_rules.MergeRulesLoader(get_github(), "pytorch", "pytorch")
+rules = loader._parse_yaml(
+    """
+- name: core-changes
+  patterns: ["src/core/*"]
+  approved_by: ["maintainer1", "pytorch/core-team"]
+  mandatory_checks_name: ["CI", "lint"]
+  ignore_flaky_failures: true
+"""
+)
+
+assert_eq(len(rules), 1)
+assert_eq(rules[0].name, "core-changes")
+assert_eq(rules[0].patterns, ["src/core/*"])
+assert_eq(rules[0].approved_by, ["maintainer1", "pytorch/core-team"])
+assert_eq(rules[0].mandatory_checks_name, ["CI", "lint"])
+assert_eq(rules[0].ignore_flaky_failures, True)
+
+# Test parsing multiple rules
+rules = loader._parse_yaml(
+    """
+- name: rule1
+  patterns: ["src/*"]
+  approved_by: ["user1"]
+  mandatory_checks_name: []
+- name: rule2
+  patterns: ["test/*"]
+  approved_by: ["user2"]
+  mandatory_checks_name: ["test-ci"]
+"""
+)
+
+assert_eq(len(rules), 2)
+assert_eq(rules[0].name, "rule1")
+assert_eq(rules[1].name, "rule2")
+assert_eq(rules[1].mandatory_checks_name, ["test-ci"])
+
+# Test default values
+rules = loader._parse_yaml(
+    """
+- name: minimal
+  patterns: ["*.py"]
+"""
+)
+
+assert_eq(len(rules), 1)
+assert_eq(rules[0].name, "minimal")
+assert_eq(rules[0].patterns, ["*.py"])
+assert_eq(rules[0].approved_by, [])
+assert_eq(rules[0].mandatory_checks_name, [])
+assert_eq(rules[0].ignore_flaky_failures, False)
+
+# Test empty rule list
+rules = loader._parse_yaml("[]")
+assert_eq(len(rules), 0)
+
+ok()

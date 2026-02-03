@@ -1,0 +1,82 @@
+from ghstack.test_prelude import *
+
+import ghstack.merge_rules
+
+init_test()
+
+# Create test rules with different patterns
+rules = [
+    ghstack.merge_rules.MergeRule(
+        name="core",
+        patterns=["src/core/*"],
+        approved_by=[],
+        mandatory_checks_name=[],
+    ),
+    ghstack.merge_rules.MergeRule(
+        name="tests",
+        patterns=["test/*.py", "test/**/*.py"],
+        approved_by=[],
+        mandatory_checks_name=[],
+    ),
+    ghstack.merge_rules.MergeRule(
+        name="docs",
+        patterns=["*.md", "docs/*"],
+        approved_by=[],
+        mandatory_checks_name=[],
+    ),
+]
+
+validator = ghstack.merge_rules.MergeValidator(get_github(), "pytorch", "pytorch")
+
+# Test exact match on first rule
+rule = validator.find_matching_rule(["src/core/module.py"], rules)
+assert_eq(rule.name, "core")
+
+# Test match on second rule
+rule = validator.find_matching_rule(["test/unit_test.py"], rules)
+assert_eq(rule.name, "tests")
+
+# Test nested test file
+rule = validator.find_matching_rule(["test/integration/test_api.py"], rules)
+assert_eq(rule.name, "tests")
+
+# Test docs rule with markdown
+rule = validator.find_matching_rule(["README.md"], rules)
+assert_eq(rule.name, "docs")
+
+# Test no match returns None
+rule = validator.find_matching_rule(["some_random_file.txt"], rules)
+assert_eq(rule, None)
+
+# Test first matching rule wins when file matches multiple patterns
+# The file "docs/guide.md" would match both "*.md" (docs) and "docs/*" (docs)
+rule = validator.find_matching_rule(["docs/guide.md"], rules)
+assert_eq(rule.name, "docs")
+
+# Test empty file list returns None
+rule = validator.find_matching_rule([], rules)
+assert_eq(rule, None)
+
+# Test multiple files - first matching file determines the rule
+rule = validator.find_matching_rule(["README.txt", "src/core/main.py"], rules)
+assert_eq(rule.name, "core")
+
+# Test that patterns are checked in order - first rule to match a file wins
+combined_rules = [
+    ghstack.merge_rules.MergeRule(
+        name="specific",
+        patterns=["src/core/special.py"],
+        approved_by=[],
+        mandatory_checks_name=[],
+    ),
+    ghstack.merge_rules.MergeRule(
+        name="general",
+        patterns=["src/core/*"],
+        approved_by=[],
+        mandatory_checks_name=[],
+    ),
+]
+rule = validator.find_matching_rule(["src/core/special.py"], combined_rules)
+assert_eq(rule.name, "specific")
+
+ok()
