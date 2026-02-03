@@ -1,0 +1,20 @@
+# Basic example: Trigger ghstack land on "@ghstack merge" comment
+#
+# Copy this file to your repository's .github/workflows/ directory
+
+name: ghstack merge
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  merge:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@ghstack merge')
+    uses: ezyang/ghstack/.github/workflows/ghstack-merge.yml@master
+    with:
+      pull_request_number: ${{ github.event.issue.number }}
+    secrets:
+      github_token: ${{ secrets.GITHUB_TOKEN }}

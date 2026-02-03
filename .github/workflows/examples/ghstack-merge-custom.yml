@@ -1,0 +1,30 @@
+# Example with custom configuration
+#
+# This workflow demonstrates all available options:
+# - Custom Python version
+# - Custom ghstack version (from git)
+# - Custom runner
+# - All merge options enabled
+
+name: ghstack merge custom
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  merge:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@ghstack merge')
+    uses: ezyang/ghstack/.github/workflows/ghstack-merge.yml@master
+    with:
+      pull_request_number: ${{ github.event.issue.number }}
+      python_version: '3.12'
+      ghstack_version: 'git+https://github.com/ezyang/ghstack.git@master'
+      validate_rules: true
+      dry_run: false
+      comment_on_failure: true
+      runs_on: 'ubuntu-latest'
+    secrets:
+      github_token: ${{ secrets.GITHUB_TOKEN }}

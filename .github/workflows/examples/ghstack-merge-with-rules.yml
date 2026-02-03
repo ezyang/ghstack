@@ -1,0 +1,23 @@
+# Example with merge rules validation
+#
+# This workflow validates PRs against .github/merge_rules.yaml before landing.
+# If validation fails, it posts an error comment on the PR.
+
+name: ghstack merge with rules
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  merge:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@ghstack merge')
+    uses: ezyang/ghstack/.github/workflows/ghstack-merge.yml@master
+    with:
+      pull_request_number: ${{ github.event.issue.number }}
+      validate_rules: true
+      comment_on_failure: true
+    secrets:
+      github_token: ${{ secrets.GITHUB_TOKEN }}
