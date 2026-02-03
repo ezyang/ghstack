@@ -1,0 +1,48 @@
+# Merge rules for ghstack land
+#
+# Rules are matched in order - first matching rule wins.
+# Each rule specifies:
+#   - name: A descriptive name for the rule
+#   - patterns: File glob patterns to match (fnmatch syntax)
+#   - approved_by: Required approvers (usernames or org/team refs)
+#                  Use "any" to accept any approved review
+#   - mandatory_checks_name: CI checks that must pass
+#   - ignore_flaky_failures: (optional) If true, ignore check failures
+
+- name: core-library
+  patterns:
+    - "src/ghstack/**"
+  approved_by:
+    - ezyang
+    - pytorch/ghstack-maintainers  # Team reference example
+  mandatory_checks_name:
+    - "Test"
+    - "Lint"
+
+- name: documentation
+  patterns:
+    - "docs/**"
+    - "*.md"
+  approved_by:
+    - any  # Any approved review is sufficient
+  mandatory_checks_name:
+    - "Lint"
+
+- name: ci-config
+  patterns:
+    - ".github/**"
+  approved_by:
+    - ezyang
+  mandatory_checks_name:
+    - "Test"
+    - "Lint"
+
+- name: default
+  patterns:
+    - "*"
+    - "**/*"
+  approved_by:
+    - ezyang
+  mandatory_checks_name:
+    - "Test"
+    - "Lint"
