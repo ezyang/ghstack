@@ -1,0 +1,61 @@
+from ghstack.test_prelude import *
+
+import ghstack.merge_rules
+from ghstack.github_fake import CheckRun, GitHubNumber
+
+init_test()
+commit("A")
+(A,) = gh_submit("Initial 1")
+
+github = get_github()
+repo = github.state.repository("pytorch", "pytorch")
+pr = github.state.pull_request(repo, GitHubNumber(500))
+pr.files = ["src/module.py"]
+pr.check_runs = [CheckRun(name="flaky-test", status="completed", conclusion="failure")]
+
+# Without ignore_flaky_failures - should fail
+rules = [
+    ghstack.merge_rules.MergeRule(
+        name="test",
+        patterns=["src/*"],
+        approved_by=["any"],
+        mandatory_checks_name=["flaky-test"],
+        ignore_flaky_failures=False,
+    )
+]
+validator = ghstack.merge_rules.MergeValidator(github, "pytorch", "pytorch")
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, False)
+assert 'Check "flaky-test" has not passed' in result.errors[0]
+
+# With ignore_flaky_failures - should pass despite failure
+rules = [
+    ghstack.merge_rules.MergeRule(
+        name="test",
+        patterns=["src/*"],
+        approved_by=["any"],
+        mandatory_checks_name=["flaky-test"],
+        ignore_flaky_failures=True,
+    )
+]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, True)
+
+# ignore_flaky_failures should NOT ignore missing checks
+pr.check_runs = []
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, False)
+assert 'Check "flaky-test" has not run' in result.errors[0]
+
+# ignore_flaky_failures should NOT ignore in_progress checks
+pr.check_runs = [CheckRun(name="flaky-test", status="in_progress", conclusion=None)]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, False)
+assert 'Check "flaky-test" has not completed' in result.errors[0]
+
+# Success should still pass with ignore_flaky_failures
+pr.check_runs = [CheckRun(name="flaky-test", status="completed", conclusion="success")]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, True)
+
+ok()

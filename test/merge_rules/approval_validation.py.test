@@ -1,0 +1,93 @@
+from ghstack.test_prelude import *
+
+import ghstack.merge_rules
+from ghstack.github_fake import PullRequestReview, GitHubNumber
+
+init_test()
+commit("A")
+(A,) = gh_submit("Initial 1")
+
+# Set up PR with files and NO approval
+github = get_github()
+repo = github.state.repository("pytorch", "pytorch")
+pr = github.state.pull_request(repo, GitHubNumber(500))
+pr.files = ["src/core/module.py"]
+pr.reviews = []  # No reviews yet
+
+rules = [
+    ghstack.merge_rules.MergeRule(
+        name="core",
+        patterns=["src/core/*"],
+        approved_by=["maintainer1"],
+        mandatory_checks_name=[],
+    )
+]
+
+validator = ghstack.merge_rules.MergeValidator(github, "pytorch", "pytorch")
+result = validator.validate_pr(500, rules)
+
+# Should fail - missing approval
+assert_eq(result.valid, False)
+assert "Missing required approval" in result.errors[0]
+
+# Add approval from wrong user - should still fail
+pr.reviews = [PullRequestReview(user="random_user", state="APPROVED")]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, False)
+
+# Add approval from required user - should pass
+pr.reviews = [PullRequestReview(user="maintainer1", state="APPROVED")]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, True)
+
+# Test multiple required approvers - any one should work
+rules = [
+    ghstack.merge_rules.MergeRule(
+        name="core",
+        patterns=["src/core/*"],
+        approved_by=["maintainer1", "maintainer2"],
+        mandatory_checks_name=[],
+    )
+]
+
+pr.reviews = [PullRequestReview(user="maintainer2", state="APPROVED")]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, True)
+
+# Test that CHANGES_REQUESTED doesn't count as approval
+pr.reviews = [PullRequestReview(user="maintainer1", state="CHANGES_REQUESTED")]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, False)
+
+# Test that latest review state wins
+pr.reviews = [
+    PullRequestReview(user="maintainer1", state="APPROVED"),
+    PullRequestReview(user="maintainer1", state="CHANGES_REQUESTED"),
+]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, False)
+
+# Re-approval after changes_requested should work
+pr.reviews = [
+    PullRequestReview(user="maintainer1", state="CHANGES_REQUESTED"),
+    PullRequestReview(user="maintainer1", state="APPROVED"),
+]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, True)
+
+# Test "any" special approver - any approval should work
+rules = [
+    ghstack.merge_rules.MergeRule(
+        name="any-approval",
+        patterns=["src/*"],
+        approved_by=["any"],
+        mandatory_checks_name=[],
+    )
+]
+
+pr.files = ["src/module.py"]
+pr.reviews = [PullRequestReview(user="anyone", state="APPROVED")]
+result = validator.validate_pr(500, rules)
+assert_eq(result.valid, True)
+
+ok()
