@@ -2,7 +2,8 @@ from ghstack.test_prelude import *
 
 import os
 import tempfile
-from ghstack.github_fake import GitHubNumber, PullRequestReview, CheckRun
+
+from ghstack.github_fake import CheckRun, GitHubNumber, PullRequestReview
 
 init_test()
 commit("A")

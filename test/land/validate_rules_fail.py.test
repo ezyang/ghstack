@@ -2,6 +2,7 @@ from ghstack.test_prelude import *
 
 import os
 import tempfile
+
 import ghstack.merge_rules
 from ghstack.github_fake import GitHubNumber
 
