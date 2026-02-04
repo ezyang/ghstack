@@ -2,7 +2,6 @@ from ghstack.test_prelude import *
 
 import os
 import tempfile
-import ghstack.merge_rules
 from ghstack.github_fake import GitHubNumber, PullRequestReview, CheckRun
 
 init_test()
@@ -33,14 +32,14 @@ with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
 try:
     # Get the initial state of master
     initial_log = get_upstream_sh().git("log", "--oneline", "master")
-    
+
     # Dry run should NOT land the commit
     gh_land(pr_url, validate_rules=True, dry_run=True, rules_file=rules_file)
-    
+
     # Verify master is unchanged (no commit was landed)
     final_log = get_upstream_sh().git("log", "--oneline", "master")
     assert_eq(initial_log, final_log)
-    
+
     # The PR should still be open
     assert_eq(pr.closed, False)
 finally:
