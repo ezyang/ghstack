@@ -1,0 +1,49 @@
+from ghstack.test_prelude import *
+
+import os
+import tempfile
+
+from ghstack.github_fake import CheckRun, GitHubNumber, PullRequestReview
+
+init_test()
+commit("A")
+(diff,) = gh_submit("Initial 1")
+pr_url = diff.pr_url
+
+# Set up PR with files, approvals, and passing checks
+github = get_github()
+repo = github.state.repository("pytorch", "pytorch")
+pr = github.state.pull_request(repo, GitHubNumber(500))
+pr.files = ["src/core/module.py"]
+pr.reviews = [PullRequestReview(user="maintainer1", state="APPROVED")]
+pr.check_runs = [CheckRun(name="CI", status="completed", conclusion="success")]
+
+# Create a temporary rules file
+rules_content = """
+- name: core-changes
+  patterns: ["src/core/*"]
+  approved_by: ["maintainer1"]
+  mandatory_checks_name: ["CI"]
+"""
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+    f.write(rules_content)
+    rules_file = f.name
+
+try:
+    # Get the initial state of master
+    initial_log = get_upstream_sh().git("log", "--oneline", "master")
+
+    # Dry run should NOT land the commit
+    gh_land(pr_url, validate_rules=True, dry_run=True, rules_file=rules_file)
+
+    # Verify master is unchanged (no commit was landed)
+    final_log = get_upstream_sh().git("log", "--oneline", "master")
+    assert_eq(initial_log, final_log)
+
+    # The PR should still be open
+    assert_eq(pr.closed, False)
+finally:
+    os.unlink(rules_file)
+
+ok()

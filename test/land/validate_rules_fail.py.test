@@ -1,0 +1,47 @@
+from ghstack.test_prelude import *
+
+import os
+import tempfile
+
+import ghstack.merge_rules
+from ghstack.github_fake import GitHubNumber
+
+init_test()
+commit("A")
+(diff,) = gh_submit("Initial 1")
+pr_url = diff.pr_url
+
+# Set up PR with files but no approvals
+github = get_github()
+repo = github.state.repository("pytorch", "pytorch")
+pr = github.state.pull_request(repo, GitHubNumber(500))
+pr.files = ["src/core/module.py"]
+pr.reviews = []  # No reviews
+
+# Create a temporary rules file
+rules_content = """
+- name: core-changes
+  patterns: ["src/core/*"]
+  approved_by: ["maintainer1"]
+  mandatory_checks_name: []
+"""
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+    f.write(rules_content)
+    rules_file = f.name
+
+try:
+    # Attempt to land with validation - should raise MergeValidationError
+    assert_expected_raises_inline(
+        ghstack.merge_rules.MergeValidationError,
+        lambda: gh_land(pr_url, validate_rules=True, rules_file=rules_file),
+        """\
+Merge validation failed for PR #500
+Rule: core-changes
+Errors:
+  - Missing required approval from: maintainer1""",
+    )
+finally:
+    os.unlink(rules_file)
+
+ok()

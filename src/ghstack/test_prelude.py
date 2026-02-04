@@ -53,6 +53,9 @@ __all__ = [
     "get_github",
     "get_pr_reviewers",
     "get_pr_labels",
+    "set_pr_files",
+    "set_pr_reviews",
+    "set_pr_check_runs",
     "tick",
     "captured_output",
 ]
@@ -225,7 +228,14 @@ def gh_submit(
     return r
 
 
-def gh_land(pull_request: str) -> None:
+def gh_land(
+    pull_request: str,
+    *,
+    validate_rules: bool = False,
+    dry_run: bool = False,
+    comment_on_failure: bool = False,
+    rules_file: Optional[str] = None,
+) -> None:
     self = CTX
     return ghstack.land.main(
         remote_name="origin",
@@ -233,6 +243,10 @@ def gh_land(pull_request: str) -> None:
         github=self.github,
         sh=self.sh,
         github_url="github.com",
+        validate_rules=validate_rules,
+        dry_run=dry_run,
+        comment_on_failure=comment_on_failure,
+        rules_file=rules_file,
     )
 
 
@@ -410,6 +424,37 @@ def get_pr_labels(pr_number: int) -> List[str]:
     repo = github.state.repository("pytorch", "pytorch")
     pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
     return pr.labels
+
+
+def set_pr_files(pr_number: int, files: List[str]) -> None:
+    """Set the list of changed files for a PR."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    pr.files = files
+
+
+def set_pr_reviews(pr_number: int, reviews: List[Tuple[str, str]]) -> None:
+    """Set reviews for a PR. reviews is list of (user, state) tuples."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    pr.reviews = [
+        ghstack.github_fake.PullRequestReview(user=u, state=s) for u, s in reviews
+    ]
+
+
+def set_pr_check_runs(
+    pr_number: int, checks: List[Tuple[str, str, Optional[str]]]
+) -> None:
+    """Set check runs for a PR. checks is list of (name, status, conclusion) tuples."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    pr.check_runs = [
+        ghstack.github_fake.CheckRun(name=n, status=s, conclusion=c)
+        for n, s, c in checks
+    ]
 
 
 def assert_eq(a: Any, b: Any) -> None:
