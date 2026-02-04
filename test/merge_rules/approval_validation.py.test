@@ -1,7 +1,7 @@
 from ghstack.test_prelude import *
 
 import ghstack.merge_rules
-from ghstack.github_fake import PullRequestReview, GitHubNumber
+from ghstack.github_fake import GitHubNumber, PullRequestReview
 
 init_test()
 commit("A")

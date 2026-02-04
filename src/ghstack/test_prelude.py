@@ -452,7 +452,8 @@ def set_pr_check_runs(
     repo = github.state.repository("pytorch", "pytorch")
     pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
     pr.check_runs = [
-        ghstack.github_fake.CheckRun(name=n, status=s, conclusion=c) for n, s, c in checks
+        ghstack.github_fake.CheckRun(name=n, status=s, conclusion=c)
+        for n, s, c in checks
     ]
 
 
