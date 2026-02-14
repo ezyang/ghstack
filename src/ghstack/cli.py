@@ -44,6 +44,8 @@ def cli_context(
             oauth_token=config.github_oauth,
             proxy=config.proxy,
             github_url=config.github_url,
+            max_retries=config.max_retries,
+            initial_backoff_seconds=config.initial_backoff_seconds,
         )
         yield shell, config, github
 
