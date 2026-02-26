@@ -10,6 +10,10 @@ class NotFoundError(RuntimeError):
     pass
 
 
+class LicenseError(RuntimeError):
+    pass
+
+
 class GitHubEndpoint(metaclass=ABCMeta):
     @abstractmethod
     def graphql(self, query: str, **kwargs: Any) -> Any:
