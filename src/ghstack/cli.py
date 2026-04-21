@@ -103,6 +103,15 @@ def main(
         )
 
 
+@main.command("auth")
+def auth() -> None:
+    """
+    Set up GitHub authentication if not already configured.
+    """
+    with EXIT_STACK:
+        ghstack.config.read_config()
+
+
 @main.command("action")
 @click.option("--close", is_flag=True, help="Close the specified pull request")
 @click.argument("pull_request", metavar="PR")
