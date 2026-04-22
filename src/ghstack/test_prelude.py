@@ -19,6 +19,7 @@ import ghstack.github
 import ghstack.github_fake
 import ghstack.github_utils
 import ghstack.land
+import ghstack.log
 import ghstack.shell
 import ghstack.submit
 import ghstack.unlink
@@ -34,6 +35,7 @@ __all__ = [
     "gh_unlink",
     "gh_cherry_pick",
     "gh_checkout",
+    "gh_log",
     "GitCommitHash",
     "checkout",
     "amend",
@@ -267,6 +269,20 @@ def gh_checkout(pull_request: str, same_base: bool = False) -> None:
         sh=self.sh,
         remote_name="origin",
         same_base=same_base,
+    )
+
+
+def gh_log(
+    pull_request: Optional[str] = None, args: Sequence[str] = ()
+) -> None:
+    self = CTX
+    return ghstack.log.main(
+        github=self.github,
+        sh=self.sh,
+        remote_name="origin",
+        github_url="github.com",
+        args=list(args),
+        pull_request=pull_request,
     )
 
 

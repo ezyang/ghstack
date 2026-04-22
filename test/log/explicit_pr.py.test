@@ -1,0 +1,19 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Submit a PR, then switch HEAD away.  Explicit-PR mode should still work
+# and should NOT include any pending-changes commit (local HEAD is irrelevant).
+commit("A")
+(A,) = gh_submit("Initial commit")
+
+git("checkout", "master")
+
+with captured_output() as (out, _):
+    gh_log(pull_request=f"https://github.com/pytorch/pytorch/pull/{A.number}")
+output = out.getvalue()
+
+assert "Initial commit" in output, output
+assert "Local pending changes" not in output, output
+
+ok()

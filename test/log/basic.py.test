@@ -1,0 +1,28 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create a PR with multiple updates so the head branch has multiple commits
+commit("A")
+gh_submit("Initial commit")
+
+write_file_and_add("A.txt", "A2")
+git("commit", "--amend", "--no-edit", tick=True)
+gh_submit("Second update")
+
+write_file_and_add("A.txt", "A3")
+git("commit", "--amend", "--no-edit", tick=True)
+gh_submit("Third update")
+
+# HEAD now has the Pull-Request trailer from the most recent submit;
+# gh_log should figure out the PR on its own.
+with captured_output() as (out, _):
+    gh_log()
+
+output = out.getvalue()
+
+assert output.count("Initial commit") == 1, output
+assert output.count("Second update") == 1, output
+assert output.count("Third update") == 1, output
+
+ok()
