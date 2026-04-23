@@ -10,10 +10,15 @@ commit("A")
 git("checkout", "master")
 
 with captured_output() as (out, _):
-    gh_log(pull_request=f"https://github.com/pytorch/pytorch/pull/{A.number}")
-output = out.getvalue()
-
-assert "Initial commit" in output, output
-assert "Local pending changes" not in output, output
+    gh_log(
+        pull_request=f"https://github.com/pytorch/pytorch/pull/{A.number}",
+        args=["--format=%s"],
+    )
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Initial commit
+""",
+)
 
 ok()

@@ -13,20 +13,24 @@ gh_submit("Top update")
 
 # HEAD is the top PR (B) -- gh_log picks it up from HEAD's trailer.
 with captured_output() as (out, _):
-    gh_log()
-b_output = out.getvalue()
-
-assert "Initial" in b_output, b_output
-assert "Top update" in b_output, b_output
-assert "Commit A" not in b_output, b_output
+    gh_log(args=["--format=%s"])
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Top update
+Initial
+""",
+)
 
 # Check out the bottom PR locally; HEAD's trailer now points to PR A.
 checkout(A)
 with captured_output() as (out, _):
-    gh_log()
-a_output = out.getvalue()
-
-assert "Initial" in a_output, a_output
-assert "Top update" not in a_output, a_output
+    gh_log(args=["--format=%s"])
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Initial
+""",
+)
 
 ok()
