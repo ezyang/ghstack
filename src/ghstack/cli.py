@@ -13,6 +13,7 @@ import ghstack.circleci_real
 import ghstack.config
 import ghstack.github_real
 import ghstack.land
+import ghstack.log
 import ghstack.logs
 import ghstack.rage
 import ghstack.status
@@ -186,6 +187,35 @@ def land(force: bool, pull_request: str) -> None:
             github_url=config.github_url,
             remote_name=config.remote_name,
             force=force,
+        )
+
+
+@main.command(
+    "log",
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.option(
+    "--pr",
+    "pull_request",
+    default=None,
+    help="Explicit PR (URL or number) to log.  If omitted, the PR is inferred "
+    "from HEAD's Pull-Request trailer, and local pending changes are shown "
+    "on top as a synthesized commit.",
+)
+@click.argument("git_log_args", nargs=-1, type=click.UNPROCESSED)
+def log(pull_request: Optional[str], git_log_args: Tuple[str, ...]) -> None:
+    """
+    Show git log for a PR, restricted to that PR's commits.
+    Extra arguments are forwarded to git log (e.g. -p).
+    """
+    with cli_context(request_github_token=False) as (shell, config, github):
+        ghstack.log.main(
+            github=github,
+            sh=shell,
+            remote_name=config.remote_name,
+            github_url=config.github_url,
+            args=list(git_log_args),
+            pull_request=pull_request,
         )
 
 

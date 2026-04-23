@@ -1,0 +1,55 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Create a PR, then make local changes that haven't been pushed yet.
+# ghstack log should show those local-vs-remote changes as a synthesized
+# "Local pending changes" commit at the top.
+commit("A")
+gh_submit("Initial commit")
+
+# Make a local change but don't submit
+write_file_and_add("A.txt", "pending local change")
+git("commit", "--amend", "--no-edit", tick=True)
+
+with captured_output() as (out, _):
+    gh_log(args=["--format=%s"])
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Local pending changes (not yet submitted)
+Initial commit
+""",
+)
+
+# With -p, the synthesized commit's diff shows the pending content.
+with captured_output() as (out, _):
+    gh_log(args=["-p", "--format=%s"])
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Local pending changes (not yet submitted)
+
+diff --git a/A.txt b/A.txt
+index 8c7e5a6..9593583 100644
+--- a/A.txt
++++ b/A.txt
+@@ -1 +1 @@
+-A
+\\ No newline at end of file
++pending local change
+\\ No newline at end of file
+Initial commit
+
+diff --git a/A.txt b/A.txt
+new file mode 100644
+index 0000000..8c7e5a6
+--- /dev/null
++++ b/A.txt
+@@ -0,0 +1 @@
++A
+\\ No newline at end of file
+""",
+)
+
+ok()
