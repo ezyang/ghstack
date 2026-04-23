@@ -1,0 +1,36 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+# Build a 2-PR stack, then update the top PR once
+commit("A")
+commit("B")
+A, B = gh_submit("Initial")
+
+write_file_and_add("B.txt", "B2")
+git("commit", "--amend", "--no-edit", tick=True)
+gh_submit("Top update")
+
+# HEAD is the top PR (B) -- gh_log picks it up from HEAD's trailer.
+with captured_output() as (out, _):
+    gh_log(args=["--format=%s"])
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Top update
+Initial
+""",
+)
+
+# Check out the bottom PR locally; HEAD's trailer now points to PR A.
+checkout(A)
+with captured_output() as (out, _):
+    gh_log(args=["--format=%s"])
+assert_expected_inline(
+    out.getvalue(),
+    """\
+Initial
+""",
+)
+
+ok()
