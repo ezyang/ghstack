@@ -272,9 +272,7 @@ def gh_checkout(pull_request: str, same_base: bool = False) -> None:
     )
 
 
-def gh_log(
-    pull_request: Optional[str] = None, args: Sequence[str] = ()
-) -> None:
+def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -> None:
     self = CTX
     return ghstack.log.main(
         github=self.github,
