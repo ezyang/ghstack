@@ -13,7 +13,7 @@ git("commit", "--amend", "-m", "Amended " + A.commit_msg)
 if is_direct():
     assert_github_state(
         """\
-        [O] #500 Amended Commit A (gh/ezyang/1/head -> master)
+        [O] #500 Amended Commit A (#500) (gh/ezyang/1/head -> master)
 
             This is commit A
 
@@ -30,7 +30,7 @@ if is_direct():
 else:
     assert_github_state(
         """\
-        [O] #500 Amended Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+        [O] #500 Amended Commit A (#500) (gh/ezyang/1/head -> gh/ezyang/1/base)
 
             Stack:
             * __->__ #500

@@ -39,7 +39,7 @@ if is_direct():
             git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
         ),
         """\
-        Commit 1
+        Commit 1 (#500)
 
         This is my first commit, hello foobar Ivan
 
@@ -54,7 +54,7 @@ else:
             git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
         ),
         """\
-        Commit 1
+        Commit 1 (#500)
 
         This is my first commit, hello foobar Ivan
 
