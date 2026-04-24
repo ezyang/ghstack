@@ -14,6 +14,7 @@ dependencies = [
     "typing-extensions>=3",
     "click<9,>=8",
     "flake8<8.0.0,>=7.0.0",
+    "pyyaml<7,>=6",
 ]
 name = "ghstack"
 version = "0.14.0"
