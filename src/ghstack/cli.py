@@ -157,8 +157,13 @@ def checkout(same_base: bool, pull_request: str) -> None:
     is_flag=True,
     help="Cherry-pick all commits from the commit to the merge-base with main branch",
 )
+@click.option(
+    "--no-fetch",
+    is_flag=True,
+    help="Skip fetching from the remote before cherry-picking",
+)
 @click.argument("pull_request", metavar="PR")
-def cherry_pick(stack: bool, pull_request: str) -> None:
+def cherry_pick(stack: bool, no_fetch: bool, pull_request: str) -> None:
     """
     Cherry-pick a PR
     """
@@ -169,6 +174,7 @@ def cherry_pick(stack: bool, pull_request: str) -> None:
             sh=shell,
             remote_name=config.remote_name,
             stack=stack,
+            no_fetch=no_fetch,
         )
 
 
