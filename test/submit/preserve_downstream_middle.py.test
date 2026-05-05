@@ -1,0 +1,81 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+commit("C")
+A, B, C = gh_submit("Initial")
+
+# Go back to B, amend it, cherry-pick C on top
+checkout(B)
+amend("B2")
+cherry_pick(C)
+
+# Submit only B (the middle), not A or C
+(B2,) = gh_submit("Update middle only", revs=["HEAD~"], stack=False)
+
+assert_eq(B.number, B2.number)
+
+if is_direct():
+    pass
+else:
+    # We expect A (#500) below and C (#502) above to both appear
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #502
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+            * 32289fc Initial
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * #502
+            * __->__ #501
+            * #500
+
+            This is commit B
+
+            * db9d220 Update middle only
+            * ac0c499 Initial
+
+        [O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+            Stack:
+            * __->__ #502
+            * #501
+            * #500
+
+            This is commit C
+
+            * adfef3f Initial
+
+        Repository state:
+
+            * db9d220 (gh/ezyang/2/head)
+            |    Update middle only
+            * ac0c499
+            |    Initial
+            * db684f8 (gh/ezyang/2/base)
+            |    Initial (base update)
+            | * 32289fc (gh/ezyang/1/head)
+            | |    Initial
+            | * 4e92121 (gh/ezyang/1/base)
+            |/     Initial (base update)
+            | * adfef3f (gh/ezyang/3/head)
+            | |    Initial
+            | * 8fe2454 (gh/ezyang/3/base)
+            |/     Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+
+ok()
