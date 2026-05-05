@@ -1,0 +1,62 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+A, B = gh_submit("Initial")
+
+# Now go back to A, amend it, and cherry-pick B on top
+checkout(A)
+amend("A2")
+cherry_pick(B)
+
+# Submit only A (the bottom of the stack), not B
+(A2,) = gh_submit("Update base only", revs=["HEAD~"], stack=False)
+
+assert_eq(A.number, A2.number)
+
+if is_direct():
+    pass
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+            * 09889d1 Update base only
+            * 4afba7b Initial
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * __->__ #501
+            * #500
+
+            This is commit B
+
+            * c9f59d4 Initial
+
+        Repository state:
+
+            * 09889d1 (gh/ezyang/1/head)
+            |    Update base only
+            * 4afba7b
+            |    Initial
+            * 13c3cb3 (gh/ezyang/1/base)
+            |    Initial (base update)
+            | * c9f59d4 (gh/ezyang/2/head)
+            | |    Initial
+            | * 8e6f9ba (gh/ezyang/2/base)
+            |/     Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+
+ok()

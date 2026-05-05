@@ -463,6 +463,26 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             if m:
                 # For now, pretend all branches are not protected
                 raise ghstack.github.NotFoundError()
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls/([^/]+)$", path):
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                pr = state.pull_request(repo, GitHubNumber(int(m.group(3))))
+                return {
+                    "number": pr.number,
+                    "state": "closed" if pr.closed else "open",
+                    "title": pr.title,
+                    "body": pr.body,
+                }
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path
+            ):
+                state = self.state
+                repo = state.repository(m.group(1), m.group(2))
+                comment = state.issue_comment(repo, int(m.group(3)))
+                return {
+                    "id": comment.fullDatabaseId,
+                    "body": comment.body,
+                }
 
         elif method == "post":
             if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):

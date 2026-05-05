@@ -1,0 +1,80 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+commit("C")
+A, B, C = gh_submit("Initial")
+
+# Direct mode NYI for 3-commit partial submit
+if not is_direct():
+    # Go back to A, amend it, cherry-pick B and C on top
+    checkout(A)
+    amend("A2")
+    cherry_pick(B)
+    cherry_pick(C)
+
+    # Submit only A (bottom), leaving B and C as orphans
+    (A2,) = gh_submit("Update base only", revs=["HEAD~2"], stack=False)
+
+    assert_eq(A.number, A2.number)
+
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #502
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+            * 3b4b38a Update base only
+            * 32289fc Initial
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * #502
+            * __->__ #501
+            * #500
+
+            This is commit B
+
+            * ac0c499 Initial
+
+        [O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+            Stack:
+            * __->__ #502
+            * #501
+            * #500
+
+            This is commit C
+
+            * adfef3f Initial
+
+        Repository state:
+
+            * 3b4b38a (gh/ezyang/1/head)
+            |    Update base only
+            * 32289fc
+            |    Initial
+            * 4e92121 (gh/ezyang/1/base)
+            |    Initial (base update)
+            | * ac0c499 (gh/ezyang/2/head)
+            | |    Initial
+            | * db684f8 (gh/ezyang/2/base)
+            |/     Initial (base update)
+            | * adfef3f (gh/ezyang/3/head)
+            | |    Initial
+            | * 8fe2454 (gh/ezyang/3/base)
+            |/     Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+
+ok()
