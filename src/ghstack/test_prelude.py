@@ -8,7 +8,7 @@ import shutil
 import stat
 import sys
 import tempfile
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Type, Union
 
 from expecttest import assert_expected_inline
 
@@ -406,8 +406,10 @@ def is_direct() -> bool:
     return CTX.direct
 
 
-def get_github() -> ghstack.github_fake.FakeGitHubEndpoint:
-    return CTX.github
+def get_github() -> "ghstack.github_fake.FakeGitHubEndpoint":
+    github = CTX.github
+    assert isinstance(github, ghstack.github_fake.FakeGitHubEndpoint)
+    return github
 
 
 def get_pr_reviewers(pr_number: int) -> List[str]:
@@ -431,8 +433,11 @@ def assert_eq(a: Any, b: Any) -> None:
 
 
 def assert_raises(
-    exc_type: any, callable: Callable[..., any], *args: any, **kwargs: any
-):
+    exc_type: Type[BaseException],
+    callable: Callable[..., Any],
+    *args: Any,
+    **kwargs: Any,
+) -> None:
     try:
         callable(*args, **kwargs)
     except exc_type:
@@ -441,8 +446,12 @@ def assert_raises(
 
 
 def assert_expected_raises_inline(
-    exc_type: any, callable: Callable[..., any], expect: str, *args: any, **kwargs: any
-):
+    exc_type: Type[BaseException],
+    callable: Callable[..., Any],
+    expect: str,
+    *args: Any,
+    **kwargs: Any,
+) -> None:
     try:
         callable(*args, **kwargs)
     except exc_type as e:

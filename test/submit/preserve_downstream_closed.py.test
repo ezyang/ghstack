@@ -1,0 +1,68 @@
+from ghstack.test_prelude import *
+from ghstack.github_fake import GitHubNumber
+
+init_test()
+
+commit("A")
+commit("B")
+A, B = gh_submit("Initial")
+
+# Close B directly (simulating a landed/closed PR)
+github = get_github()
+repo = github.state.repository("pytorch", "pytorch")
+pr_b = github.state.pull_request(repo, GitHubNumber(B.number))
+pr_b.closed = True
+
+# Go back to just A (don't cherry-pick B since it's closed)
+checkout(A)
+amend("A2")
+
+# Submit only A. Old stack text mentions B but B is closed, so
+# it should NOT appear as an orphan.
+(A2,) = gh_submit("Update base only")
+
+assert_eq(A.number, A2.number)
+
+if is_direct():
+    pass
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * __->__ #500
+
+            This is commit A
+
+            * a3fa3e7 Update base only
+            * 4afba7b Initial
+
+        [X] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * __->__ #501
+            * #500
+
+            This is commit B
+
+              (omitted)
+
+        Repository state:
+
+            * a3fa3e7 (gh/ezyang/1/head)
+            |    Update base only
+            * 4afba7b
+            |    Initial
+            * 13c3cb3 (gh/ezyang/1/base)
+            |    Initial (base update)
+            | * c9f59d4 (gh/ezyang/2/head)
+            | |    Initial
+            | * 8e6f9ba (gh/ezyang/2/base)
+            |/     Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+
+ok()
