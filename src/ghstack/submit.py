@@ -1581,16 +1581,13 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         if force_push_branches:
             self._git_push(force_push_branches, force=True)
 
-        # Discover downstream PR numbers from the topmost local
-        # commit's old stack listing.  We use the full local stack
-        # (all_diffs, in topo order) rather than just diffs_to_submit,
-        # because the topmost local commit may not be one we're
-        # submitting.  We search top-down for the first commit that
-        # has old stack text (new commits won't have any), then
-        # collect PRs above the first submitted one.  Closed PRs
-        # are filtered out.
+        # Discover orphan PR numbers from the old stack listing.
+        # We search the full local stack for old stack text, then
+        # collect open PRs that aren't being submitted — both above
+        # and below the submitted ones.  Closed PRs are filtered out.
         submitted_numbers = {s.number for s in diffs_to_submit}
-        orphan_pr_numbers: List[GitHubNumber] = []
+        orphan_above: List[GitHubNumber] = []
+        orphan_below: List[GitHubNumber] = []
         for s in all_diffs or diffs_to_submit:
             old_stack_text: Optional[str] = None
             if self.direct and s.elab_diff.comment_id is not None:
@@ -1609,14 +1606,19 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 ]
                 if not old_pr_numbers:
                     continue
+                seen_submitted = False
                 for num in old_pr_numbers:
                     if num in submitted_numbers:
-                        break
+                        seen_submitted = True
+                        continue
                     pr_info = self.github.get(
                         f"repos/{self.repo_owner}/{self.repo_name}/pulls/{num}",
                     )
                     if pr_info.get("state") == "open":
-                        orphan_pr_numbers.append(num)
+                        if seen_submitted:
+                            orphan_below.append(num)
+                        else:
+                            orphan_above.append(num)
                 break
 
         for s in reversed(diffs_to_submit):
@@ -1637,7 +1639,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             else:
                 assert s.base == s.elab_diff.base_ref
             stack_desc = self._format_stack(
-                diffs_to_submit, s.number, orphan_pr_numbers
+                diffs_to_submit, s.number, orphan_above, orphan_below
             )
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}".format(
@@ -1862,12 +1864,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         self,
         diffs_to_submit: List[DiffMeta],
         number: int,
-        orphan_pr_numbers: Sequence[GitHubNumber] = (),
+        orphan_above: Sequence[GitHubNumber] = (),
+        orphan_below: Sequence[GitHubNumber] = (),
     ) -> str:
         rows = []
-        # Orphaned downstream PRs go at the top (they are above the
-        # submitted PRs in the stack)
-        for n in orphan_pr_numbers:
+        for n in orphan_above:
             rows.append(f"* #{n}")
         # NB: top is top of stack, opposite of update order
         for s in diffs_to_submit:
@@ -1875,6 +1876,8 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 rows.append(f"* __->__ #{s.number}")
             else:
                 rows.append(f"* #{s.number}")
+        for n in orphan_below:
+            rows.append(f"* #{n}")
         return self.stack_header + ":\n" + "\n".join(rows) + "\n"
 
     def _default_title_and_body(
