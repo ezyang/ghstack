@@ -52,6 +52,8 @@ def main(
 
     # If --same-base is specified, check what the new merge-base would be
     if same_base:
+        assert default_branch_ref is not None
+        assert current_base is not None
         target_ref = remote_name + "/" + orig_ref
         new_base = sh.git("merge-base", default_branch_ref, target_ref)
 

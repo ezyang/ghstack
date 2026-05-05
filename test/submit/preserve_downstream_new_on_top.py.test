@@ -1,0 +1,137 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+commit("D")
+A, B, D = gh_submit("Initial")
+
+# Go back to B, amend it, and add a new commit C on top (dropping D)
+checkout(B)
+amend("B2")
+commit("C")
+
+# Submit B and C. C is new (no old stack text), so the orphan logic
+# must skip past C and find B's old stack text to discover D as an
+# orphan above the submitted PRs.
+gh_submit("Add C", revs=["HEAD~", "HEAD"], stack=False)
+
+if is_direct():
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> master)
+
+            This is commit A
+
+            * a6cb153 Initial
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
+
+            This is commit B
+
+            * c1f7c5b Add C
+            * 92199c9 Initial
+
+        [O] #502 Commit D (gh/ezyang/3/head -> gh/ezyang/2/head)
+
+            This is commit D
+
+            * dec627d Initial
+
+        [O] #503 Commit C (gh/ezyang/4/head -> gh/ezyang/2/head)
+
+            This is commit C
+
+            * 766ec1b Add C
+
+        Repository state:
+
+            * 766ec1b (gh/ezyang/4/next, gh/ezyang/4/head)
+            |    Add C
+            * c1f7c5b (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    Add C
+            | * dec627d (gh/ezyang/3/next, gh/ezyang/3/head)
+            |/     Initial
+            * 92199c9
+            |    Initial
+            * a6cb153 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    Initial
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+else:
+    assert_github_state(
+        """\
+        [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
+
+            Stack:
+            * #502
+            * #501
+            * __->__ #500
+
+            This is commit A
+
+            * 32289fc Initial
+
+        [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
+
+            Stack:
+            * #502
+            * __->__ #501
+            * #503
+
+            This is commit B
+
+            * 6794170 Add C
+            * ac0c499 Initial
+
+        [O] #502 Commit D (gh/ezyang/3/head -> gh/ezyang/3/base)
+
+            Stack:
+            * __->__ #502
+            * #501
+            * #500
+
+            This is commit D
+
+            * a7066f6 Initial
+
+        [O] #503 Commit C (gh/ezyang/4/head -> gh/ezyang/4/base)
+
+            Stack:
+            * #502
+            * #501
+            * __->__ #503
+
+            This is commit C
+
+            * e78de14 Add C
+
+        Repository state:
+
+            * 6794170 (gh/ezyang/2/head)
+            |    Add C
+            * ac0c499
+            |    Initial
+            * db684f8 (gh/ezyang/2/base)
+            |    Initial (base update)
+            | * e78de14 (gh/ezyang/4/head)
+            | |    Add C
+            | * f7775f1 (gh/ezyang/4/base)
+            |/     Add C (base update)
+            | * 32289fc (gh/ezyang/1/head)
+            | |    Initial
+            | * 4e92121 (gh/ezyang/1/base)
+            |/     Initial (base update)
+            | * a7066f6 (gh/ezyang/3/head)
+            | |    Initial
+            | * 8fe2454 (gh/ezyang/3/base)
+            |/     Initial (base update)
+            * dc8bfe4 (HEAD -> master)
+                 Initial commit
+        """
+    )
+
+ok()

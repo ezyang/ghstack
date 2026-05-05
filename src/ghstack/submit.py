@@ -90,6 +90,7 @@ class PreBranchState:
 
 # Ya, sometimes we get carriage returns.  Crazy right?
 RE_STACK = re.compile(r"Stack.*:\r?\n(\* [^\r\n]+\r?\n)+")
+RE_STACK_PR_NUMBER = re.compile(r"#(\d+)")
 
 
 # NB: This regex is fuzzy because the D1234567 identifier is typically
@@ -518,7 +519,12 @@ class Submitter:
             for h in commits_to_submit
             if h.commit_id in diff_meta_index
         ]
-        self.push_updates(diffs_to_submit)
+        all_diffs_in_topo_order = [
+            diff_meta_index[h.commit_id]
+            for h in commits_to_rebase
+            if h.commit_id in diff_meta_index
+        ]
+        self.push_updates(diffs_to_submit, all_diffs=all_diffs_in_topo_order)
         if new_head := rebase_index.get(
             old_head := GitCommitHash(self.sh.git("rev-parse", "HEAD"))
         ):
@@ -1538,7 +1544,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         )
 
     def push_updates(
-        self, diffs_to_submit: List[DiffMeta], *, import_help: bool = True
+        self,
+        diffs_to_submit: List[DiffMeta],
+        *,
+        all_diffs: Optional[List[DiffMeta]] = None,
+        import_help: bool = True,
     ) -> None:
         # update pull request information, update bases as necessary
         #   preferably do this in one network call
@@ -1571,6 +1581,44 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         if force_push_branches:
             self._git_push(force_push_branches, force=True)
 
+        # Discover downstream PR numbers from the topmost local
+        # commit's old stack listing.  We use the full local stack
+        # (all_diffs, in topo order) rather than just diffs_to_submit,
+        # because the topmost local commit may not be one we're
+        # submitting.  We search top-down for the first commit that
+        # has old stack text (new commits won't have any), then
+        # collect PRs above the first submitted one.  Closed PRs
+        # are filtered out.
+        submitted_numbers = {s.number for s in diffs_to_submit}
+        orphan_pr_numbers: List[GitHubNumber] = []
+        for s in all_diffs or diffs_to_submit:
+            old_stack_text: Optional[str] = None
+            if self.direct and s.elab_diff.comment_id is not None:
+                r = self.github.get(
+                    f"repos/{self.repo_owner}/{self.repo_name}/issues/comments/{s.elab_diff.comment_id}",
+                )
+                old_stack_text = r.get("body")
+            else:
+                m = RE_STACK.search(s.body)
+                if m:
+                    old_stack_text = m.group(0)
+            if old_stack_text:
+                old_pr_numbers = [
+                    GitHubNumber(int(n))
+                    for n in RE_STACK_PR_NUMBER.findall(old_stack_text)
+                ]
+                if not old_pr_numbers:
+                    continue
+                for num in old_pr_numbers:
+                    if num in submitted_numbers:
+                        break
+                    pr_info = self.github.get(
+                        f"repos/{self.repo_owner}/{self.repo_name}/pulls/{num}",
+                    )
+                    if pr_info.get("state") == "open":
+                        orphan_pr_numbers.append(num)
+                break
+
         for s in reversed(diffs_to_submit):
             # NB: GraphQL API does not support modifying PRs
             assert not s.closed
@@ -1588,7 +1636,9 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 base_kwargs["base"] = s.base
             else:
                 assert s.base == s.elab_diff.base_ref
-            stack_desc = self._format_stack(diffs_to_submit, s.number)
+            stack_desc = self._format_stack(
+                diffs_to_submit, s.number, orphan_pr_numbers
+            )
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}".format(
                     owner=self.repo_owner, repo=self.repo_name, number=s.number
@@ -1808,8 +1858,17 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
     # - want "as complete" a tree as possible; this may involve
     #   poking around the xrefs to find out all the other PRs
     #   involved in the stack
-    def _format_stack(self, diffs_to_submit: List[DiffMeta], number: int) -> str:
+    def _format_stack(
+        self,
+        diffs_to_submit: List[DiffMeta],
+        number: int,
+        orphan_pr_numbers: Sequence[GitHubNumber] = (),
+    ) -> str:
         rows = []
+        # Orphaned downstream PRs go at the top (they are above the
+        # submitted PRs in the stack)
+        for n in orphan_pr_numbers:
+            rows.append(f"* #{n}")
         # NB: top is top of stack, opposite of update order
         for s in diffs_to_submit:
             if s.number == number:
