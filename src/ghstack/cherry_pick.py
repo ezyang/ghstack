@@ -14,6 +14,7 @@ def main(
     sh: ghstack.shell.Shell,
     remote_name: str,
     stack: bool = False,
+    no_fetch: bool = False,
 ) -> None:
 
     params = ghstack.github_utils.parse_pull_request(
@@ -26,7 +27,8 @@ def main(
             "The ref {} doesn't look like a ghstack reference".format(head_ref)
         )
 
-    sh.git("fetch", "--prune", remote_name)
+    if not no_fetch:
+        sh.git("fetch", "--prune", remote_name)
 
     if stack:
         # Cherry-pick the entire stack from merge-base to the commit
