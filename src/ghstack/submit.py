@@ -1591,7 +1591,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         # are filtered out.
         submitted_numbers = {s.number for s in diffs_to_submit}
         orphan_pr_numbers: List[GitHubNumber] = []
-        for s in (all_diffs or diffs_to_submit):
+        for s in all_diffs or diffs_to_submit:
             old_stack_text: Optional[str] = None
             if self.direct and s.elab_diff.comment_id is not None:
                 r = self.github.get(

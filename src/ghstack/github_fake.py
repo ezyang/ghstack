@@ -473,9 +473,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     "title": pr.title,
                     "body": pr.body,
                 }
-            if m := re.match(
-                r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path
-            ):
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
                 state = self.state
                 repo = state.repository(m.group(1), m.group(2))
                 comment = state.issue_comment(repo, int(m.group(3)))

@@ -433,7 +433,10 @@ def assert_eq(a: Any, b: Any) -> None:
 
 
 def assert_raises(
-    exc_type: Type[BaseException], callable: Callable[..., Any], *args: Any, **kwargs: Any
+    exc_type: Type[BaseException],
+    callable: Callable[..., Any],
+    *args: Any,
+    **kwargs: Any,
 ) -> None:
     try:
         callable(*args, **kwargs)
@@ -443,7 +446,11 @@ def assert_raises(
 
 
 def assert_expected_raises_inline(
-    exc_type: Type[BaseException], callable: Callable[..., Any], expect: str, *args: Any, **kwargs: Any
+    exc_type: Type[BaseException],
+    callable: Callable[..., Any],
+    expect: str,
+    *args: Any,
+    **kwargs: Any,
 ) -> None:
     try:
         callable(*args, **kwargs)
