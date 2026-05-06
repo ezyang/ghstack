@@ -88,7 +88,10 @@ def cli_context(
     help="Create the pull request in draft mode (only if it has not already been created)",
 )
 @click.option(
-    "--direct/--no-direct", "direct_opt", is_flag=True, default=None,
+    "--direct/--no-direct",
+    "direct_opt",
+    is_flag=True,
+    default=None,
     help="Create stack that directly merges into master",
 )
 @click.option(
