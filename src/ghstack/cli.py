@@ -49,22 +49,74 @@ def cli_context(
         yield shell, config, github
 
 
-@click.group(invoke_without_command=True)
+@click.group(
+    invoke_without_command=True,
+    epilog="Running ghstack with no subcommand is equivalent to ghstack submit.",
+)
 @click.pass_context
 @click.version_option(ghstack.__version__, "--version", "-V")
 @click.option("--debug", is_flag=True, help="Log debug information to stderr")
-# hidden arguments that we'll pass along to submit if no other command given
-@click.option("--message", "-m", default="Update", hidden=True)
-@click.option("--update-fields", "-u", is_flag=True, hidden=True)
-@click.option("--short", is_flag=True, hidden=True)
-@click.option("--force", is_flag=True, hidden=True)
-@click.option("--no-skip", is_flag=True, hidden=True)
-@click.option("--draft", is_flag=True, hidden=True)
+# These options are forwarded to the submit command when no subcommand is given.
 @click.option(
-    "--direct/--no-direct", "direct_opt", is_flag=True, hidden=True, default=None
+    "--message",
+    "-m",
+    default="Update",
+    help="Description of change you made",
 )
-@click.option("--base", "-B", default=None, hidden=True)
-@click.option("--stack/--no-stack", "-s/-S", is_flag=True, default=True, hidden=True)
+@click.option(
+    "--update-fields",
+    "-u",
+    is_flag=True,
+    help="Update GitHub pull request summary from the local commit",
+)
+@click.option(
+    "--short", is_flag=True, help="Print only the URL of the latest opened PR to stdout"
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="force push the branch even if your local branch is stale",
+)
+@click.option(
+    "--no-skip",
+    is_flag=True,
+    help="Never skip pushing commits, even if the contents didn't change",
+)
+@click.option(
+    "--draft",
+    is_flag=True,
+    help="Create the pull request in draft mode (only if it has not already been created)",
+)
+@click.option(
+    "--direct/--no-direct",
+    "direct_opt",
+    is_flag=True,
+    default=None,
+    help="Create stack that directly merges into master",
+)
+@click.option(
+    "--base",
+    "-B",
+    default=None,
+    help="Branch to base the stack off of",
+)
+@click.option(
+    "--stack/--no-stack",
+    "-s/-S",
+    is_flag=True,
+    default=True,
+    help="Submit the entire stack of commits reachable from HEAD",
+)
+@click.option(
+    "--reviewer",
+    default=None,
+    help="Comma-separated list of GitHub usernames to add as reviewers",
+)
+@click.option(
+    "--label",
+    default=None,
+    help="Comma-separated list of labels to add to new PRs",
+)
 def main(
     ctx: click.Context,
     debug: bool,
@@ -77,6 +129,8 @@ def main(
     draft: bool,
     base: Optional[str],
     stack: bool,
+    reviewer: Optional[str],
+    label: Optional[str],
 ) -> None:
     """
     Submit stacks of diffs to Github
@@ -101,6 +155,8 @@ def main(
             base=base,
             stack=stack,
             direct_opt=direct_opt,
+            reviewer=reviewer,
+            label=label,
         )
 
 
