@@ -1,0 +1,47 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+gh_submit("Initial 1")
+
+# Simulate editing PR descriptions on GitHub
+github = get_github()
+if is_direct():
+    github.patch("repos/pytorch/pytorch/pulls/500", body="Updated body for A")
+    github.patch("repos/pytorch/pytorch/pulls/501", body="Updated body for B")
+else:
+    # Non-direct PRs have a stack header in the body; put it back
+    # along with the new body so we test that the stack gets stripped
+    github.patch(
+        "repos/pytorch/pytorch/pulls/500",
+        body="Stack:\n* #501\n* __->__ #500\n\nUpdated body for A",
+    )
+    github.patch(
+        "repos/pytorch/pytorch/pulls/501",
+        body="Stack:\n* __->__ #501\n* #500\n\nUpdated body for B",
+    )
+
+# Also update the title of PR #500
+github.patch("repos/pytorch/pytorch/pulls/500", title="New title for A")
+
+# Sync
+gh_sync()
+
+# Check that the commit messages were updated
+sh = get_sh()
+log = sh.git("log", "--format=%s%n%b---", "HEAD~2..HEAD")
+
+assert "New title for A" in log, f"Expected 'New title for A' in log, got:\n{log}"
+assert "Updated body for A" in log, f"Expected 'Updated body for A' in log, got:\n{log}"
+assert "Updated body for B" in log, f"Expected 'Updated body for B' in log, got:\n{log}"
+
+# Ensure stack list is NOT in the commit messages
+assert "Stack" not in log, f"Stack list should not be in commit messages, got:\n{log}"
+
+# Trailers should still be present
+assert "ghstack-source-id:" in log, f"Expected trailers in log, got:\n{log}"
+assert "Pull-Request:" in log, f"Expected Pull-Request trailer in log, got:\n{log}"
+
+ok()
