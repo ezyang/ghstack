@@ -23,7 +23,7 @@ def pytest_collect_file(file_path: pathlib.Path, parent):
 class Script(pytest.File):
     def collect(self):
         yield ScriptItem.from_parent(self, name="default", direct=False)
-        if self.path.parent.name in ["submit", "unlink", "log"]:
+        if self.path.parent.name in ["submit", "unlink", "log", "sync"]:
             yield ScriptItem.from_parent(self, name="direct", direct=True)
 
 
