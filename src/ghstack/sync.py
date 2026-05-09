@@ -113,12 +113,8 @@ def main(
             continue
 
         rewriting = True
-        logging.debug(
-            "-- old commit_msg:\n%s", textwrap.indent(s.commit_msg, "   ")
-        )
-        logging.debug(
-            "-- new commit_msg:\n%s", textwrap.indent(new_msg, "   ")
-        )
+        logging.debug("-- old commit_msg:\n%s", textwrap.indent(s.commit_msg, "   "))
+        logging.debug("-- new commit_msg:\n%s", textwrap.indent(new_msg, "   "))
         head = GitCommitHash(
             sh.git(
                 "commit-tree",
