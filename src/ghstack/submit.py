@@ -569,6 +569,10 @@ class Submitter:
             self.sh, f"{self.remote_name}/{self.base}", commits_to_submit[0].commit_id
         )
 
+        pr_info_cache = self._prefetch_pr_info(commits_to_rebase)
+        if not self.no_fetch:
+            self._fetch_foreign_pr_refs(pr_info_cache.values())
+
         # NB: This is duplicative with prepare_submit to keep the
         # check_invariants code small, as it counts as TCB
         pre_branch_state_index: Dict[GitCommitHash, PreBranchState] = {}
@@ -576,7 +580,10 @@ class Submitter:
             for h in commits_to_submit:
                 d = ghstack.git.convert_header(h, self.github_url)
                 if d.pull_request_resolved is not None:
-                    ed = self.elaborate_diff(d)
+                    ed = self.elaborate_diff(
+                        d,
+                        _pr_info=pr_info_cache.get(d.pull_request_resolved.number),
+                    )
                     # Skip closed PRs (e.g., after landing) where branches have been deleted
                     if not ed.closed:
                         pre_branch_state_index[h.commit_id] = PreBranchState(
@@ -600,7 +607,10 @@ class Submitter:
             )
         }
         diff_meta_index, rebase_index = self.prepare_updates(
-            commit_index, commits_to_submit, commits_to_rebase
+            commit_index,
+            commits_to_submit,
+            commits_to_rebase,
+            pr_info_cache=pr_info_cache,
         )
         if timer:
             timer.mark("prepare_updates")
@@ -810,14 +820,33 @@ class Submitter:
 
         return pr_info
 
+    def _fetch_foreign_pr_refs(self, pr_infos: Iterable[Any]) -> None:
+        usernames: Set[str] = set()
+        for pr_info in pr_infos:
+            head_ref_name = self._pr_ref_name(pr_info, "head")
+            if head_ref_name is None:
+                continue
+            m = re.match(r"gh/([^/]+)/([0-9]+)/head$", head_ref_name)
+            if m is not None and m.group(1) != self.username:
+                usernames.add(m.group(1))
+
+        for username in sorted(usernames):
+            self.fetch(
+                f"+refs/heads/gh/{username}/*"
+                f":refs/remotes/{self.remote_name}/gh/{username}/*"
+            )
+
     def prepare_updates(
         self,
         commit_index: Dict[GitCommitHash, ghstack.git.CommitHeader],
         commits_to_submit: List[ghstack.git.CommitHeader],
         commits_to_rebase: List[ghstack.git.CommitHeader],
+        *,
+        pr_info_cache: Optional[Dict[GitHubNumber, Any]] = None,
     ) -> Tuple[Dict[GitCommitHash, DiffMeta], Dict[GitCommitHash, GitCommitHash]]:
         # Prefetch PR info for all commits with existing PRs (parallel REST GETs)
-        pr_info_cache = self._prefetch_pr_info(commits_to_rebase)
+        if pr_info_cache is None:
+            pr_info_cache = self._prefetch_pr_info(commits_to_rebase)
 
         # Phase 1: Process all commits (oldest first) to determine what
         # needs updating, create head/base commits, and identify new PRs.
