@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import json
+import logging
+import os
 import re
 from typing import Optional
 
@@ -60,6 +63,11 @@ GitHubRepoInfo = TypedDict(
 )
 
 
+def _repo_info_cache_path(sh: ghstack.shell.Shell) -> str:
+    git_dir = sh.abspath(sh.git("rev-parse", "--git-dir"))
+    return os.path.join(git_dir, "ghstack-repo-info.json")
+
+
 def get_github_repo_info(
     *,
     github: ghstack.github.GitHubEndpoint,
@@ -78,7 +86,20 @@ def get_github_repo_info(
     else:
         name_with_owner = {"owner": repo_owner, "name": repo_name}
 
-    # TODO: Cache this guy
+    cache_path = _repo_info_cache_path(sh)
+    try:
+        with open(cache_path) as f:
+            cached = json.load(f)
+        if (
+            cached.get("name_with_owner") == name_with_owner
+            and cached.get("id")
+            and cached.get("default_branch")
+        ):
+            logging.debug("Using cached repo info from %s", cache_path)
+            return cached
+    except (OSError, json.JSONDecodeError, KeyError):
+        pass
+
     try:
         repo = github.graphql(
             """
@@ -117,12 +138,20 @@ def get_github_repo_info(
             # Re-raise the original error if it's not the repository access issue
             raise
 
-    return {
+    result: GitHubRepoInfo = {
         "name_with_owner": name_with_owner,
         "id": repo["id"],
         "is_fork": repo["isFork"],
         "default_branch": repo["defaultBranchRef"]["name"],
     }
+
+    try:
+        with open(cache_path, "w") as f:
+            json.dump(result, f)
+    except OSError:
+        pass
+
+    return result
 
 
 RE_PR_URL = re.compile(
