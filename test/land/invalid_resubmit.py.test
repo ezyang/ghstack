@@ -20,7 +20,7 @@ assert_expected_raises_inline(
 
 # Do the remediation
 gh_unlink()
-git("rebase", "origin/master")
+git("rebase", "origin/main")
 gh_submit("New PR")
 
 if is_direct():
@@ -52,7 +52,7 @@ else:
             |    New PR
             * 5f392f5 (gh/ezyang/1/base)
             |    New PR (base update)
-            * d518c9f (HEAD -> master)
+            * d518c9f (HEAD -> main)
             |    Commit A (#500)
             * dc8bfe4
                  Initial commit

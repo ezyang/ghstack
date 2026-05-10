@@ -7,14 +7,14 @@ git("checkout", "-b", "feature")
 commit("A")
 (A,) = gh_submit("Initial commit")
 
-# Switch to master and modify the same file differently
-git("checkout", "master")
+# Switch to main and modify the same file differently
+git("checkout", "main")
 # The commit() function creates <name>.txt with content "A"
 # Let's create a conflicting change by committing to the same file
 write_file_and_add("A.txt", "Different content")
 git("commit", "-m", "Conflicting change")
 
-# Before cherry-pick, verify "Commit A" is not in master
+# Before cherry-pick, verify "Commit A" is not in main
 log_before = git("log", "--oneline", "-n", "2")
 assert "Commit A" not in log_before
 assert "Conflicting change" in log_before

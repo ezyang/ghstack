@@ -13,14 +13,14 @@ assert diff2 is not None
 pr_url1 = diff1.pr_url
 pr_url2 = diff2.pr_url
 
-git("checkout", "origin/master")
+git("checkout", "origin/main")
 commit("C")
-git("push", "origin", "HEAD:master")
+git("push", "origin", "HEAD:main")
 
 gh_land(pr_url1)
 gh_land(pr_url2)
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    get_upstream_sh().git("log", "--oneline", "main"),
     """\
 402e96c Commit B (#501)
 e388a10 Commit A (#500)
