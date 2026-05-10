@@ -1,15 +1,15 @@
 from ghstack.test_prelude import *
 import textwrap
 
-init_test()
+await init_test()
 
-commit("TO_REPLACE")
-(A,) = gh_submit("Initial")
-git("commit", "--amend", "-m", A.commit_msg.replace("TO_REPLACE", "ARGLE"))
-(A2,) = gh_submit("Skip")
+await commit("TO_REPLACE")
+(A,) = await gh_submit("Initial")
+await git("commit", "--amend", "-m", A.commit_msg.replace("TO_REPLACE", "ARGLE"))
+(A2,) = await gh_submit("Skip")
 if is_direct():
     assert_expected_inline(
-        textwrap.indent(git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
+        textwrap.indent(await git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
         """\
         Commit ARGLE
 
@@ -21,7 +21,7 @@ if is_direct():
     )
 else:
     assert_expected_inline(
-        textwrap.indent(git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
+        textwrap.indent(await git("show", "-s", "--pretty=%B", "HEAD"), " " * 8),
         """\
         Commit ARGLE
 
@@ -32,7 +32,7 @@ else:
     )
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit TO_REPLACE (gh/ezyang/1/head -> main)
 
@@ -49,7 +49,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit TO_REPLACE (gh/ezyang/1/head -> gh/ezyang/1/base)
 

@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import re
-from typing import Optional
+from typing import cast, Optional
 
 from typing_extensions import TypedDict
 
@@ -21,7 +21,7 @@ GitHubRepoNameWithOwner = TypedDict(
 )
 
 
-def get_github_repo_name_with_owner(
+async def get_github_repo_name_with_owner(
     *,
     sh: ghstack.shell.Shell,
     github_url: str,
@@ -30,7 +30,7 @@ def get_github_repo_name_with_owner(
     # Grovel in remotes to figure it out
     # Use --push to get the push URL, which is what matters for determining
     # where commits will actually be pushed to
-    remote_url = sh.git("remote", "get-url", "--push", remote_name)
+    remote_url = await sh.agit("remote", "get-url", "--push", remote_name)
     while True:
         match = r"^git@{github_url}:/?([^/]+)/(.+?)(?:\.git)?$".format(
             github_url=github_url
@@ -63,12 +63,12 @@ GitHubRepoInfo = TypedDict(
 )
 
 
-def _repo_info_cache_path(sh: ghstack.shell.Shell) -> str:
-    git_dir = sh.abspath(sh.git("rev-parse", "--git-dir"))
+async def _repo_info_cache_path(sh: ghstack.shell.Shell) -> str:
+    git_dir = sh.abspath(await sh.agit("rev-parse", "--git-dir"))
     return os.path.join(git_dir, "ghstack-repo-info.json")
 
 
-def get_github_repo_info(
+async def get_github_repo_info(
     *,
     github: ghstack.github.GitHubEndpoint,
     sh: ghstack.shell.Shell,
@@ -78,7 +78,7 @@ def get_github_repo_info(
     remote_name: str,
 ) -> GitHubRepoInfo:
     if repo_owner is None or repo_name is None:
-        name_with_owner = get_github_repo_name_with_owner(
+        name_with_owner = await get_github_repo_name_with_owner(
             sh=sh,
             github_url=github_url,
             remote_name=remote_name,
@@ -86,7 +86,7 @@ def get_github_repo_info(
     else:
         name_with_owner = {"owner": repo_owner, "name": repo_name}
 
-    cache_path = _repo_info_cache_path(sh)
+    cache_path = await _repo_info_cache_path(sh)
     try:
         with open(cache_path) as f:
             cached = json.load(f)
@@ -96,12 +96,14 @@ def get_github_repo_info(
             and cached.get("default_branch")
         ):
             logging.debug("Using cached repo info from %s", cache_path)
-            return cached
-    except (OSError, json.JSONDecodeError, KeyError):
-        pass
+            return cast(GitHubRepoInfo, cached)
+    except (OSError, json.JSONDecodeError, KeyError) as e:
+        logging.debug(
+            "Ignoring unreadable GitHub repo info cache %s: %s", cache_path, e
+        )
 
     try:
-        repo = github.graphql(
+        repo_result = await github.graphql(
             """
             query ($owner: String!, $name: String!) {
                 repository(name: $name, owner: $owner) {
@@ -114,7 +116,8 @@ def get_github_repo_info(
             }""",
             owner=name_with_owner["owner"],
             name=name_with_owner["name"],
-        )["data"]["repository"]
+        )
+        repo = repo_result["data"]["repository"]
     except RuntimeError as e:
         # Check if this is a repository access error (NOT_FOUND)
         error_msg = str(e)
@@ -148,8 +151,8 @@ def get_github_repo_info(
     try:
         with open(cache_path, "w") as f:
             json.dump(result, f)
-    except OSError:
-        pass
+    except OSError as e:
+        logging.debug("Failed to write GitHub repo info cache %s: %s", cache_path, e)
 
     return result
 
@@ -178,7 +181,7 @@ def _normalize_remote_url(remote_url: str) -> str:
     return re.sub(r"\.git$", "", remote_url)
 
 
-def parse_pull_request(
+async def parse_pull_request(
     pull_request: str,
     *,
     sh: Optional[ghstack.shell.Shell] = None,
@@ -189,10 +192,10 @@ def parse_pull_request(
     if not m:
         # We can reconstruct the URL if just a PR number is passed
         if sh is not None and remote_name is not None:
-            remote_url = sh.git("remote", "get-url", "--push", remote_name)
+            remote_url = await sh.agit("remote", "get-url", "--push", remote_name)
             # Do not pass the shell to avoid infinite loop
             try:
-                return parse_pull_request(
+                return await parse_pull_request(
                     _normalize_remote_url(remote_url) + "/pull/" + pull_request
                 )
             except RuntimeError:

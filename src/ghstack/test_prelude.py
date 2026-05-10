@@ -2,13 +2,25 @@ import argparse
 import atexit
 import contextlib
 import io
+import inspect
 import os
 import re
 import shutil
 import stat
 import sys
 import tempfile
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Type, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 
 from expecttest import assert_expected_inline
 
@@ -118,9 +130,13 @@ class Context:
 
         local_dir = tempfile.mkdtemp()
         self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
-        self.sh.git("clone", upstream_dir, ".")
-        self.sh.git("fetch", "origin", "+refs/heads/*:refs/remotes/origin/*")
         self.direct = direct
+
+    async def initialize(self) -> None:
+        assert isinstance(self.github, ghstack.github_fake.FakeGitHubEndpoint)
+        await self.github.state.initialize()
+        await self.sh.agit("clone", self.upstream_sh.cwd, ".")
+        await self.sh.agit("fetch", "origin", "+refs/heads/*:refs/remotes/origin/*")
 
     def cleanup(self) -> None:
         if GH_KEEP_TMP:
@@ -136,8 +152,8 @@ class Context:
                 onerror=handle_remove_read_only,
             )
 
-    def check_global_github_invariants(self, direct: bool) -> None:
-        r = self.github.graphql(
+    async def check_global_github_invariants(self, direct: bool) -> None:
+        r = await self.github.graphql(
             """
           query {
             repository(name: "pytorch", owner: "pytorch") {
@@ -169,23 +185,25 @@ class Context:
 CTX: Context = None  # type: ignore
 
 
-def init_test() -> Context:
+async def init_test() -> Context:
     global CTX
     if CTX is None:
         parser = argparse.ArgumentParser()
         parser.add_argument("--direct", action="store_true")
         args = parser.parse_args()
         CTX = Context(args.direct)
+        await CTX.initialize()
         atexit.register(CTX.cleanup)
     return CTX
 
 
-@contextlib.contextmanager
-def scoped_test(direct: bool) -> Iterator[None]:
+@contextlib.asynccontextmanager
+async def scoped_test(direct: bool) -> AsyncIterator[None]:
     global CTX
     assert CTX is None
     try:
         CTX = Context(direct)
+        await CTX.initialize()
         yield
     finally:
         CTX.cleanup()
@@ -193,7 +211,7 @@ def scoped_test(direct: bool) -> Iterator[None]:
 
 
 # NB: returns earliest first
-def gh_submit(
+async def gh_submit(
     msg: str = "Update",
     update_fields: bool = False,
     short: bool = False,
@@ -205,7 +223,7 @@ def gh_submit(
     label: Optional[str] = None,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
-    r = ghstack.submit.main(
+    r = await ghstack.submit.main(
         msg=msg,
         username="ezyang",
         github=self.github,
@@ -226,13 +244,13 @@ def gh_submit(
         reviewer=reviewer,
         label=label,
     )
-    self.check_global_github_invariants(self.direct)
+    await self.check_global_github_invariants(self.direct)
     return r
 
 
-def gh_land(pull_request: str) -> None:
+async def gh_land(pull_request: str) -> None:
     self = CTX
-    return ghstack.land.main(
+    return await ghstack.land.main(
         remote_name="origin",
         pull_request=pull_request,
         github=self.github,
@@ -241,9 +259,9 @@ def gh_land(pull_request: str) -> None:
     )
 
 
-def gh_unlink() -> None:
+async def gh_unlink() -> None:
     self = CTX
-    ghstack.unlink.main(
+    await ghstack.unlink.main(
         github=self.github,
         sh=self.sh,
         repo_owner="pytorch",
@@ -253,9 +271,9 @@ def gh_unlink() -> None:
     )
 
 
-def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
+async def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
     self = CTX
-    return ghstack.cherry_pick.main(
+    return await ghstack.cherry_pick.main(
         pull_request=pull_request,
         github=self.github,
         sh=self.sh,
@@ -264,9 +282,9 @@ def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
     )
 
 
-def gh_checkout(pull_request: str, same_base: bool = False) -> None:
+async def gh_checkout(pull_request: str, same_base: bool = False) -> None:
     self = CTX
-    return ghstack.checkout.main(
+    return await ghstack.checkout.main(
         pull_request=pull_request,
         github=self.github,
         sh=self.sh,
@@ -275,9 +293,9 @@ def gh_checkout(pull_request: str, same_base: bool = False) -> None:
     )
 
 
-def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -> None:
+async def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -> None:
     self = CTX
-    return ghstack.log.main(
+    return await ghstack.log.main(
         github=self.github,
         sh=self.sh,
         remote_name="origin",
@@ -287,9 +305,9 @@ def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -> None
     )
 
 
-def gh_sync() -> GitCommitHash:
+async def gh_sync() -> GitCommitHash:
     self = CTX
-    return ghstack.sync.main(
+    return await ghstack.sync.main(
         github=self.github,
         sh=self.sh,
         repo_owner="pytorch",
@@ -299,17 +317,17 @@ def gh_sync() -> GitCommitHash:
     )
 
 
-def write_file_and_add(filename: str, contents: str) -> None:
+async def write_file_and_add(filename: str, contents: str) -> None:
     self = CTX
     with self.sh.open(filename, "w") as f:
         f.write(contents)
-    self.sh.git("add", filename)
+    await self.sh.agit("add", filename)
 
 
-def commit(name: str, msg: Optional[str] = None) -> None:
+async def commit(name: str, msg: Optional[str] = None) -> None:
     self = CTX
-    write_file_and_add(f"{name}.txt", "A")
-    self.sh.git(
+    await write_file_and_add(f"{name}.txt", "A")
+    await self.sh.agit(
         "commit",
         "-m",
         f"Commit {name}\n\nThis is commit {name}" if msg is None else msg,
@@ -317,41 +335,41 @@ def commit(name: str, msg: Optional[str] = None) -> None:
     self.sh.test_tick()
 
 
-def amend(name: str) -> None:
+async def amend(name: str) -> None:
     self = CTX
-    write_file_and_add(f"{name}.txt", "A")
-    self.sh.git("commit", "--amend", "--no-edit", tick=True)
+    await write_file_and_add(f"{name}.txt", "A")
+    await self.sh.agit("commit", "--amend", "--no-edit", tick=True)
 
 
-def git(*args: Any, **kwargs: Any) -> Any:
-    return CTX.sh.git(*args, **kwargs)
+async def git(*args: Any, **kwargs: Any) -> Any:
+    return await CTX.sh.agit(*args, **kwargs)
 
 
 def ok() -> None:
     print("\033[92m" + "TEST PASSED" + "\033[0m")
 
 
-def checkout(commit: Union[GitCommitHash, ghstack.submit.DiffMeta]) -> None:
+async def checkout(commit: Union[GitCommitHash, ghstack.submit.DiffMeta]) -> None:
     self = CTX
     if isinstance(commit, ghstack.submit.DiffMeta):
         h = commit.orig
     else:
         h = commit
-    self.sh.git("checkout", h)
+    await self.sh.agit("checkout", h)
 
 
-def cherry_pick(commit: Union[GitCommitHash, ghstack.submit.DiffMeta]) -> None:
+async def cherry_pick(commit: Union[GitCommitHash, ghstack.submit.DiffMeta]) -> None:
     self = CTX
     if isinstance(commit, ghstack.submit.DiffMeta):
         h = commit.orig
     else:
         h = commit
-    self.sh.git("cherry-pick", h, tick=True)
+    await self.sh.agit("cherry-pick", h, tick=True)
 
 
-def dump_github() -> str:
+async def dump_github() -> str:
     self = CTX
-    r = self.github.graphql(
+    r = await self.github.graphql(
         """
       query {
         repository(name: "pytorch", owner: "pytorch") {
@@ -383,7 +401,7 @@ def dump_github() -> str:
         # puts the first parent on the left, which leads to ugly
         # graphs.  Swapping the parents would give us nice pretty graphs.
         if not pr["closed"]:
-            pr["commits"] = self.upstream_sh.git(
+            pr["commits"] = await self.upstream_sh.agit(
                 "log",
                 "--graph",
                 "--oneline",
@@ -399,7 +417,7 @@ def dump_github() -> str:
             "{body}\n\n{commits}\n\n".format(**pr)
         )
 
-    refs = self.upstream_sh.git(
+    refs = await self.upstream_sh.agit(
         "log",
         "--graph",
         "--oneline",
@@ -413,8 +431,8 @@ def dump_github() -> str:
     return indent("".join(prs), " " * 8) + " " * 8
 
 
-def assert_github_state(expect: str, *, skip: int = 0) -> None:
-    assert_expected_inline(dump_github(), expect, skip=skip + 1)
+async def assert_github_state(expect: str, *, skip: int = 0) -> None:
+    assert_expected_inline(await dump_github(), expect, skip=skip + 1)
 
 
 def is_direct() -> bool:
@@ -447,20 +465,22 @@ def assert_eq(a: Any, b: Any) -> None:
     assert a == b, f"{a} != {b}"
 
 
-def assert_raises(
+async def assert_raises(
     exc_type: Type[BaseException],
     callable: Callable[..., Any],
     *args: Any,
     **kwargs: Any,
 ) -> None:
     try:
-        callable(*args, **kwargs)
+        result = callable(*args, **kwargs)
+        if inspect.isawaitable(result):
+            await result
     except exc_type:
         return
     assert False, "did not raise when expected to"
 
 
-def assert_expected_raises_inline(
+async def assert_expected_raises_inline(
     exc_type: Type[BaseException],
     callable: Callable[..., Any],
     expect: str,
@@ -468,7 +488,9 @@ def assert_expected_raises_inline(
     **kwargs: Any,
 ) -> None:
     try:
-        callable(*args, **kwargs)
+        result = callable(*args, **kwargs)
+        if inspect.isawaitable(result):
+            await result
     except exc_type as e:
         assert_expected_inline(str(e), expect, skip=1)
         return

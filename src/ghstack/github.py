@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import asyncio
 from abc import ABCMeta, abstractmethod
 from typing import Any, Sequence
 
@@ -13,7 +12,7 @@ class NotFoundError(RuntimeError):
 
 class GitHubEndpoint(metaclass=ABCMeta):
     @abstractmethod
-    def graphql(self, query: str, **kwargs: Any) -> Any:
+    async def graphql(self, query: str, **kwargs: Any) -> Any:
         """
         Args:
             query: string GraphQL query to execute
@@ -23,13 +22,13 @@ class GitHubEndpoint(metaclass=ABCMeta):
         """
         pass
 
-    def get_head_ref(self, **params: Any) -> str:
+    async def get_head_ref(self, **params: Any) -> str:
         """
         Fetch the headRefName associated with a PR.  Defaults to a
         GraphQL query but if we're hitting a real GitHub endpoint
         we'll do a regular HTTP request to avoid rate limit.
         """
-        pr_result = self.graphql(
+        pr_result = await self.graphql(
             """
             query ($owner: String!, $name: String!, $number: Int!) {
                 repository(name: $name, owner: $owner) {
@@ -58,51 +57,6 @@ class GitHubEndpoint(metaclass=ABCMeta):
     # annoying to implement and this is more direct
     def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         pass
-
-    def get(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a GET request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self._run_async(self.aget(path, **kwargs))
-
-    def post(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a POST request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self._run_async(self.apost(path, **kwargs))
-
-    def patch(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a PATCH request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self._run_async(self.apatch(path, **kwargs))
-
-    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        """
-        Send a 'method' request to endpoint 'path'.
-
-        Args:
-            method: 'GET', 'POST', etc.
-            path: relative URL path to access on endpoint
-            **kwargs: dictionary of JSON payload to send
-
-        Returns: parsed JSON response
-        """
-        return self._run_async(self.arest(method, path, **kwargs))
-
-    @staticmethod
-    def _run_async(coro: Any) -> Any:
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
 
     async def aget(self, path: str, **kwargs: Any) -> Any:
         return await self.arest("get", path, **kwargs)

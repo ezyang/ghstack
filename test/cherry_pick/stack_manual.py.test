@@ -1,31 +1,31 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Create a more comprehensive stack test by manually testing the git operations
 # First, create a stack of commits on a branch
-git("checkout", "-b", "feature")
-commit("A")
-commit("B")
-commit("C")
+await git("checkout", "-b", "feature")
+await commit("A")
+await commit("B")
+await commit("C")
 
 # Create PRs for the stack
-A, B, C = gh_submit("Stack of 3 commits")
+A, B, C = await gh_submit("Stack of 3 commits")
 
 # Go back to main and create a divergent commit
-git("checkout", "main")
-commit("M")
+await git("checkout", "main")
+await commit("M")
 
 # Before cherry-pick, "Commit C" should NOT be in main history
-log_before = git("log", "--oneline", "-n", "2")
+log_before = await git("log", "--oneline", "-n", "2")
 assert "Commit C" not in log_before
 assert "Commit M" in log_before
 
 # Now test cherry-picking the top commit only (not stack)
-gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{C.number}")
+await gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{C.number}")
 
 # After cherry-pick, should only have C and M in recent main history, not A and B
-log_output = git("log", "--oneline", "-n", "4")
+log_output = await git("log", "--oneline", "-n", "4")
 assert "Commit C" in log_output
 assert "Commit M" in log_output
 # A and B should not be in recent history (they weren't cherry-picked)

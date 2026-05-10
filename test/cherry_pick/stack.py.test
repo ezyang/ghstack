@@ -1,29 +1,29 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Create a stack of PRs to cherry-pick on a separate branch
-git("checkout", "-b", "feature")
-commit("A")
-commit("B")
-A, B = gh_submit("Initial stack")
+await git("checkout", "-b", "feature")
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial stack")
 
 # Switch to main and add another commit
-git("checkout", "main")
-commit("M")
+await git("checkout", "main")
+await commit("M")
 
 # Before cherry-pick, "Commit B" should NOT be in recent main history
-log_before = git("log", "--oneline", "-n", "2")
+log_before = await git("log", "--oneline", "-n", "2")
 assert "Commit B" not in log_before
 assert "Commit M" in log_before
 
 # For now, just test that single cherry-pick works with a stack PR
 # The stack functionality requires complex URL parsing that doesn't work
 # in the test environment's temporary directories
-gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{B.number}")
+await gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{B.number}")
 
 # After cherry-pick, "Commit B" SHOULD be in recent main history
-log_output = git("log", "--oneline", "-n", "3")
+log_output = await git("log", "--oneline", "-n", "3")
 assert "Commit B" in log_output
 assert "Commit M" in log_output
 

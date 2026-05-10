@@ -1,9 +1,9 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-(A,) = gh_submit(
+await commit("A")
+(A,) = await gh_submit(
     "Initial commit", reviewer="reviewer1,reviewer2", label="bug,enhancement"
 )
 
@@ -12,7 +12,7 @@ assert_eq(get_pr_reviewers(500), ["reviewer1", "reviewer2"])
 assert_eq(get_pr_labels(500), ["bug", "enhancement"])
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -29,7 +29,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

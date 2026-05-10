@@ -1,17 +1,17 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Check that we do clobber fields when explicitly asked
 
-commit("A")
-(A,) = gh_submit("Initial 1")
+await commit("A")
+(A,) = await gh_submit("Initial 1")
 
-git("commit", "--amend", "-m", "Amended " + A.commit_msg)
-(A2,) = gh_submit("Update 1", update_fields=True)
+await git("commit", "--amend", "-m", "Amended " + A.commit_msg)
+(A2,) = await gh_submit("Update 1", update_fields=True)
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Amended Commit A (gh/ezyang/1/head -> main)
 
@@ -28,7 +28,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Amended Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -50,6 +50,6 @@ else:
         """
     )
 
-assert "Amended" in git("log", "--format=%B", "-n", "1", "HEAD")
+assert "Amended" in await git("log", "--format=%B", "-n", "1", "HEAD")
 
 ok()

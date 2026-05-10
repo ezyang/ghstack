@@ -1,16 +1,16 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Check that we don't clobber changes to PR description or title
 
-write_file_and_add("b", "asdf")
-git("commit", "-m", "Commit 1\n\nOriginal message")
+await write_file_and_add("b", "asdf")
+await git("commit", "-m", "Commit 1\n\nOriginal message")
 tick()
-gh_submit("Initial 1")
+await gh_submit("Initial 1")
 tick()
 
-get_github().patch(
+await get_github().apatch(
     "repos/pytorch/pytorch/pulls/500",
     body="""\
 Stack:
@@ -21,7 +21,7 @@ Directly updated message body""",
 )
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
@@ -41,7 +41,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -63,14 +63,14 @@ else:
         """
     )
 
-write_file_and_add("file1.txt", "A")
-git("commit", "--amend", "--no-edit")
+await write_file_and_add("file1.txt", "A")
+await git("commit", "--amend", "--no-edit")
 tick()
-gh_submit("Update 1")
+await gh_submit("Update 1")
 tick()
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
@@ -93,7 +93,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 

@@ -1,25 +1,25 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Ensure that even if there are gh/{} branch that doesn't conform with
 # ghstack naming convension, it still works
-git("checkout", "-b", "gh/ezyang/malform")
-git("push", "origin", "gh/ezyang/malform")
-git("checkout", "-b", "gh/ezyang/non_int/head")
-git("push", "origin", "gh/ezyang/non_int/head")
-git("checkout", "main")
+await git("checkout", "-b", "gh/ezyang/malform")
+await git("push", "origin", "gh/ezyang/malform")
+await git("checkout", "-b", "gh/ezyang/non_int/head")
+await git("push", "origin", "gh/ezyang/non_int/head")
+await git("checkout", "main")
 
-commit("A")
-(A,) = gh_submit("Initial 1")
+await commit("A")
+(A,) = await gh_submit("Initial 1")
 
 # Just to test what happens if we use those branches
-git("checkout", "gh/ezyang/1/orig")
-commit("B")
-gh_submit("Initial 2")
+await git("checkout", "gh/ezyang/1/orig")
+await commit("B")
+await gh_submit("Initial 2")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -44,7 +44,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

@@ -1,12 +1,12 @@
 from ghstack.test_prelude import *
 from ghstack.github_fake import GitHubNumber
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-commit("C")
-A, B, C = gh_submit("Initial")
+await commit("A")
+await commit("B")
+await commit("C")
+A, B, C = await gh_submit("Initial")
 
 # Close B (simulating it was landed/removed)
 github = get_github()
@@ -15,20 +15,20 @@ pr_b = github.state.pull_request(repo, GitHubNumber(B.number))
 pr_b.closed = True
 
 # Go back to A, amend it, cherry-pick only C (skip B)
-checkout(A)
-amend("A2")
-cherry_pick(C)
+await checkout(A)
+await amend("A2")
+await cherry_pick(C)
 
 # Submit only A. Old stack text has [C, B, A]. C is open (orphan),
 # B is closed (skip), A is submitted (stop).
-(A2,) = gh_submit("Update base only", revs=["HEAD~"], stack=False)
+(A2,) = await gh_submit("Update base only", revs=["HEAD~"], stack=False)
 
 assert_eq(A.number, A2.number)
 
 if is_direct():
     pass
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

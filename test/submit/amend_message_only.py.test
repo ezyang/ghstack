@@ -1,16 +1,16 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("AAA")
-(A,) = gh_submit("Initial 1")
+await commit("AAA")
+(A,) = await gh_submit("Initial 1")
 assert "AAA" in A.commit_msg
-git("commit", "--amend", "-m", A.commit_msg.replace("AAA", "BBB"))
+await git("commit", "--amend", "-m", A.commit_msg.replace("AAA", "BBB"))
 
-(A2,) = gh_submit("Update A", no_skip=True)
+(A2,) = await gh_submit("Update A", no_skip=True)
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit AAA (gh/ezyang/1/head -> main)
 
@@ -27,7 +27,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit AAA (gh/ezyang/1/head -> gh/ezyang/1/base)
 

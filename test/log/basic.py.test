@@ -1,24 +1,24 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Create a PR with multiple updates so the head branch has multiple commits
-commit("A")
-gh_submit("Initial commit")
+await commit("A")
+await gh_submit("Initial commit")
 
-write_file_and_add("A.txt", "A2")
-git("commit", "--amend", "--no-edit", tick=True)
-gh_submit("Second update")
+await write_file_and_add("A.txt", "A2")
+await git("commit", "--amend", "--no-edit", tick=True)
+await gh_submit("Second update")
 
-write_file_and_add("A.txt", "A3")
-git("commit", "--amend", "--no-edit", tick=True)
-gh_submit("Third update")
+await write_file_and_add("A.txt", "A3")
+await git("commit", "--amend", "--no-edit", tick=True)
+await gh_submit("Third update")
 
 # HEAD now has the Pull-Request trailer from the most recent submit;
 # gh_log should figure out the PR on its own.  Use --format=%s to make
 # the assertion stable against commit-hash churn.
 with captured_output() as (out, _):
-    gh_log(args=["--format=%s"])
+    await gh_log(args=["--format=%s"])
 assert_expected_inline(
     out.getvalue(),
     """\

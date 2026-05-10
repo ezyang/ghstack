@@ -16,7 +16,7 @@ from ghstack.types import GitCommitHash
 RE_STACK = re.compile(r"Stack.*:\r?\n(\* [^\r\n]+\r?\n)+")
 
 
-def main(
+async def main(
     *,
     github: ghstack.github.GitHubEndpoint,
     sh: ghstack.shell.Shell,
@@ -25,7 +25,7 @@ def main(
     github_url: str,
     remote_name: str,
 ) -> GitCommitHash:
-    repo_info = ghstack.github_utils.get_github_repo_info(
+    repo_info = await ghstack.github_utils.get_github_repo_info(
         github=github,
         sh=sh,
         repo_owner=repo_owner,
@@ -38,11 +38,11 @@ def main(
     default_branch = repo_info["default_branch"]
 
     base = GitCommitHash(
-        sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD")
+        await sh.agit("merge-base", f"{remote_name}/{default_branch}", "HEAD")
     )
 
     stack = ghstack.git.split_header(
-        sh.git("rev-list", "--reverse", "--header", "^" + base, "HEAD")
+        await sh.agit("rev-list", "--reverse", "--header", "^" + base, "HEAD")
     )
 
     if not stack:
@@ -59,9 +59,9 @@ def main(
                 head = s.commit_id
             else:
                 head = GitCommitHash(
-                    sh.git(
+                    await sh.agit(
                         "commit-tree",
-                        *ghstack.gpg_sign.gpg_args_if_necessary(sh),
+                        *(await ghstack.gpg_sign.gpg_args_if_necessary(sh)),
                         s.tree,
                         "-p",
                         head,
@@ -74,7 +74,7 @@ def main(
         assert pr.owner == repo_owner
         assert pr.repo == repo_name
 
-        r = github.graphql(
+        pr_result = await github.graphql(
             """
             query ($owner: String!, $name: String!, $number: Int!) {
                 repository(owner: $owner, name: $name) {
@@ -88,7 +88,8 @@ def main(
             owner=repo_owner,
             name=repo_name,
             number=pr.number,
-        )["data"]["repository"]["pullRequest"]
+        )
+        r = pr_result["data"]["repository"]["pullRequest"]
 
         pr_title = r["title"]
         pr_body = r["body"]
@@ -116,9 +117,9 @@ def main(
         logging.debug("-- old commit_msg:\n%s", textwrap.indent(s.commit_msg, "   "))
         logging.debug("-- new commit_msg:\n%s", textwrap.indent(new_msg, "   "))
         head = GitCommitHash(
-            sh.git(
+            await sh.agit(
                 "commit-tree",
-                *ghstack.gpg_sign.gpg_args_if_necessary(sh),
+                *(await ghstack.gpg_sign.gpg_args_if_necessary(sh)),
                 s.tree,
                 "-p",
                 head,
@@ -127,7 +128,7 @@ def main(
         )
 
     if rewriting:
-        sh.git("reset", "--soft", head)
+        await sh.agit("reset", "--soft", head)
         logging.info(
             "\nCommit messages successfully synced from PR descriptions!\n\n"
             "To undo this operation, run:\n\n"

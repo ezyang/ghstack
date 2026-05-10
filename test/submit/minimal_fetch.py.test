@@ -1,18 +1,18 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Narrow down the fetch on origin
-git(
+await git(
     "config",
     "remote.origin.fetch",
     "+refs/heads/main:refs/remotes/origin/main",
 )
 
-commit("A")
-gh_submit("Initial 1")
+await commit("A")
+await gh_submit("Initial 1")
 
-amend("A2")
-gh_submit("Update 2")
+await amend("A2")
+await gh_submit("Update 2")
 
 ok()
