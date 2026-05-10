@@ -10,9 +10,6 @@ import requests
 
 import ghstack.github
 
-MAX_RETRIES = 5
-INITIAL_BACKOFF_SECONDS = 60
-
 
 class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
@@ -57,6 +54,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     # Passed to requests as 'cert'.
     cert: Optional[Union[str, Tuple[str, str]]]
 
+    # The maximum number of times to retry a request before giving up.
+    max_retries: int
+
+    # The initial backoff time to use, in seconds.  We will double this
+    # time for each retry.
+    initial_backoff_seconds: int
+
     def __init__(
         self,
         oauth_token: Optional[str],
@@ -64,12 +68,16 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         proxy: Optional[str] = None,
         verify: Optional[str] = None,
         cert: Optional[Union[str, Tuple[str, str]]] = None,
+        max_retries: int = 5,
+        initial_backoff_seconds: int = 60,
     ):
         self.oauth_token = oauth_token
         self.proxy = proxy
         self.github_url = github_url
         self.verify = verify
         self.cert = cert
+        self.max_retries = max_retries
+        self.initial_backoff_seconds = initial_backoff_seconds
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
@@ -160,8 +168,8 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
         url = self.rest_endpoint.format(github_url=self.github_url) + "/" + path
 
-        backoff_seconds = INITIAL_BACKOFF_SECONDS
-        for attempt in range(0, MAX_RETRIES):
+        backoff_seconds = self.initial_backoff_seconds
+        for attempt in range(0, self.max_retries):
             logging.debug("# {} {}".format(method, url))
             logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
@@ -189,29 +197,41 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             if resp.status_code in (403, 429):
                 remaining_count = resp.headers.get("x-ratelimit-remaining")
                 reset_time = resp.headers.get("x-ratelimit-reset")
+                more_attempts = attempt < (self.max_retries - 1)
 
                 if remaining_count == "0" and reset_time:
-                    sleep_time = int(reset_time) - int(time.time())
-                    logging.warning(
-                        f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
-                    )
-                    time.sleep(sleep_time)
-                    continue
+                    sleep_time = max(0, int(reset_time) - int(time.time()))
+                    if more_attempts and sleep_time > 0:
+                        logging.warning(
+                            f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
+                        )
+                        time.sleep(sleep_time)
+                        continue
+                    else:
+                        raise RuntimeError(pretty_json)
                 else:
                     retry_after_seconds = resp.headers.get("retry-after")
                     if retry_after_seconds:
                         sleep_time = int(retry_after_seconds)
-                        logging.warning(
-                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
-                        )
+                        if more_attempts and sleep_time > 0:
+                            logging.warning(
+                                f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
+                            )
+                            time.sleep(sleep_time)
+                            continue
+                        else:
+                            raise RuntimeError(pretty_json)
                     else:
                         sleep_time = backoff_seconds
-                        logging.warning(
-                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
-                        )
-                        backoff_seconds *= 2
-                    time.sleep(sleep_time)
-                    continue
+                        if more_attempts and sleep_time > 0:
+                            logging.warning(
+                                f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
+                            )
+                            backoff_seconds *= 2
+                            time.sleep(sleep_time)
+                            continue
+                        else:
+                            raise RuntimeError(pretty_json)
 
             if resp.status_code == 404:
                 raise ghstack.github.NotFoundError(

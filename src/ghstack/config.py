@@ -111,6 +111,11 @@ Config = NamedTuple(
         ("reviewer", Optional[str]),
         # Default labels to add to new pull requests (comma-separated labels)
         ("label", Optional[str]),
+        # Retry/backoff tuning
+        ("max_retries", int),
+        # The initial backoff time to use, in seconds.  We will double this
+        # time for each retry.
+        ("initial_backoff_seconds", int),
     ],
 )
 
@@ -301,6 +306,18 @@ def read_config(
     else:
         label = None
 
+    if config.has_option("ghstack", "max_retries"):
+        max_retries = config.getint("ghstack", "max_retries")
+    else:
+        max_retries = 5
+
+    if config.has_option("ghstack", "initial_backoff_seconds"):
+        initial_backoff_seconds = config.getint(
+            "ghstack", "initial_backoff_seconds"
+        )
+    else:
+        initial_backoff_seconds = 60
+
     if write_back:
         with open(config_path, "w") as f:
             config.write(f)
@@ -318,6 +335,8 @@ def read_config(
         remote_name=remote_name,
         reviewer=reviewer,
         label=label,
+        max_retries=max_retries,
+        initial_backoff_seconds=initial_backoff_seconds,
     )
     logging.debug(f"conf = {conf}")
     return conf
