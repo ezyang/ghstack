@@ -6,7 +6,6 @@ import itertools
 import logging
 import os
 import re
-import sys
 import time
 from dataclasses import dataclass
 from typing import (
@@ -289,14 +288,8 @@ class _Timer:
     def report(self) -> None:
         total = time.monotonic() - self.start
         for label, elapsed in self.entries:
-            print(
-                f"[ghstack timing] {label}: {elapsed * 1000:.0f}ms",
-                file=sys.stderr,
-            )
-        print(
-            f"[ghstack timing] total: {total * 1000:.0f}ms",
-            file=sys.stderr,
-        )
+            logging.info("[ghstack timing] %s: %.0fms", label, elapsed * 1000)
+        logging.info("[ghstack timing] total: %.0fms", total * 1000)
 
 
 def _run_async_ordered(awaitables: Iterable[Awaitable[_T]]) -> List[_T]:
@@ -511,6 +504,12 @@ class Submitter:
         timer = _Timer() if _TIMING_ENABLED else None
 
         if not self.no_fetch:
+            # Submit only needs fresh ghstack refs here.  We intentionally do
+            # not fetch the base branch: in the normal workflow, a stack based
+            # on newer upstream commits got those commits by updating the local
+            # base ref before rebasing.  The later rev-list boundary is against
+            # that local base ref, so narrowing this fetch avoids unrelated
+            # remote IO while preserving the usual submit semantics.
             self.fetch(
                 f"+refs/heads/gh/{self.username}/*"
                 f":refs/remotes/{self.remote_name}/gh/{self.username}/*"
@@ -1731,7 +1730,13 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         all_diffs: Optional[List[DiffMeta]] = None,
         import_help: bool = True,
     ) -> None:
-        # Collect all refspecs into a single atomic push.
+        # Collect all refspecs into a single batched push.  This is being
+        # tested in production because GitHub may observe base/head ref updates
+        # out of order when refreshing PR diffs.  If that happens, revert this
+        # block to three grouped pushes in this order:
+        #   1. base branches
+        #   2. head/next branches
+        #   3. orig branches
         # Per-refspec force is encoded with the + prefix:
         #   orig branches: always force-pushed
         #   head/next branches: force-pushed only with --force flag

@@ -64,9 +64,7 @@ GitHubRepoInfo = TypedDict(
 
 
 def _repo_info_cache_path(sh: ghstack.shell.Shell) -> str:
-    git_dir = sh.git("rev-parse", "--git-dir")
-    if not os.path.isabs(git_dir):
-        git_dir = os.path.join(sh.cwd, git_dir)
+    git_dir = sh.abspath(sh.git("rev-parse", "--git-dir"))
     return os.path.join(git_dir, "ghstack-repo-info.json")
 
 

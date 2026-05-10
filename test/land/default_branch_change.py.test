@@ -18,8 +18,7 @@ get_github().patch(
 )
 # invalidate repo info cache since default branch changed
 cache_path = os.path.join(
-    get_sh().cwd,
-    get_sh().git("rev-parse", "--git-dir"),
+    get_sh().abspath(get_sh().git("rev-parse", "--git-dir")),
     "ghstack-repo-info.json",
 )
 if os.path.exists(cache_path):

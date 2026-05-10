@@ -330,7 +330,15 @@ class Shell(object):
             fn: filename to open
             mode: mode to open the file as
         """
-        return open(os.path.join(self.cwd, fn), mode)
+        return open(self.abspath(fn), mode)
+
+    def abspath(self, fn: str) -> str:
+        """
+        Resolve a path against this shell's current working directory.
+        """
+        if os.path.isabs(fn):
+            return fn
+        return os.path.join(self.cwd, fn)
 
     def cd(self, d: str) -> None:
         """
