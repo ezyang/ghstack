@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import itertools
 import json
 import logging
 import re
@@ -73,6 +74,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         self.github_url = github_url
         self.verify = verify
         self.cert = cert
+        self._rest_request_ids = itertools.count(1)
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
@@ -183,9 +185,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         url = self.rest_endpoint.format(github_url=self.github_url) + "/" + path
 
         backoff_seconds = INITIAL_BACKOFF_SECONDS
+        request_id = next(self._rest_request_ids)
+        log_prefix = f"rest[{request_id}]"
         for attempt in range(0, MAX_RETRIES):
-            logging.debug("# {} {}".format(method, url))
-            logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
+            logging.debug("# %s %s %s", log_prefix, method, url)
+            logging.debug(
+                "%s request body:\n%s", log_prefix, json.dumps(kwargs, indent=1)
+            )
 
             resp: requests.Response = getattr(requests, method)(
                 url,
@@ -196,16 +202,16 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 cert=self.cert,
             )
 
-            logging.debug("Response status: {}".format(resp.status_code))
+            logging.debug("%s response status: %s", log_prefix, resp.status_code)
 
             try:
                 r = resp.json()
             except ValueError:
-                logging.debug("Response body:\n{}".format(resp.text))
+                logging.debug("%s response body:\n%s", log_prefix, resp.text)
                 raise
             else:
                 pretty_json = json.dumps(r, indent=1)
-                logging.debug("Response JSON:\n{}".format(pretty_json))
+                logging.debug("%s response JSON:\n%s", log_prefix, pretty_json)
 
             # Per Github rate limiting: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
             if resp.status_code in (403, 429):
@@ -280,21 +286,27 @@ still correct.
             request_kwargs["ssl"] = aiohttp_ssl
 
         backoff_seconds = INITIAL_BACKOFF_SECONDS
+        request_id = next(self._rest_request_ids)
+        log_prefix = f"rest[{request_id}]"
         async with aiohttp.ClientSession() as session:
             for attempt in range(0, MAX_RETRIES):
-                logging.debug("# {} {}".format(method, url))
-                logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
+                logging.debug("# %s %s %s", log_prefix, method, url)
+                logging.debug(
+                    "%s request body:\n%s", log_prefix, json.dumps(kwargs, indent=1)
+                )
 
                 async with getattr(session, method)(url, **request_kwargs) as resp:
-                    logging.debug("Response status: {}".format(resp.status))
+                    logging.debug("%s response status: %s", log_prefix, resp.status)
                     try:
                         r = await resp.json()
                     except (aiohttp.ContentTypeError, ValueError):
-                        logging.debug("Response body:\n{}".format(await resp.text()))
+                        logging.debug(
+                            "%s response body:\n%s", log_prefix, await resp.text()
+                        )
                         raise
                     else:
                         pretty_json = json.dumps(r, indent=1)
-                        logging.debug("Response JSON:\n{}".format(pretty_json))
+                        logging.debug("%s response JSON:\n%s", log_prefix, pretty_json)
 
                     if resp.status in (403, 429):
                         remaining_count = resp.headers.get("x-ratelimit-remaining")
