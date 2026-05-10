@@ -73,7 +73,7 @@ else:
             | |    Initial
             | * 8fe2454 (gh/ezyang/3/base)
             |/     Initial (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )

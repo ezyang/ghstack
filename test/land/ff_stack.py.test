@@ -14,7 +14,7 @@ pr_url = diff2.pr_url
 
 gh_land(pr_url)
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    get_upstream_sh().git("log", "--oneline", "main"),
     """\
 4099517 Commit B (#501)
 c28edd5 Commit A (#500)

@@ -18,5 +18,5 @@ amend("A2")
 gh_submit("Update")
 
 gh_land(pr_url)
-assert_expected_inline(get_upstream_sh().git("show", "master:A2.txt"), """A""")
-assert_expected_inline(get_upstream_sh().git("show", "master:B.txt"), """A""")
+assert_expected_inline(get_upstream_sh().git("show", "main:A2.txt"), """A""")
+assert_expected_inline(get_upstream_sh().git("show", "main:B.txt"), """A""")
