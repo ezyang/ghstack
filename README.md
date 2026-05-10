@@ -46,6 +46,11 @@ do that.  (There's also a more fundamental reason why this
 won't work: since each commit is a separate PR, you have to
 resolve conflicts in *each* PR, not just for the entire stack.)
 
+**What if the repository default branch changed?**  ghstack caches
+repository metadata in `.git/ghstack-repo-info.json` for the local
+checkout.  If ghstack is still using an old default branch name,
+delete that file and rerun ghstack; it will query GitHub again.
+
 **How do I start a new feature?**  Just checkout main on a new
 branch, and start working on a fresh branch.
 
