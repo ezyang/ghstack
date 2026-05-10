@@ -95,3 +95,17 @@ class GitHubEndpoint(metaclass=ABCMeta):
         Returns: parsed JSON response
         """
         pass
+
+    @abstractmethod
+    async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
+        """
+        Send an async 'method' request to endpoint 'path'.
+
+        Args:
+            method: 'GET', 'POST', etc.
+            path: relative URL path to access on endpoint
+            **kwargs: dictionary of JSON payload to send
+
+        Returns: parsed JSON response
+        """
+        pass
