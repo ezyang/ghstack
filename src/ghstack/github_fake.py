@@ -424,7 +424,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "body" in input and input["body"] is not None:
             pr.body = input["body"]
 
-    def _create_issue_comment(
+    async def _create_issue_comment_async(
         self, owner: str, name: str, comment_id: int, input: CreateIssueCommentInput
     ) -> CreateIssueCommentPayload:
         state = self.state
@@ -444,7 +444,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             "id": comment_id,
         }
 
-    def _update_issue_comment(
+    async def _update_issue_comment_async(
         self, owner: str, name: str, comment_id: int, input: UpdateIssueCommentInput
     ) -> None:
         state = self.state
@@ -467,7 +467,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
         return await self._arest_impl(method, path, **kwargs)
 
-    def _rest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
+    async def _arest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
         if method == "get":
             m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
             if m:
@@ -499,8 +499,12 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 }
 
         elif method == "post":
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
+                return await self._create_pull_async(
+                    m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
+                )
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/comments", path):
-                return self._create_issue_comment(
+                return await self._create_issue_comment_async(
                     m.group(1),
                     m.group(2),
                     GitHubNumber(int(m.group(3))),
@@ -525,41 +529,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 pr.labels.extend(labels)
                 return {}
         elif method == "patch":
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
-                return self._update_issue_comment(
-                    m.group(1),
-                    m.group(2),
-                    int(m.group(3)),
-                    cast(UpdateIssueCommentInput, kwargs),
-                )
-        raise NotImplementedError(
-            "FakeGitHubEndpoint REST {} {} not implemented".format(method.upper(), path)
-        )
-
-    async def _arest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
-        if method == "get":
-            return self._rest_impl(method, path, **kwargs)
-
-        elif method == "post":
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
-                return await self._create_pull_async(
-                    m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
-                )
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/comments", path):
-                return self._create_issue_comment(
-                    m.group(1),
-                    m.group(2),
-                    GitHubNumber(int(m.group(3))),
-                    cast(CreateIssueCommentInput, kwargs),
-                )
-            if m := re.match(
-                r"^repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers", path
-            ):
-                return self._rest_impl(method, path, **kwargs)
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels", path):
-                return self._rest_impl(method, path, **kwargs)
-
-        elif method == "patch":
             if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):
                 owner, name, number = m.groups()
                 if number is not None:
@@ -574,7 +543,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                         owner, name, cast(SetDefaultBranchInput, kwargs)
                     )
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
-                return self._update_issue_comment(
+                return await self._update_issue_comment_async(
                     m.group(1),
                     m.group(2),
                     int(m.group(3)),
