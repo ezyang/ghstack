@@ -8,11 +8,11 @@ commit("A")
 commit("B")
 A, B = gh_submit("Initial stack")
 
-# Switch to master and add another commit
-git("checkout", "master")
+# Switch to main and add another commit
+git("checkout", "main")
 commit("M")
 
-# Before cherry-pick, "Commit B" should NOT be in recent master history
+# Before cherry-pick, "Commit B" should NOT be in recent main history
 log_before = git("log", "--oneline", "-n", "2")
 assert "Commit B" not in log_before
 assert "Commit M" in log_before
@@ -22,7 +22,7 @@ assert "Commit M" in log_before
 # in the test environment's temporary directories
 gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{B.number}")
 
-# After cherry-pick, "Commit B" SHOULD be in recent master history
+# After cherry-pick, "Commit B" SHOULD be in recent main history
 log_output = git("log", "--oneline", "-n", "3")
 assert "Commit B" in log_output
 assert "Commit M" in log_output

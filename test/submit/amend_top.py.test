@@ -14,7 +14,7 @@ A3, B3 = gh_submit("Update A")
 if is_direct():
     assert_github_state(
         """\
-        [O] #500 Commit A (gh/ezyang/1/head -> master)
+        [O] #500 Commit A (gh/ezyang/1/head -> main)
 
             This is commit A
 
@@ -35,7 +35,7 @@ if is_direct():
             |    Initial 2
             * 8c7d059 (gh/ezyang/1/next, gh/ezyang/1/head)
             |    Initial 1
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
@@ -75,7 +75,7 @@ else:
             | |    Initial 1
             | * 5a32949 (gh/ezyang/1/base)
             |/     Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """,
     )
