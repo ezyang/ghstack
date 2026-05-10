@@ -12,7 +12,6 @@ Requires GITHUB_TOKEN env var or --token flag.
 """
 
 import argparse
-import json
 import os
 import re
 import shutil
@@ -20,8 +19,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
-import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 
 def run(args: List[str], cwd: str, **kwargs) -> subprocess.CompletedProcess:
