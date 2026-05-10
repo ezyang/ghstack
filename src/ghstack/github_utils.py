@@ -116,6 +116,7 @@ def get_github_repo_info(
             name=name_with_owner["name"],
         )["data"]["repository"]
     except RuntimeError as e:
+        # Check if this is a repository access error (NOT_FOUND)
         error_msg = str(e)
         if (
             "Could not resolve to a Repository" in error_msg
@@ -134,6 +135,7 @@ def get_github_repo_info(
                 f"3. Make sure to grant access to the appropriate organizations when prompted"
             )
         else:
+            # Re-raise the original error if it's not the repository access issue
             raise
 
     result: GitHubRepoInfo = {
