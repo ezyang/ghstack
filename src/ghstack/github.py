@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 from abc import ABCMeta, abstractmethod
 from typing import Any, Sequence
 
@@ -82,7 +83,6 @@ class GitHubEndpoint(metaclass=ABCMeta):
         """
         return self.rest("patch", path, **kwargs)
 
-    @abstractmethod
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
         """
         Send a 'method' request to endpoint 'path'.
@@ -94,7 +94,11 @@ class GitHubEndpoint(metaclass=ABCMeta):
 
         Returns: parsed JSON response
         """
-        pass
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.arest(method, path, **kwargs))
+        finally:
+            loop.close()
 
     @abstractmethod
     async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
