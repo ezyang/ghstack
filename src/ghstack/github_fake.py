@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import asyncio
 import dataclasses
 import os.path
 import re
-import subprocess
 from dataclasses import dataclass
 from typing import Any, cast, Dict, List, NewType, Optional, Sequence
 
@@ -229,20 +227,11 @@ class Repository(Node):
         # TODO: Probably should preserve object identity here when
         # you call this with refName/oid that are the same
         assert state.upstream_sh
-        proc = await asyncio.create_subprocess_exec(
-            "git",
-            "rev-parse",
-            refName,
-            cwd=state.upstream_sh.cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        out, _err = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"git rev-parse {refName} failed")
         gitObject = GitObject(
             id=state.next_id(),
-            oid=GitObjectID(out.decode(errors="backslashreplace").strip()),
+            # TODO: this upstream_sh hardcode wrong, but ok for now
+            # because we only have one repo
+            oid=GitObjectID(await state.upstream_sh.agit("rev-parse", refName)),
             _repository=self.id,
         )
         ref = Ref(
@@ -391,6 +380,8 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         number = state.next_pull_request_number(repo.id)
         baseRef = None
         headRef = None
+        # TODO: When we support forks, this needs rewriting to stop
+        # hard coded the repo we opened the pull request on
         if state.upstream_sh:
             baseRef = await repo._make_ref_async(state, input["base"])
             headRef = await repo._make_ref_async(state, input["head"])
@@ -407,17 +398,24 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             title=input["title"],
             body=input["body"],
         )
+        # TODO: compute files changed
         state.pull_requests[id] = pr
+        # This is only a subset of what the actual REST endpoint
+        # returns.
         return {
             "number": number,
         }
 
+    # NB: This technically does have a payload, but we don't
+    # use it so I didn't bother constructing it.
     async def _update_pull_async(
         self, owner: str, name: str, number: GitHubNumber, input: UpdatePullRequestInput
     ) -> None:
         state = self.state
         repo = state.repository(owner, name)
         pr = state.pull_request(repo, number)
+        # If I say input.get('title') is not None, mypy
+        # is unable to infer input['title'] is not None
         if "title" in input and input["title"] is not None:
             pr.title = input["title"]
         if "base" in input and input["base"] is not None:
@@ -455,6 +453,8 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if (r := input.get("body")) is not None:
             comment.body = r
 
+    # NB: This may have a payload, but we don't
+    # use it so I didn't bother constructing it.
     async def _set_default_branch_async(
         self, owner: str, name: str, input: SetDefaultBranchInput
     ) -> None:

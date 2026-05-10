@@ -216,6 +216,8 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                         pretty_json = json.dumps(r, indent=1)
                         logging.debug("%s response JSON:\n%s", log_prefix, pretty_json)
 
+                    # Per Github rate limiting:
+                    # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
                     if resp.status in (403, 429):
                         remaining_count = resp.headers.get("x-ratelimit-remaining")
                         reset_time = resp.headers.get("x-ratelimit-reset")
