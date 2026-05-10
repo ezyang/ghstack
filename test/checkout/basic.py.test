@@ -6,11 +6,11 @@ init_test()
 commit("A")
 (A,) = gh_submit("Initial commit")
 
-# Move to master and create another commit
-git("checkout", "master")
+# Move to main and create another commit
+git("checkout", "main")
 commit("B")
 
-# Verify we're on master with commit B
+# Verify we're on main with commit B
 current_log = git("log", "--oneline", "-n", "1")
 assert "Commit B" in current_log
 

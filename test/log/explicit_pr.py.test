@@ -7,7 +7,7 @@ init_test()
 commit("A")
 (A,) = gh_submit("Initial commit")
 
-git("checkout", "master")
+git("checkout", "main")
 
 with captured_output() as (out, _):
     gh_log(

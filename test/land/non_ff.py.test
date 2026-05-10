@@ -7,7 +7,7 @@ commit("A")
 assert diff is not None
 pr_url = diff.pr_url
 
-git("reset", "--hard", "origin/master")
+git("reset", "--hard", "origin/main")
 commit("U")
 git("push")
 
@@ -15,7 +15,7 @@ git("checkout", "gh/ezyang/1/orig")
 gh_land(pr_url)
 
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    get_upstream_sh().git("log", "--oneline", "main"),
     """\
 8b61aeb Commit A (#500)
 38808c0 Commit U
