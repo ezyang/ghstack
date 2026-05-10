@@ -336,35 +336,35 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     state: GitHubState
 
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell] = None) -> None:
+        import threading
+
         self.state = GitHubState(upstream_sh)
+        self._lock = threading.Lock()
 
     def graphql(self, query: str, **kwargs: Any) -> Any:
-        r = graphql.graphql_sync(
-            schema=GITHUB_SCHEMA,
-            source=query,
-            root_value=self.state.root,
-            context_value=self.state,
-            variable_values=kwargs,
-        )
+        with self._lock:
+            r = graphql.graphql_sync(
+                schema=GITHUB_SCHEMA,
+                source=query,
+                root_value=self.state.root,
+                context_value=self.state,
+                variable_values=kwargs,
+            )
         if r.errors:
-            # The GraphQL implementation loses all the stack traces!!!
-            # D:  You can 'recover' them by deleting the
-            # 'except Exception as error' from GraphQL-core-next; need
-            # to file a bug report
             raise RuntimeError(
                 "GraphQL query failed with errors:\n\n{}".format(
                     "\n".join(str(e) for e in r.errors)
                 )
             )
-        # The top-level object isn't indexable by strings, but
-        # everything underneath is, oddly enough
         return {"data": r.data}
 
     def push_hook(self, refNames: Sequence[str]) -> None:
-        self.state.push_hook(refNames)
+        with self._lock:
+            self.state.push_hook(refNames)
 
     def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
-        self.state.notify_merged(pr_resolved)
+        with self._lock:
+            self.state.notify_merged(pr_resolved)
 
     def _create_pull(
         self, owner: str, name: str, input: CreatePullRequestInput
@@ -458,6 +458,10 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         repo.defaultBranchRef = repo._make_ref(state, input["default_branch"])
 
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+        with self._lock:
+            return self._rest_impl(method, path, **kwargs)
+
+    def _rest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
         if method == "get":
             m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
             if m:
@@ -472,6 +476,12 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     "state": "closed" if pr.closed else "open",
                     "title": pr.title,
                     "body": pr.body,
+                    "head": {
+                        "ref": pr.headRefName,
+                    },
+                    "base": {
+                        "ref": pr.baseRefName,
+                    },
                 }
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
                 state = self.state
