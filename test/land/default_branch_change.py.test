@@ -7,14 +7,14 @@ commit("A")
 (diff1,) = gh_submit("Initial 1")
 assert diff1 is not None
 
-# make main branch
-git("branch", "main", "master")
-git("push", "origin", "main")
-# change default branch to main
+# make release branch
+git("branch", "release", "main")
+git("push", "origin", "release")
+# change default branch to release
 get_github().patch(
     "repos/pytorch/pytorch",
     name="pytorch",
-    default_branch="main",
+    default_branch="release",
 )
 # invalidate repo info cache since default branch changed
 cache_path = os.path.join(
@@ -41,7 +41,7 @@ assert_github_state(
             |    Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
 )
@@ -50,11 +50,11 @@ assert_github_state(
 gh_land(diff1.pr_url)
 
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    get_upstream_sh().git("log", "--oneline", "main"),
     """dc8bfe4 Initial commit""",
 )
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "main"),
+    get_upstream_sh().git("log", "--oneline", "release"),
     """\
 8927014 Commit A
 dc8bfe4 Initial commit""",
@@ -65,11 +65,11 @@ commit("B")
 (diff2,) = gh_submit("Initial 2")
 assert diff2 is not None
 
-# change default branch back to master
+# change default branch back to main
 get_github().patch(
     "repos/pytorch/pytorch",
     name="pytorch",
-    default_branch="master",
+    default_branch="main",
 )
 if os.path.exists(cache_path):
     os.remove(cache_path)
@@ -100,13 +100,13 @@ assert_github_state(
             |    Initial 2
             * 742ae0b (gh/ezyang/2/base)
             |    Initial 2 (base update)
-            * 8927014 (main, gh/ezyang/1/orig)
+            * 8927014 (release, gh/ezyang/1/orig)
             |    Commit A
             | * 36fcfdf (gh/ezyang/1/head)
             | |    Initial 1
             | * 5a32949 (gh/ezyang/1/base)
             |/     Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
 )
@@ -115,14 +115,14 @@ assert_github_state(
 gh_land(diff2.pr_url)
 
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    get_upstream_sh().git("log", "--oneline", "main"),
     """\
 6b7e56e Commit B (#501)
 1132c50 Commit A (#500)
 dc8bfe4 Initial commit""",
 )
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "main"),
+    get_upstream_sh().git("log", "--oneline", "release"),
     """\
 8927014 Commit A
 dc8bfe4 Initial commit""",

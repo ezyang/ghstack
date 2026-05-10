@@ -23,7 +23,7 @@ Directly updated message body""",
 if is_direct():
     assert_github_state(
         """\
-        [O] #500 Directly updated title (gh/ezyang/1/head -> master)
+        [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
             Stack:
             * **#500 Commit 1**
@@ -36,7 +36,7 @@ if is_direct():
 
             * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
             |    Initial 1
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
@@ -58,7 +58,7 @@ else:
             |    Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
@@ -72,7 +72,7 @@ tick()
 if is_direct():
     assert_github_state(
         """\
-        [O] #500 Directly updated title (gh/ezyang/1/head -> master)
+        [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
             Stack:
             * __->__ #500
@@ -88,7 +88,7 @@ if is_direct():
             |    Update 1
             * 6c1d876
             |    Initial 1
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
@@ -113,7 +113,7 @@ else:
             |    Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )

@@ -6,7 +6,7 @@ init_test()
 git(
     "config",
     "remote.origin.fetch",
-    "+refs/heads/master:refs/remotes/origin/master",
+    "+refs/heads/main:refs/remotes/origin/main",
 )
 
 commit("A")
