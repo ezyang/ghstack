@@ -14,6 +14,7 @@ import ghstack.shell
 from ghstack.types import GitCommitHash
 
 RE_GHSTACK_SOURCE_ID = re.compile(r"^ghstack-source-id: (.+)\n?", re.MULTILINE)
+RE_GHSTACK_COMMENT_ID = re.compile(r"^ghstack-comment-id: (.+)\n?", re.MULTILINE)
 
 
 def main(
@@ -93,12 +94,17 @@ def main(
         commit_msg = s.commit_msg
         logging.debug("-- commit_msg:\n{}".format(textwrap.indent(commit_msg, "   ")))
         if should_unlink:
-            commit_msg = RE_GHSTACK_SOURCE_ID.sub(
+            commit_msg = RE_GHSTACK_COMMENT_ID.sub(
                 "",
-                ghstack.diff.re_pull_request_resolved_w_sp(github_url).sub(
-                    "", commit_msg
+                RE_GHSTACK_SOURCE_ID.sub(
+                    "",
+                    ghstack.diff.re_pull_request_resolved_w_sp(github_url).sub(
+                        "", commit_msg
+                    ),
                 ),
             )
+            # Clean up any extra trailing newlines
+            commit_msg = commit_msg.rstrip() + "\n"
             logging.debug(
                 "-- edited commit_msg:\n{}".format(textwrap.indent(commit_msg, "   "))
             )
