@@ -12,11 +12,11 @@ commit("C")
 # Create PRs for the stack
 A, B, C = gh_submit("Stack of 3 commits")
 
-# Go back to master and create a divergent commit
-git("checkout", "master")
+# Go back to main and create a divergent commit
+git("checkout", "main")
 commit("M")
 
-# Before cherry-pick, "Commit C" should NOT be in master history
+# Before cherry-pick, "Commit C" should NOT be in main history
 log_before = git("log", "--oneline", "-n", "2")
 assert "Commit C" not in log_before
 assert "Commit M" in log_before
@@ -24,7 +24,7 @@ assert "Commit M" in log_before
 # Now test cherry-picking the top commit only (not stack)
 gh_cherry_pick(f"https://github.com/pytorch/pytorch/pull/{C.number}")
 
-# After cherry-pick, should only have C and M in recent master history, not A and B
+# After cherry-pick, should only have C and M in recent main history, not A and B
 log_output = git("log", "--oneline", "-n", "4")
 assert "Commit C" in log_output
 assert "Commit M" in log_output

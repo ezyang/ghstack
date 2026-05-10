@@ -269,12 +269,3 @@ still correct.
                     return r
 
         raise RuntimeError("Exceeded maximum retries due to GitHub rate limiting")
-
-    async def aget(self, path: str, **kwargs: Any) -> Any:
-        return await self.arest("get", path, **kwargs)
-
-    async def apost(self, path: str, **kwargs: Any) -> Any:
-        return await self.arest("post", path, **kwargs)
-
-    async def apatch(self, path: str, **kwargs: Any) -> Any:
-        return await self.arest("patch", path, **kwargs)
