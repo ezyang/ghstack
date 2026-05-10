@@ -168,16 +168,16 @@ class GitHubState:
             # operations depend on repository state (e.g., what
             # the headRef is at the time a PR is created), so
             # we need this information
-            self.upstream_sh.git("init", "--bare", "-b", "master")
+            self.upstream_sh.git("init", "--bare", "-b", "main")
             tree = self.upstream_sh.git("write-tree")
             commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
-            self.upstream_sh.git("branch", "-f", "master", commit)
+            self.upstream_sh.git("branch", "-f", "main", commit)
 
             # We only update this when a PATCH changes the default
             # branch; hopefully that's fine?  In any case, it should
             # work for now since currently we only ever access the name
             # of the default branch rather than other parts of its ref.
-            repo.defaultBranchRef = repo._make_ref(self, "master")
+            repo.defaultBranchRef = repo._make_ref(self, "main")
 
 
 @dataclass

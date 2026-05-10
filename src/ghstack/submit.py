@@ -931,29 +931,29 @@ to disassociate the commit with the pull request, and then try again.
             # If we're trying to submit a closed commit, check if it has been modified
             if elab_diff.remote_source_id is None:
                 # The branch was deleted (e.g., after landing). Check if the commit has been
-                # modified by comparing source_ids. If the commit is reachable from master with
+                # modified by comparing source_ids. If the commit is reachable from main with
                 # the same source_id (tree hash), it means it was landed and we should skip it.
                 # Otherwise, it's been modified and we should raise an error.
                 try:
-                    # Check if there's a commit on master with the same tree (source_id)
-                    master_commits = self.sh.git(
+                    # Check if there's a commit on main with the same tree (source_id)
+                    main_commits = self.sh.git(
                         "log",
                         "--format=%H %T",
                         f"{self.remote_name}/{self.base}",
                         "-n",
                         "100",  # Check last 100 commits
                     )
-                    for line in master_commits.split("\n"):
+                    for line in main_commits.split("\n"):
                         if not line.strip():
                             continue
                         commit_hash, tree_hash = line.split()
                         if tree_hash == diff.source_id:
-                            # Found a commit on master with the same tree, so this commit
+                            # Found a commit on main with the same tree, so this commit
                             # was landed (just with a different commit message/hash)
                             return None
                 except Exception:
                     pass
-                # Didn't find a matching commit on master, so this is a modified closed commit
+                # Didn't find a matching commit on main, so this is a modified closed commit
                 raise RuntimeError(
                     f"Cannot ghstack a stack with closed PR #{elab_diff.number} whose branch was deleted.  "
                     "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
@@ -1305,7 +1305,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             #   user diff
             #
             # It turns out the logic here is fine, and the only thing it
-            # chokes on is rebasing back in time on master branch (you can't
+            # chokes on is rebasing back in time on main branch (you can't
             # go back in time on PR branches, so this is a moot point there.)
             # The problem is suppose you have:
             #
@@ -1572,7 +1572,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 else:
                     q = push_branches
                 q.append(push_spec(diff, branch(s.username, s.ghnum, b)))
-        # Careful!  Don't push master.
+        # Careful!  Don't push main.
         # TODO: These pushes need to be atomic (somehow)
         if base_push_branches:
             self._git_push(base_push_branches)
@@ -1926,7 +1926,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         return title, pr_body
 
     def _git_push(self, branches: Sequence[str], force: bool = False) -> None:
-        assert branches, "empty branches would push master, probably bad!"
+        assert branches, "empty branches would push main, probably bad!"
         try:
             self.sh.git(
                 "push",

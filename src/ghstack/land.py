@@ -195,7 +195,7 @@ to complain to the ghstack authors."""
         # TODO: It might be helpful to advance orig to reflect the true
         # state of upstream at the time we are doing the land, and then
         # directly *merge* head into base, so that the PR accurately
-        # reflects what we ACTUALLY merged to master, as opposed to
+        # reflects what we ACTUALLY merged to main, as opposed to
         # this synthetic thing I'm doing right now just to make it look
         # like the PR got closed
 

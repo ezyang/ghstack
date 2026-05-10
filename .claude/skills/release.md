@@ -14,11 +14,11 @@ user_invocable: true
 
 3. **Update `uv.lock`** by running `uv lock` so the lockfile reflects the new version.
 
-4. **Commit** on `master` with message "Release X.Y.Z".
+4. **Commit** on `main` with message "Release X.Y.Z".
 
-5. **Push master** and **tag the release**:
+5. **Push main** and **tag the release**:
    ```
-   git push origin master
+   git push origin main
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```

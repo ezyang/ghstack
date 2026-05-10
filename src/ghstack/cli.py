@@ -93,7 +93,7 @@ def cli_context(
     "direct_opt",
     is_flag=True,
     default=None,
-    help="Create stack that directly merges into master",
+    help="Create stack that directly merges into main",
 )
 @click.option(
     "--base",
@@ -382,7 +382,7 @@ def status(pull_request: str) -> None:
     "direct_opt",
     default=None,
     is_flag=True,
-    help="Create stack that directly merges into master",
+    help="Create stack that directly merges into main",
 )
 @click.argument(
     "revs",
