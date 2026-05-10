@@ -1,3 +1,4 @@
+import os
 from ghstack.test_prelude import *
 
 init_test()
@@ -15,6 +16,13 @@ get_github().patch(
     name="pytorch",
     default_branch="main",
 )
+# invalidate repo info cache since default branch changed
+cache_path = os.path.join(
+    get_sh().abspath(get_sh().git("rev-parse", "--git-dir")),
+    "ghstack-repo-info.json",
+)
+if os.path.exists(cache_path):
+    os.remove(cache_path)
 
 assert_github_state(
     """\
@@ -63,6 +71,8 @@ get_github().patch(
     name="pytorch",
     default_branch="master",
 )
+if os.path.exists(cache_path):
+    os.remove(cache_path)
 
 assert_github_state(
     """\

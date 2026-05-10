@@ -119,6 +119,7 @@ class Context:
         local_dir = tempfile.mkdtemp()
         self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
+        self.sh.git("fetch", "origin", "+refs/heads/*:refs/remotes/origin/*")
         self.direct = direct
 
     def cleanup(self) -> None:

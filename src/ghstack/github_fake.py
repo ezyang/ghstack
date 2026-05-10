@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import asyncio
 import dataclasses
 import os.path
 import re
+import subprocess
 from dataclasses import dataclass
 from typing import Any, cast, Dict, List, NewType, Optional, Sequence
 
@@ -168,16 +170,16 @@ class GitHubState:
             # operations depend on repository state (e.g., what
             # the headRef is at the time a PR is created), so
             # we need this information
-            self.upstream_sh.git("init", "--bare", "-b", "main")
+            self.upstream_sh.git("init", "--bare", "-b", "master")
             tree = self.upstream_sh.git("write-tree")
             commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
-            self.upstream_sh.git("branch", "-f", "main", commit)
+            self.upstream_sh.git("branch", "-f", "master", commit)
 
             # We only update this when a PATCH changes the default
             # branch; hopefully that's fine?  In any case, it should
             # work for now since currently we only ever access the name
             # of the default branch rather than other parts of its ref.
-            repo.defaultBranchRef = repo._make_ref(self, "main")
+            repo.defaultBranchRef = repo._make_ref(self, "master")
 
 
 @dataclass
@@ -227,6 +229,32 @@ class Repository(Node):
             # TODO: this upstream_sh hardcode wrong, but ok for now
             # because we only have one repo
             oid=GitObjectID(state.upstream_sh.git("rev-parse", refName)),
+            _repository=self.id,
+        )
+        ref = Ref(
+            id=state.next_id(),
+            name=refName,
+            _repository=self.id,
+            target=gitObject,
+        )
+        return ref
+
+    async def _make_ref_async(self, state: GitHubState, refName: str) -> "Ref":
+        assert state.upstream_sh
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "rev-parse",
+            refName,
+            cwd=state.upstream_sh.cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        out, _err = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"git rev-parse {refName} failed")
+        gitObject = GitObject(
+            id=state.next_id(),
+            oid=GitObjectID(out.decode(errors="backslashreplace").strip()),
             _repository=self.id,
         )
         ref = Ref(
@@ -347,17 +375,11 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             variable_values=kwargs,
         )
         if r.errors:
-            # The GraphQL implementation loses all the stack traces!!!
-            # D:  You can 'recover' them by deleting the
-            # 'except Exception as error' from GraphQL-core-next; need
-            # to file a bug report
             raise RuntimeError(
                 "GraphQL query failed with errors:\n\n{}".format(
                     "\n".join(str(e) for e in r.errors)
                 )
             )
-        # The top-level object isn't indexable by strings, but
-        # everything underneath is, oddly enough
         return {"data": r.data}
 
     def push_hook(self, refNames: Sequence[str]) -> None:
@@ -401,6 +423,36 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             "number": number,
         }
 
+    async def _create_pull_async(
+        self, owner: str, name: str, input: CreatePullRequestInput
+    ) -> CreatePullRequestPayload:
+        state = self.state
+        id = state.next_id()
+        repo = state.repository(owner, name)
+        number = state.next_pull_request_number(repo.id)
+        baseRef = None
+        headRef = None
+        if state.upstream_sh:
+            baseRef = await repo._make_ref_async(state, input["base"])
+            headRef = await repo._make_ref_async(state, input["head"])
+        pr = PullRequest(
+            id=id,
+            _repository=repo.id,
+            number=number,
+            closed=False,
+            url="https://github.com/{}/pull/{}".format(repo.nameWithOwner, number),
+            baseRef=baseRef,
+            baseRefName=input["base"],
+            headRef=headRef,
+            headRefName=input["head"],
+            title=input["title"],
+            body=input["body"],
+        )
+        state.pull_requests[id] = pr
+        return {
+            "number": number,
+        }
+
     # NB: This technically does have a payload, but we don't
     # use it so I didn't bother constructing it.
     def _update_pull(
@@ -416,6 +468,20 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "base" in input and input["base"] is not None:
             pr.baseRefName = input["base"]
             pr.baseRef = repo._make_ref(state, pr.baseRefName)
+        if "body" in input and input["body"] is not None:
+            pr.body = input["body"]
+
+    async def _update_pull_async(
+        self, owner: str, name: str, number: GitHubNumber, input: UpdatePullRequestInput
+    ) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        pr = state.pull_request(repo, number)
+        if "title" in input and input["title"] is not None:
+            pr.title = input["title"]
+        if "base" in input and input["base"] is not None:
+            pr.baseRefName = input["base"]
+            pr.baseRef = await repo._make_ref_async(state, pr.baseRefName)
         if "body" in input and input["body"] is not None:
             pr.body = input["body"]
 
@@ -457,7 +523,22 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         repo = state.repository(owner, name)
         repo.defaultBranchRef = repo._make_ref(state, input["default_branch"])
 
+    async def _set_default_branch_async(
+        self, owner: str, name: str, input: SetDefaultBranchInput
+    ) -> None:
+        state = self.state
+        repo = state.repository(owner, name)
+        repo.defaultBranchRef = await repo._make_ref_async(
+            state, input["default_branch"]
+        )
+
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+        return self._rest_impl(method, path, **kwargs)
+
+    async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
+        return await self._arest_impl(method, path, **kwargs)
+
+    def _rest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
         if method == "get":
             m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
             if m:
@@ -472,6 +553,12 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     "state": "closed" if pr.closed else "open",
                     "title": pr.title,
                     "body": pr.body,
+                    "head": {
+                        "ref": pr.headRefName,
+                    },
+                    "base": {
+                        "ref": pr.baseRefName,
+                    },
                 }
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
                 state = self.state
@@ -533,6 +620,55 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     int(m.group(3)),
                     cast(UpdateIssueCommentInput, kwargs),
                 )
+        raise NotImplementedError(
+            "FakeGitHubEndpoint REST {} {} not implemented".format(method.upper(), path)
+        )
+
+    async def _arest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
+        if method == "get":
+            return self._rest_impl(method, path, **kwargs)
+
+        elif method == "post":
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
+                return await self._create_pull_async(
+                    m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
+                )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/comments", path):
+                return self._create_issue_comment(
+                    m.group(1),
+                    m.group(2),
+                    GitHubNumber(int(m.group(3))),
+                    cast(CreateIssueCommentInput, kwargs),
+                )
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers", path
+            ):
+                return self._rest_impl(method, path, **kwargs)
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels", path):
+                return self._rest_impl(method, path, **kwargs)
+
+        elif method == "patch":
+            if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):
+                owner, name, number = m.groups()
+                if number is not None:
+                    return await self._update_pull_async(
+                        owner,
+                        name,
+                        GitHubNumber(int(number)),
+                        cast(UpdatePullRequestInput, kwargs),
+                    )
+                elif "default_branch" in kwargs:
+                    return await self._set_default_branch_async(
+                        owner, name, cast(SetDefaultBranchInput, kwargs)
+                    )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
+                return self._update_issue_comment(
+                    m.group(1),
+                    m.group(2),
+                    int(m.group(3)),
+                    cast(UpdateIssueCommentInput, kwargs),
+                )
+
         raise NotImplementedError(
             "FakeGitHubEndpoint REST {} {} not implemented".format(method.upper(), path)
         )
