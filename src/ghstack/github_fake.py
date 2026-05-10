@@ -375,11 +375,17 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
             variable_values=kwargs,
         )
         if r.errors:
+            # The GraphQL implementation loses all the stack traces!!!
+            # D:  You can 'recover' them by deleting the
+            # 'except Exception as error' from GraphQL-core-next; need
+            # to file a bug report
             raise RuntimeError(
                 "GraphQL query failed with errors:\n\n{}".format(
                     "\n".join(str(e) for e in r.errors)
                 )
             )
+        # The top-level object isn't indexable by strings, but
+        # everything underneath is, oddly enough
         return {"data": r.data}
 
     def push_hook(self, refNames: Sequence[str]) -> None:
