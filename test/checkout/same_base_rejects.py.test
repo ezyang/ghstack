@@ -3,16 +3,16 @@ from ghstack.test_prelude import *
 
 init_test()
 
-# Create first PR based on initial master
+# Create first PR based on initial main
 commit("A")
 (A,) = gh_submit("First PR")
 
-# Go back to master and advance it
-git("checkout", "master")
+# Go back to main and advance it
+git("checkout", "main")
 commit("B")
-git("push", "origin", "master")
+git("push", "origin", "main")
 
-# Create second PR based on new master (different merge-base)
+# Create second PR based on new main (different merge-base)
 commit("C")
 (C,) = gh_submit("Second PR")
 
