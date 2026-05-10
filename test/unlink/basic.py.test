@@ -26,7 +26,7 @@ if is_direct():
 
             * 30b9f2a Initial 1
 
-        [O] #502 Commit A (gh/ezyang/3/head -> master)
+        [O] #502 Commit A (#500) (gh/ezyang/3/head -> master)
 
             This is commit A
 
@@ -35,7 +35,7 @@ if is_direct():
 
             * 2193fd2 Initial 2
 
-        [O] #503 Commit B (gh/ezyang/4/head -> gh/ezyang/3/head)
+        [O] #503 Commit B (#501) (gh/ezyang/4/head -> gh/ezyang/3/head)
 
             This is commit B
 
@@ -81,7 +81,7 @@ else:
 
             * 16e1e12 Initial 1
 
-        [O] #502 Commit A (gh/ezyang/3/head -> gh/ezyang/3/base)
+        [O] #502 Commit A (#500) (gh/ezyang/3/head -> gh/ezyang/3/base)
 
             Stack:
             * #503
@@ -91,7 +91,7 @@ else:
 
             * 12d35d5 Initial 2
 
-        [O] #503 Commit B (gh/ezyang/4/head -> gh/ezyang/4/base)
+        [O] #503 Commit B (#501) (gh/ezyang/4/head -> gh/ezyang/4/base)
 
             Stack:
             * __->__ #503
