@@ -18,6 +18,7 @@ import ghstack.logs
 import ghstack.rage
 import ghstack.status
 import ghstack.submit
+import ghstack.sync
 import ghstack.unlink
 
 EXIT_STACK = contextlib.ExitStack()
@@ -92,7 +93,7 @@ def cli_context(
     "direct_opt",
     is_flag=True,
     default=None,
-    help="Create stack that directly merges into master",
+    help="Create stack that directly merges into main",
 )
 @click.option(
     "--base",
@@ -381,7 +382,12 @@ def status(pull_request: str) -> None:
     "direct_opt",
     default=None,
     is_flag=True,
-    help="Create stack that directly merges into master",
+    help="Create stack that directly merges into main",
+)
+@click.option(
+    "--no-fetch",
+    is_flag=True,
+    help="Skip fetching remote refs (faster when you know local refs are up-to-date)",
 )
 @click.argument(
     "revs",
@@ -401,6 +407,7 @@ def submit(
     stack: bool,
     reviewer: Optional[str],
     label: Optional[str],
+    no_fetch: bool,
 ) -> None:
     """
     Submit or update a PR stack
@@ -424,6 +431,21 @@ def submit(
             direct_opt=direct_opt,
             reviewer=reviewer if reviewer is not None else config.reviewer,
             label=label if label is not None else config.label,
+            no_fetch=no_fetch,
+        )
+
+
+@main.command("sync")
+def sync() -> None:
+    """
+    Sync PR descriptions from GitHub back to local commit messages
+    """
+    with cli_context() as (shell, config, github):
+        ghstack.sync.main(
+            github=github,
+            sh=shell,
+            github_url=config.github_url,
+            remote_name=config.remote_name,
         )
 
 

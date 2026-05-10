@@ -22,6 +22,7 @@ import ghstack.land
 import ghstack.log
 import ghstack.shell
 import ghstack.submit
+import ghstack.sync
 import ghstack.unlink
 from ghstack.types import GitCommitHash
 
@@ -36,6 +37,7 @@ __all__ = [
     "gh_cherry_pick",
     "gh_checkout",
     "gh_log",
+    "gh_sync",
     "GitCommitHash",
     "checkout",
     "amend",
@@ -117,6 +119,7 @@ class Context:
         local_dir = tempfile.mkdtemp()
         self.sh = ghstack.shell.Shell(cwd=local_dir, testing=True)
         self.sh.git("clone", upstream_dir, ".")
+        self.sh.git("fetch", "origin", "+refs/heads/*:refs/remotes/origin/*")
         self.direct = direct
 
     def cleanup(self) -> None:
@@ -281,6 +284,18 @@ def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -> None
         github_url="github.com",
         args=list(args),
         pull_request=pull_request,
+    )
+
+
+def gh_sync() -> GitCommitHash:
+    self = CTX
+    return ghstack.sync.main(
+        github=self.github,
+        sh=self.sh,
+        repo_owner="pytorch",
+        repo_name="pytorch",
+        github_url="github.com",
+        remote_name="origin",
     )
 
 

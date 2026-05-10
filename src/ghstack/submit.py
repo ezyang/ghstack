@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 import dataclasses
 import itertools
 import logging
@@ -8,7 +9,19 @@ import re
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import (
+    Any,
+    Awaitable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 import ghstack
 import ghstack.git
@@ -258,7 +271,8 @@ class DiffMeta:
         return self.push_branches.next.commit.commit_id
 
 
-_TIMING_ENABLED = bool(os.environ.get("GHSTACK_TIMING"))
+_TIMING_ENABLED = True
+_T = TypeVar("_T")
 
 
 class _Timer:
@@ -283,6 +297,28 @@ class _Timer:
             f"[ghstack timing] total: {total * 1000:.0f}ms",
             file=sys.stderr,
         )
+
+
+def _run_async_ordered(awaitables: Iterable[Awaitable[_T]]) -> List[_T]:
+    aws = list(awaitables)
+    if not aws:
+        return []
+
+    async def gather() -> List[Any]:
+        return await asyncio.gather(*aws, return_exceptions=True)
+
+    loop = asyncio.new_event_loop()
+    try:
+        results = loop.run_until_complete(gather())
+    finally:
+        loop.close()
+
+    checked_results: List[_T] = []
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+        checked_results.append(result)
+    return checked_results
 
 
 @dataclass
@@ -390,6 +426,9 @@ class Submitter:
     # Default labels to add to new pull requests (comma-separated labels)
     label: Optional[str] = None
 
+    # Skip fetching remote refs before submitting
+    no_fetch: bool = False
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
 
@@ -471,10 +510,11 @@ class Submitter:
     def run(self) -> List[DiffMeta]:
         timer = _Timer() if _TIMING_ENABLED else None
 
-        self.fetch(
-            f"+refs/heads/gh/{self.username}/*"
-            f":refs/remotes/{self.remote_name}/gh/{self.username}/*"
-        )
+        if not self.no_fetch:
+            self.fetch(
+                f"+refs/heads/gh/{self.username}/*"
+                f":refs/remotes/{self.remote_name}/gh/{self.username}/*"
+            )
         if timer:
             timer.mark("fetch")
 
@@ -747,8 +787,7 @@ class Submitter:
         commits: List[ghstack.git.CommitHeader],
     ) -> Dict[GitHubNumber, Any]:
         """Batch-fetch PR info for all commits that have existing PRs.
-        Uses ThreadPoolExecutor to parallelize the REST GET calls."""
-        from concurrent.futures import ThreadPoolExecutor
+        Uses async REST calls to overlap GitHub IO."""
 
         pr_numbers: List[GitHubNumber] = []
         for commit in commits:
@@ -759,19 +798,16 @@ class Submitter:
         if not pr_numbers:
             return {}
 
-        # Deduplicate
-        unique_numbers = list(set(pr_numbers))
+        unique_numbers = sorted(set(pr_numbers), key=int)
 
-        def fetch_pr(number: GitHubNumber) -> Tuple[GitHubNumber, Any]:
-            r = self.github.get(
-                f"repos/{self.repo_owner}/{self.repo_name}/pulls/{number}"
+        async def fetch_pr(number: GitHubNumber) -> Tuple[GitHubNumber, Any]:
+            r = await self.github.arest(
+                "get", f"repos/{self.repo_owner}/{self.repo_name}/pulls/{number}"
             )
-            return (number, r)
+            return number, r
 
-        pr_info: Dict[GitHubNumber, Any] = {}
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            for number, info in executor.map(lambda n: fetch_pr(n), unique_numbers):
-                pr_info[number] = info
+        results = _run_async_ordered(fetch_pr(number) for number in unique_numbers)
+        pr_info: Dict[GitHubNumber, Any] = dict(results)
 
         return pr_info
 
@@ -1057,29 +1093,29 @@ class Submitter:
             # If we're trying to submit a closed commit, check if it has been modified
             if elab_diff.remote_source_id is None:
                 # The branch was deleted (e.g., after landing). Check if the commit has been
-                # modified by comparing source_ids. If the commit is reachable from master with
+                # modified by comparing source_ids. If the commit is reachable from main with
                 # the same source_id (tree hash), it means it was landed and we should skip it.
                 # Otherwise, it's been modified and we should raise an error.
                 try:
-                    # Check if there's a commit on master with the same tree (source_id)
-                    master_commits = self.sh.git(
+                    # Check if there's a commit on main with the same tree (source_id)
+                    main_commits = self.sh.git(
                         "log",
                         "--format=%H %T",
                         f"{self.remote_name}/{self.base}",
                         "-n",
                         "100",  # Check last 100 commits
                     )
-                    for line in master_commits.split("\n"):
+                    for line in main_commits.split("\n"):
                         if not line.strip():
                             continue
                         commit_hash, tree_hash = line.split()
                         if tree_hash == diff.source_id:
-                            # Found a commit on master with the same tree, so this commit
+                            # Found a commit on main with the same tree, so this commit
                             # was landed (just with a different commit message/hash)
                             return None
                 except Exception:
                     pass
-                # Didn't find a matching commit on master, so this is a modified closed commit
+                # Didn't find a matching commit on main, so this is a modified closed commit
                 raise RuntimeError(
                     f"Cannot ghstack a stack with closed PR #{elab_diff.number} whose branch was deleted.  "
                     "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
@@ -1450,7 +1486,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             #   user diff
             #
             # It turns out the logic here is fine, and the only thing it
-            # chokes on is rebasing back in time on master branch (you can't
+            # chokes on is rebasing back in time on main branch (you can't
             # go back in time on PR branches, so this is a moot point there.)
             # The problem is suppose you have:
             #
@@ -1756,9 +1792,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                             orphan_above.append(num)
                 break
 
-        from concurrent.futures import ThreadPoolExecutor
-
-        def _update_pr(s: DiffMeta) -> None:
+        def _update_pr_args(s: DiffMeta) -> Tuple[str, Dict[str, Any], Optional[str]]:
             assert not s.closed
             logging.info(
                 "# Updating https://{github_url}/{owner}/{repo}/pull/{number}".format(
@@ -1776,30 +1810,39 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             stack_desc = self._format_stack(
                 diffs_to_submit, s.number, orphan_above, orphan_below
             )
-            self.github.patch(
-                "repos/{owner}/{repo}/pulls/{number}".format(
-                    owner=self.repo_owner, repo=self.repo_name, number=s.number
-                ),
-                body=RE_STACK.sub(
+            path = "repos/{owner}/{repo}/pulls/{number}".format(
+                owner=self.repo_owner, repo=self.repo_name, number=s.number
+            )
+            kwargs = {
+                "body": RE_STACK.sub(
                     stack_desc,
                     s.body,
                 ),
-                title=s.title,
+                "title": s.title,
                 **base_kwargs,
-            )
-
+            }
+            comment_path = None
             if s.elab_diff.comment_id is not None:
-                self.github.patch(
-                    f"repos/{self.repo_owner}/{self.repo_name}/issues/comments/{s.elab_diff.comment_id}",
-                    body=stack_desc,
+                comment_path = (
+                    f"repos/{self.repo_owner}/{self.repo_name}/issues/comments/"
+                    f"{s.elab_diff.comment_id}"
+                )
+            return path, kwargs, comment_path
+
+        async def _update_pr_async(s: DiffMeta) -> None:
+            path, kwargs, comment_path = _update_pr_args(s)
+            await self.github.arest("patch", path, **kwargs)
+
+            if comment_path is not None:
+                await self.github.arest(
+                    "patch",
+                    comment_path,
+                    body=self._format_stack(
+                        diffs_to_submit, s.number, orphan_above, orphan_below
+                    ),
                 )
 
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [
-                executor.submit(_update_pr, s) for s in reversed(diffs_to_submit)
-            ]
-            for f in futures:
-                f.result()
+        _run_async_ordered(_update_pr_async(s) for s in reversed(diffs_to_submit))
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
@@ -2067,7 +2110,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         return title, pr_body
 
     def _git_push(self, branches: Sequence[str], force: bool = False) -> None:
-        assert branches, "empty branches would push master, probably bad!"
+        assert branches, "empty branches would push main, probably bad!"
         try:
             self.sh.git(
                 "push",
