@@ -1,0 +1,28 @@
+from ghstack.test_prelude import *
+
+init_test()
+
+commit("A")
+commit("B")
+gh_submit("Initial 1")
+
+# Verify ghstack-comment-id is present before unlink (direct mode only)
+if is_direct():
+    log = git("log", "--format=%B", "HEAD~2..HEAD")
+    assert "ghstack-comment-id:" in log, "expected ghstack-comment-id before unlink"
+
+gh_unlink()
+
+# After unlink, ghstack-comment-id should be stripped from all commits
+log = git("log", "--format=%B", "HEAD~2..HEAD")
+assert "ghstack-comment-id:" not in log, (
+    "ghstack-comment-id should be stripped after unlink, got:\n" + log
+)
+assert "ghstack-source-id:" not in log, (
+    "ghstack-source-id should be stripped after unlink, got:\n" + log
+)
+assert "Pull-Request:" not in log, (
+    "Pull-Request should be stripped after unlink, got:\n" + log
+)
+
+ok()
