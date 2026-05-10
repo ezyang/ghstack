@@ -197,8 +197,11 @@ class Shell(object):
             assert proc.returncode is not None
             return (proc.returncode, out, err)
 
-        loop = asyncio.get_event_loop()
-        returncode, out, err = loop.run_until_complete(run())
+        loop = asyncio.new_event_loop()
+        try:
+            returncode, out, err = loop.run_until_complete(run())
+        finally:
+            loop.close()
 
         def decode(b: bytes) -> str:
             return (

@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import time
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import requests
 
@@ -70,6 +70,13 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         self.github_url = github_url
         self.verify = verify
         self.cert = cert
+        self._session = requests.Session()
+        if proxy:
+            self._session.proxies.update({"http": proxy, "https": proxy})
+        if verify is not None:
+            self._session.verify = verify
+        if cert is not None:
+            self._session.cert = cert
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
@@ -87,13 +94,10 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             "Request GraphQL variables:\n{}".format(json.dumps(kwargs, indent=1))
         )
 
-        resp = requests.post(
+        resp = self._session.post(
             self.graphql_endpoint.format(github_url=self.github_url),
             json={"query": query, "variables": kwargs},
             headers=headers,
-            proxies=self._proxies(),
-            verify=self.verify,
-            cert=self.cert,
         )
 
         logging.debug("Response status: {}".format(resp.status_code))
@@ -120,12 +124,6 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
         return r
 
-    def _proxies(self) -> Dict[str, str]:
-        if self.proxy:
-            return {"http": self.proxy, "https": self.proxy}
-        else:
-            return {}
-
     def get_head_ref(self, **params: Any) -> str:
 
         if self.oauth_token:
@@ -134,11 +132,8 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             owner = params["owner"]
             name = params["name"]
             number = params["number"]
-            resp = requests.get(
+            resp = self._session.get(
                 f"{self.www_endpoint.format(github_url=self.github_url)}/{owner}/{name}/pull/{number}",
-                proxies=self._proxies(),
-                verify=self.verify,
-                cert=self.cert,
             )
             logging.debug("Response status: {}".format(resp.status_code))
 
@@ -165,13 +160,10 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             logging.debug("# {} {}".format(method, url))
             logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
 
-            resp: requests.Response = getattr(requests, method)(
+            resp: requests.Response = getattr(self._session, method)(
                 url,
                 json=kwargs,
                 headers=headers,
-                proxies=self._proxies(),
-                verify=self.verify,
-                cert=self.cert,
             )
 
             logging.debug("Response status: {}".format(resp.status_code))
