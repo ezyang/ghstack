@@ -8,9 +8,9 @@ commit("A")
 commit("B")
 A, B = gh_submit("Initial 2")
 
-git("checkout", "master")
+git("checkout", "main")
 commit("M")
-git("push", "origin", "master")
+git("push", "origin", "main")
 
 cherry_pick(B)
 gh_submit("Cherry pick")
@@ -18,13 +18,13 @@ gh_submit("Cherry pick")
 if is_direct():
     assert_github_state(
         """\
-        [O] #500 Commit A (gh/ezyang/1/head -> master)
+        [O] #500 Commit A (gh/ezyang/1/head -> main)
 
             This is commit A
 
             * 2193fd2 Initial 2
 
-        [O] #501 Commit B (gh/ezyang/2/head -> master)
+        [O] #501 Commit B (gh/ezyang/2/head -> main)
 
             This is commit B
 
@@ -36,7 +36,7 @@ if is_direct():
 
             *   6d41420 (gh/ezyang/2/next, gh/ezyang/2/head)
             |\\     Cherry pick
-            | * 7ceeaa9 (HEAD -> master)
+            | * 7ceeaa9 (HEAD -> main)
             | |    Commit M
             * | ce2fa9b
             | |    Initial 2
@@ -76,7 +76,7 @@ else:
             |\\     Cherry pick
             | *   8f5c855 (gh/ezyang/2/base)
             | |\\     Cherry pick (base update)
-            | | * 7ceeaa9 (HEAD -> master)
+            | | * 7ceeaa9 (HEAD -> main)
             | | |    Commit M
             * | | ca4399f
             |/ /     Initial 2

@@ -9,7 +9,7 @@ pr_url = diff.pr_url
 
 gh_land(pr_url)
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    get_upstream_sh().git("log", "--oneline", "main"),
     """\
 d518c9f Commit A (#500)
 dc8bfe4 Initial commit""",

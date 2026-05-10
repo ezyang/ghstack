@@ -12,7 +12,7 @@ assert len(diffs) == 2
 A = diffs[0]  # First commit (A)
 B = diffs[1]  # Second commit (B)
 
-# Both PRs should have the same merge-base with master (initial commit)
+# Both PRs should have the same merge-base with main (initial commit)
 # Checkout PR A
 gh_checkout(f"https://github.com/pytorch/pytorch/pull/{A.number}")
 
