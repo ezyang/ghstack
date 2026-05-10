@@ -3,12 +3,12 @@ from ghstack.test_prelude import *
 init_test()
 
 # make release branch
-git("branch", "release", "master")
+git("branch", "release", "main")
 
 # diverge release and regular branch
-git("checkout", "master")
+git("checkout", "main")
 commit("M")
-git("push", "origin", "master")
+git("push", "origin", "main")
 
 git("checkout", "release")
 commit("R")

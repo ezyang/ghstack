@@ -170,16 +170,16 @@ class GitHubState:
             # operations depend on repository state (e.g., what
             # the headRef is at the time a PR is created), so
             # we need this information
-            self.upstream_sh.git("init", "--bare", "-b", "master")
+            self.upstream_sh.git("init", "--bare", "-b", "main")
             tree = self.upstream_sh.git("write-tree")
             commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
-            self.upstream_sh.git("branch", "-f", "master", commit)
+            self.upstream_sh.git("branch", "-f", "main", commit)
 
             # We only update this when a PATCH changes the default
             # branch; hopefully that's fine?  In any case, it should
             # work for now since currently we only ever access the name
             # of the default branch rather than other parts of its ref.
-            repo.defaultBranchRef = repo._make_ref(self, "master")
+            repo.defaultBranchRef = repo._make_ref(self, "main")
 
 
 @dataclass
@@ -221,25 +221,13 @@ class Repository(Node):
     # TODO: This should take which repository the ref is in
     # This only works if you have upstream_sh
     def _make_ref(self, state: GitHubState, refName: str) -> "Ref":
-        # TODO: Probably should preserve object identity here when
-        # you call this with refName/oid that are the same
-        assert state.upstream_sh
-        gitObject = GitObject(
-            id=state.next_id(),
-            # TODO: this upstream_sh hardcode wrong, but ok for now
-            # because we only have one repo
-            oid=GitObjectID(state.upstream_sh.git("rev-parse", refName)),
-            _repository=self.id,
+        return ghstack.github.GitHubEndpoint._run_async(
+            self._make_ref_async(state, refName)
         )
-        ref = Ref(
-            id=state.next_id(),
-            name=refName,
-            _repository=self.id,
-            target=gitObject,
-        )
-        return ref
 
     async def _make_ref_async(self, state: GitHubState, refName: str) -> "Ref":
+        # TODO: Probably should preserve object identity here when
+        # you call this with refName/oid that are the same
         assert state.upstream_sh
         proc = await asyncio.create_subprocess_exec(
             "git",

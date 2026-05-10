@@ -32,7 +32,7 @@ if not is_direct():
             |    Initial
             * ce88e73 (gh/ezyang/1/base)
             |    Initial (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """,
     )
