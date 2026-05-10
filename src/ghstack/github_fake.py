@@ -170,16 +170,16 @@ class GitHubState:
             # operations depend on repository state (e.g., what
             # the headRef is at the time a PR is created), so
             # we need this information
-            self.upstream_sh.git("init", "--bare", "-b", "main")
+            self.upstream_sh.git("init", "--bare", "-b", "master")
             tree = self.upstream_sh.git("write-tree")
             commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
-            self.upstream_sh.git("branch", "-f", "main", commit)
+            self.upstream_sh.git("branch", "-f", "master", commit)
 
             # We only update this when a PATCH changes the default
             # branch; hopefully that's fine?  In any case, it should
             # work for now since currently we only ever access the name
             # of the default branch rather than other parts of its ref.
-            repo.defaultBranchRef = repo._make_ref(self, "main")
+            repo.defaultBranchRef = repo._make_ref(self, "master")
 
 
 @dataclass
@@ -394,41 +394,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         self.state.notify_merged(pr_resolved)
 
-    def _create_pull(
-        self, owner: str, name: str, input: CreatePullRequestInput
-    ) -> CreatePullRequestPayload:
-        state = self.state
-        id = state.next_id()
-        repo = state.repository(owner, name)
-        number = state.next_pull_request_number(repo.id)
-        baseRef = None
-        headRef = None
-        # TODO: When we support forks, this needs rewriting to stop
-        # hard coded the repo we opened the pull request on
-        if state.upstream_sh:
-            baseRef = repo._make_ref(state, input["base"])
-            headRef = repo._make_ref(state, input["head"])
-        pr = PullRequest(
-            id=id,
-            _repository=repo.id,
-            number=number,
-            closed=False,
-            url="https://github.com/{}/pull/{}".format(repo.nameWithOwner, number),
-            baseRef=baseRef,
-            baseRefName=input["base"],
-            headRef=headRef,
-            headRefName=input["head"],
-            title=input["title"],
-            body=input["body"],
-        )
-        # TODO: compute files changed
-        state.pull_requests[id] = pr
-        # This is only a subset of what the actual REST endpoint
-        # returns.
-        return {
-            "number": number,
-        }
-
     async def _create_pull_async(
         self, owner: str, name: str, input: CreatePullRequestInput
     ) -> CreatePullRequestPayload:
@@ -458,24 +423,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         return {
             "number": number,
         }
-
-    # NB: This technically does have a payload, but we don't
-    # use it so I didn't bother constructing it.
-    def _update_pull(
-        self, owner: str, name: str, number: GitHubNumber, input: UpdatePullRequestInput
-    ) -> None:
-        state = self.state
-        repo = state.repository(owner, name)
-        pr = state.pull_request(repo, number)
-        # If I say input.get('title') is not None, mypy
-        # is unable to infer input['title'] is not None
-        if "title" in input and input["title"] is not None:
-            pr.title = input["title"]
-        if "base" in input and input["base"] is not None:
-            pr.baseRefName = input["base"]
-            pr.baseRef = repo._make_ref(state, pr.baseRefName)
-        if "body" in input and input["body"] is not None:
-            pr.body = input["body"]
 
     async def _update_pull_async(
         self, owner: str, name: str, number: GitHubNumber, input: UpdatePullRequestInput
@@ -520,15 +467,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if (r := input.get("body")) is not None:
             comment.body = r
 
-    # NB: This may have a payload, but we don't
-    # use it so I didn't bother constructing it.
-    def _set_default_branch(
-        self, owner: str, name: str, input: SetDefaultBranchInput
-    ) -> None:
-        state = self.state
-        repo = state.repository(owner, name)
-        repo.defaultBranchRef = repo._make_ref(state, input["default_branch"])
-
     async def _set_default_branch_async(
         self, owner: str, name: str, input: SetDefaultBranchInput
     ) -> None:
@@ -537,9 +475,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         repo.defaultBranchRef = await repo._make_ref_async(
             state, input["default_branch"]
         )
-
-    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
-        return self._rest_impl(method, path, **kwargs)
 
     async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
         return await self._arest_impl(method, path, **kwargs)
@@ -576,10 +511,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 }
 
         elif method == "post":
-            if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
-                return self._create_pull(
-                    m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)
-                )
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/comments", path):
                 return self._create_issue_comment(
                     m.group(1),
@@ -606,19 +537,6 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 pr.labels.extend(labels)
                 return {}
         elif method == "patch":
-            if m := re.match(r"^repos/([^/]+)/([^/]+)(?:/pulls/([^/]+))?$", path):
-                owner, name, number = m.groups()
-                if number is not None:
-                    return self._update_pull(
-                        owner,
-                        name,
-                        GitHubNumber(int(number)),
-                        cast(UpdatePullRequestInput, kwargs),
-                    )
-                elif "default_branch" in kwargs:
-                    return self._set_default_branch(
-                        owner, name, cast(SetDefaultBranchInput, kwargs)
-                    )
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/comments/([^/]+)$", path):
                 return self._update_issue_comment(
                     m.group(1),
