@@ -121,10 +121,13 @@ def check_files(
     config: str,
     retries: int,
     code: str,
+    extra_mypy_args: Optional[List[str]] = None,
 ) -> List[LintMessage]:
     try:
         proc = run_command(
-            [sys.executable, "-mmypy", f"--config={config}"] + filenames,
+            [sys.executable, "-mmypy", f"--config={config}"]
+            + (extra_mypy_args or [])
+            + filenames,
             extra_env={},
             retries=retries,
         )
@@ -238,9 +241,24 @@ def main() -> None:
         else:
             filenames[filename] = True
 
-    lint_messages = check_mypy_installed(args.code) + check_files(
-        list(filenames), args.config, args.retries, args.code
-    )
+    py_filenames = [
+        filename for filename in filenames if not filename.endswith(".py.test")
+    ]
+    py_test_filenames = [
+        filename for filename in filenames if filename.endswith(".py.test")
+    ]
+
+    lint_messages = check_mypy_installed(args.code)
+    if py_filenames:
+        lint_messages += check_files(py_filenames, args.config, args.retries, args.code)
+    if py_test_filenames:
+        lint_messages += check_files(
+            py_test_filenames,
+            args.config,
+            args.retries,
+            args.code,
+            extra_mypy_args=["--disable-error-code=top-level-await"],
+        )
     for lint_message in lint_messages:
         print(json.dumps(lint_message._asdict()), flush=True)
 

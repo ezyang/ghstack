@@ -19,10 +19,10 @@ import statistics
 import subprocess
 import sys
 import tempfile
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 
-def run(args: List[str], cwd: str, **kwargs) -> subprocess.CompletedProcess:
+def run(args: List[str], cwd: str, **kwargs: Any) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, cwd=cwd, capture_output=True, text=True, **kwargs)
 
 
