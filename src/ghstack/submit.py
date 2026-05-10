@@ -857,7 +857,6 @@ class Submitter:
         submit_set = set(h.commit_id for h in commits_to_submit)
         diff_meta_index: Dict[GitCommitHash, DiffMeta] = {}
         pending_new_prs: List[_PendingNewPR] = []
-        object.__setattr__(self, "_pending_new_prs", pending_new_prs)
 
         for commit in reversed(commits_to_rebase):
             submit = commit.commit_id in submit_set
@@ -886,15 +885,16 @@ class Submitter:
                     else None
                 ),
                 submit,
+                pending_new_prs=pending_new_prs,
             )
             if diff_meta is not None:
                 diff_meta_index[commit.commit_id] = diff_meta
 
         # Phase 2: Batch-push branches and create all new PRs.
-        if self._pending_new_prs:
+        if pending_new_prs:
             # Collect all push specs and push in one call.
             all_new_push_specs: List[str] = []
-            for pending in self._pending_new_prs:
+            for pending in pending_new_prs:
                 all_new_push_specs.extend(pending.push_specs)
             if all_new_push_specs:
                 self._git_push(all_new_push_specs)
@@ -910,7 +910,7 @@ class Submitter:
                         pending.ghnum,
                     ),
                 )
-                for pending in self._pending_new_prs
+                for pending in pending_new_prs
             ]
 
             # Update DiffMeta entries with real PR info
@@ -1128,6 +1128,8 @@ class Submitter:
         diff: ghstack.diff.Diff,
         elab_diff: Optional[DiffWithGitHubMetadata],
         submit: bool,
+        *,
+        pending_new_prs: List[_PendingNewPR],
     ) -> Optional[DiffMeta]:
         # Do not process poisoned commits
         if "[ghstack-poisoned]" in diff.summary:
@@ -1236,7 +1238,7 @@ class Submitter:
                 what="Created",
                 base=base_branch,
             )
-            self._pending_new_prs.append(
+            pending_new_prs.append(
                 _PendingNewPR(
                     commit_id=diff.oid,
                     diff=diff,
