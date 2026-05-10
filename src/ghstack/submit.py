@@ -831,6 +831,9 @@ class Submitter:
                 usernames.add(m.group(1))
 
         for username in sorted(usernames):
+            # TODO: Potentially we could narrow this refspec down to only the
+            # referenced PRs.  However, this will interact poorly with
+            # cross-author stacks, so it needs to be thought more carefully.
             self.fetch(
                 f"+refs/heads/gh/{username}/*"
                 f":refs/remotes/{self.remote_name}/gh/{username}/*"
@@ -934,17 +937,25 @@ class Submitter:
             parent = commit.parents[0]
             diff_meta = diff_meta_index.get(commit.commit_id)
 
+            # Check if we actually need to rebase it, or can use it as is.
+            # NB: This is not in process_commit, because we may need
+            # to rebase a commit even if we didn't submit it.
             if parent in rebase_index or diff_meta is not None:
                 if diff_meta is not None:
+                    # use the updated commit message, if it exists
                     commit_msg = diff_meta.commit_msg
                 else:
                     commit_msg = commit.commit_msg
 
                 if rebase_id := rebase_index.get(parent):
+                    # use the updated base, if it exists
                     base_commit_id = rebase_id
                 else:
                     base_commit_id = parent
 
+                # Preserve authorship of original commit
+                # (TODO: for some reason, we didn't do this for old commits,
+                # maybe it doesn't matter)
                 env = {}
                 if commit.author_name is not None:
                     env["GIT_AUTHOR_NAME"] = commit.author_name
@@ -964,6 +975,8 @@ class Submitter:
                 )
 
                 if diff_meta is not None:
+                    # Add the new_orig to push.  This may not exist.  If so,
+                    # that means this diff only exists to update HEAD.
                     diff_meta.push_branches.orig.update(GhCommit(new_orig, commit.tree))
 
                 rebase_index[commit.commit_id] = new_orig
@@ -1002,6 +1015,7 @@ class Submitter:
                 owner=self.repo_owner, name=self.repo_name, number=number
             )
 
+        # Sorry, this is a big hack to support the ghexport case
         m_export = re.match(r"(refs/heads/)?export-D([0-9]+)$", head_ref_name)
         if m_export is not None and is_ghexport:
             raise RuntimeError(
@@ -1049,12 +1063,17 @@ class Submitter:
         closed = pr_info.get("state") != "open"
 
         if self.update_fields:
+            # NB: Technically, we don't need to pull this information at
+            # all, but it's more convenient to unconditionally edit
+            # title/body when we update the pull request info
             title, pr_body = self._default_title_and_body(diff, pr_info.get("body"))
         else:
             title = pr_info["title"]
             pr_body = pr_info["body"] or ""
 
         try:
+            # TODO: remote summary should be done earlier so we can use
+            # it to test if updates are necessary
             rev_list = self.sh.git(
                 "rev-list",
                 "--max-count=1",
@@ -1282,6 +1301,8 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         # Check both seen_ghnums (from commits in the current stack) and
         # remote refs (which may include ghnums from landed/closed PRs
         # whose branches still exist)
+        # This is technically subject to a race, but we assume the end user is
+        # not running this script concurrently on multiple machines.
         max_seen = max(
             (
                 int(str(ghnum))
@@ -1770,10 +1791,15 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         #   orig branches: always force-pushed
         #   head/next branches: force-pushed only with --force flag
         #   base branches: never force-pushed
+        # It is VERY important that we preserve base-before-head ordering,
+        # otherwise GitHub can spuriously think that the user pushed a number
+        # of patches as part of the PR, when actually they were just from the
+        # new upstream branch.
         all_push_specs: List[str] = []
 
         for s in reversed(diffs_to_submit):
             for diff, b in s.push_branches:
+                # Careful!  Don't push main.
                 if b == "orig":
                     force = True
                 elif b == "base":
@@ -1864,6 +1890,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             return path, kwargs, comment_path
 
         async def _update_pr_async(s: DiffMeta) -> None:
+            # NB: GraphQL API does not support modifying PRs
             path, kwargs, comment_path = _update_pr_args(s)
             await self.github.arest("patch", path, **kwargs)
 
