@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 from abc import ABCMeta, abstractmethod
 from typing import Any, Sequence
 
@@ -64,7 +65,7 @@ class GitHubEndpoint(metaclass=ABCMeta):
 
         Returns: parsed JSON response
         """
-        return self.rest("get", path, **kwargs)
+        return self._run_async(self.aget(path, **kwargs))
 
     def post(self, path: str, **kwargs: Any) -> Any:
         """
@@ -72,7 +73,7 @@ class GitHubEndpoint(metaclass=ABCMeta):
 
         Returns: parsed JSON response
         """
-        return self.rest("post", path, **kwargs)
+        return self._run_async(self.apost(path, **kwargs))
 
     def patch(self, path: str, **kwargs: Any) -> Any:
         """
@@ -80,12 +81,42 @@ class GitHubEndpoint(metaclass=ABCMeta):
 
         Returns: parsed JSON response
         """
-        return self.rest("patch", path, **kwargs)
+        return self._run_async(self.apatch(path, **kwargs))
 
-    @abstractmethod
     def rest(self, method: str, path: str, **kwargs: Any) -> Any:
         """
         Send a 'method' request to endpoint 'path'.
+
+        Args:
+            method: 'GET', 'POST', etc.
+            path: relative URL path to access on endpoint
+            **kwargs: dictionary of JSON payload to send
+
+        Returns: parsed JSON response
+        """
+        return self._run_async(self.arest(method, path, **kwargs))
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    async def aget(self, path: str, **kwargs: Any) -> Any:
+        return await self.arest("get", path, **kwargs)
+
+    async def apost(self, path: str, **kwargs: Any) -> Any:
+        return await self.arest("post", path, **kwargs)
+
+    async def apatch(self, path: str, **kwargs: Any) -> Any:
+        return await self.arest("patch", path, **kwargs)
+
+    @abstractmethod
+    async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
+        """
+        Send an async 'method' request to endpoint 'path'.
 
         Args:
             method: 'GET', 'POST', etc.

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
+import asyncio
+import itertools
 import json
 import logging
 import re
+import ssl
 import time
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import aiohttp
 import requests
 
 import ghstack.github
@@ -70,6 +74,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         self.github_url = github_url
         self.verify = verify
         self.cert = cert
+        self._rest_request_ids = itertools.count(1)
 
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
@@ -120,12 +125,6 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
         return r
 
-    def _proxies(self) -> Dict[str, str]:
-        if self.proxy:
-            return {"http": self.proxy, "https": self.proxy}
-        else:
-            return {}
-
     def get_head_ref(self, **params: Any) -> str:
 
         if self.oauth_token:
@@ -149,73 +148,106 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 # couldn't find, fall back to regular query
                 return super().get_head_ref(**params)
 
-    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+    def _proxies(self) -> Dict[str, str]:
+        if self.proxy:
+            return {"http": self.proxy, "https": self.proxy}
+        else:
+            return {}
+
+    def _rest_headers(self) -> Dict[str, str]:
         assert self.oauth_token
-        headers = {
+        return {
             "Authorization": "token " + self.oauth_token,
             "Content-Type": "application/json",
             "User-Agent": "ghstack",
             "Accept": "application/vnd.github.v3+json",
         }
 
+    def _aiohttp_ssl(self) -> Any:
+        if self.verify is False:
+            return False
+        if self.verify is None and self.cert is None:
+            return None
+
+        context = ssl.create_default_context(
+            cafile=self.verify if isinstance(self.verify, str) else None
+        )
+        if isinstance(self.cert, tuple):
+            context.load_cert_chain(self.cert[0], self.cert[1])
+        elif self.cert is not None:
+            context.load_cert_chain(self.cert)
+        return context
+
+    async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
+        assert self.oauth_token
+        headers = self._rest_headers()
         url = self.rest_endpoint.format(github_url=self.github_url) + "/" + path
 
+        request_kwargs: Dict[str, Any] = {
+            "json": kwargs,
+            "headers": headers,
+        }
+        if self.proxy:
+            request_kwargs["proxy"] = self.proxy
+        aiohttp_ssl = self._aiohttp_ssl()
+        if aiohttp_ssl is not None:
+            request_kwargs["ssl"] = aiohttp_ssl
+
         backoff_seconds = INITIAL_BACKOFF_SECONDS
-        for attempt in range(0, MAX_RETRIES):
-            logging.debug("# {} {}".format(method, url))
-            logging.debug("Request body:\n{}".format(json.dumps(kwargs, indent=1)))
+        request_id = next(self._rest_request_ids)
+        log_prefix = f"rest[{request_id}]"
+        async with aiohttp.ClientSession() as session:
+            for attempt in range(0, MAX_RETRIES):
+                logging.debug("# %s %s %s", log_prefix, method, url)
+                logging.debug(
+                    "%s request body:\n%s", log_prefix, json.dumps(kwargs, indent=1)
+                )
 
-            resp: requests.Response = getattr(requests, method)(
-                url,
-                json=kwargs,
-                headers=headers,
-                proxies=self._proxies(),
-                verify=self.verify,
-                cert=self.cert,
-            )
-
-            logging.debug("Response status: {}".format(resp.status_code))
-
-            try:
-                r = resp.json()
-            except ValueError:
-                logging.debug("Response body:\n{}".format(r.text))
-                raise
-            else:
-                pretty_json = json.dumps(r, indent=1)
-                logging.debug("Response JSON:\n{}".format(pretty_json))
-
-            # Per Github rate limiting: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
-            if resp.status_code in (403, 429):
-                remaining_count = resp.headers.get("x-ratelimit-remaining")
-                reset_time = resp.headers.get("x-ratelimit-reset")
-
-                if remaining_count == "0" and reset_time:
-                    sleep_time = int(reset_time) - int(time.time())
-                    logging.warning(
-                        f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
-                    )
-                    time.sleep(sleep_time)
-                    continue
-                else:
-                    retry_after_seconds = resp.headers.get("retry-after")
-                    if retry_after_seconds:
-                        sleep_time = int(retry_after_seconds)
-                        logging.warning(
-                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
+                async with getattr(session, method)(url, **request_kwargs) as resp:
+                    logging.debug("%s response status: %s", log_prefix, resp.status)
+                    try:
+                        r = await resp.json()
+                    except (aiohttp.ContentTypeError, ValueError):
+                        logging.debug(
+                            "%s response body:\n%s", log_prefix, await resp.text()
                         )
+                        raise
                     else:
-                        sleep_time = backoff_seconds
-                        logging.warning(
-                            f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
-                        )
-                        backoff_seconds *= 2
-                    time.sleep(sleep_time)
-                    continue
+                        pretty_json = json.dumps(r, indent=1)
+                        logging.debug("%s response JSON:\n%s", log_prefix, pretty_json)
 
-            if resp.status_code == 404:
-                raise ghstack.github.NotFoundError(
-                    """\
+                    # Per Github rate limiting:
+                    # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+                    if resp.status in (403, 429):
+                        remaining_count = resp.headers.get("x-ratelimit-remaining")
+                        reset_time = resp.headers.get("x-ratelimit-reset")
+
+                        if remaining_count == "0" and reset_time:
+                            sleep_time = int(reset_time) - int(time.time())
+                            logging.warning(
+                                f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
+                            )
+                            await asyncio.sleep(sleep_time)
+                            continue
+                        else:
+                            retry_after_seconds = resp.headers.get("retry-after")
+                            if retry_after_seconds:
+                                sleep_time = int(retry_after_seconds)
+                                logging.warning(
+                                    f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
+                                )
+                            else:
+                                sleep_time = backoff_seconds
+                                logging.warning(
+                                    f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
+                                )
+                                backoff_seconds *= 2
+                            await asyncio.sleep(sleep_time)
+                            continue
+
+                    if resp.status == 404:
+                        raise ghstack.github.NotFoundError(
+                            """\
 GitHub raised a 404 error on the request for
 {url}.
 Usually, this doesn't actually mean the page doesn't exist; instead, it
@@ -229,15 +261,13 @@ Another possible reason for this error is if the repository has moved
 to a new location or been renamed. Check that the repository URL is
 still correct.
 """.format(
-                        url=url, github_url=self.github_url
-                    )
-                )
+                                url=url, github_url=self.github_url
+                            )
+                        )
 
-            try:
-                resp.raise_for_status()
-            except requests.HTTPError:
-                raise RuntimeError(pretty_json)
+                    if resp.status >= 400:
+                        raise RuntimeError(pretty_json)
 
-            return r
+                    return r
 
         raise RuntimeError("Exceeded maximum retries due to GitHub rate limiting")

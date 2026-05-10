@@ -94,6 +94,39 @@ class Shell(object):
         exitcode: bool = False,
         tick: bool = False,
     ) -> _SHELL_RET:
+        return self._run_async(
+            self.ash(
+                *args,
+                env=env,
+                stderr=stderr,
+                input=input,
+                stdin=stdin,
+                stdout=stdout,
+                exitcode=exitcode,
+                tick=tick,
+            )
+        )
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    async def ash(
+        self,
+        *args: str,  # noqa: C901
+        env: Optional[Dict[str, str]] = None,
+        stderr: _HANDLE = None,
+        # TODO: Arguably bytes should be accepted here too
+        input: Optional[str] = None,
+        stdin: _HANDLE = None,
+        stdout: _HANDLE = subprocess.PIPE,
+        exitcode: bool = False,
+        tick: bool = False,
+    ) -> _SHELL_RET:
         """
         Run a command specified by args, and return string representing
         the stdout of the run command, raising an error if exit code
@@ -197,8 +230,7 @@ class Shell(object):
             assert proc.returncode is not None
             return (proc.returncode, out, err)
 
-        loop = asyncio.get_event_loop()
-        returncode, out, err = loop.run_until_complete(run())
+        returncode, out, err = await run()
 
         def decode(b: bytes) -> str:
             return (
@@ -252,6 +284,17 @@ class Shell(object):
             *args: Arguments to git
             **kwargs: Any valid kwargs for sh()
         """
+        return self._run_async(self.agit(*args, **kwargs))
+
+    async def agit(self, *args: str, **kwargs: Any) -> _SHELL_RET:
+        """
+        Run a git command asynchronously.  The returned stdout has trailing
+        newlines stripped.
+
+        Args:
+            *args: Arguments to git
+            **kwargs: Any valid kwargs for ash()
+        """
         env = kwargs.setdefault("env", {})
         # For git hooks to detect execution inside ghstack
         env.setdefault("GHSTACK", "1")
@@ -278,7 +321,7 @@ class Shell(object):
             if "stderr" not in kwargs:
                 kwargs["stderr"] = subprocess.PIPE
 
-        return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
+        return self._maybe_rstrip(await self.ash(*(("git",) + args), **kwargs))
 
     @overload  # noqa: F811
     def hg(self, *args: str) -> str: ...
@@ -298,7 +341,19 @@ class Shell(object):
             **kwargs: Any valid kwargs for sh()
         """
 
-        return self._maybe_rstrip(self.sh(*(("hg",) + args), **kwargs))
+        return self._run_async(self.ahg(*args, **kwargs))
+
+    async def ahg(self, *args: str, **kwargs: Any) -> _SHELL_RET:
+        """
+        Run a hg command asynchronously.  The returned stdout has trailing
+        newlines stripped.
+
+        Args:
+            *args: Arguments to hg
+            **kwargs: Any valid kwargs for ash()
+        """
+
+        return self._maybe_rstrip(await self.ash(*(("hg",) + args), **kwargs))
 
     def jf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
@@ -309,9 +364,21 @@ class Shell(object):
             **kwargs: Any valid kwargs for sh()
         """
 
+        return self._run_async(self.ajf(*args, **kwargs))
+
+    async def ajf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
+        """
+        Run a jf command asynchronously.  The returned stdout has trailing
+        newlines stripped.
+
+        Args:
+            *args: Arguments to jf
+            **kwargs: Any valid kwargs for ash()
+        """
+
         kwargs.setdefault("stdout", sys.stderr)
 
-        return self._maybe_rstrip(self.sh(*(("jf",) + args), **kwargs))
+        return self._maybe_rstrip(await self.ash(*(("jf",) + args), **kwargs))
 
     def test_tick(self) -> None:
         """
@@ -327,7 +394,15 @@ class Shell(object):
             fn: filename to open
             mode: mode to open the file as
         """
-        return open(os.path.join(self.cwd, fn), mode)
+        return open(self.abspath(fn), mode)
+
+    def abspath(self, fn: str) -> str:
+        """
+        Resolve a path against this shell's current working directory.
+        """
+        if os.path.isabs(fn):
+            return fn
+        return os.path.join(self.cwd, fn)
 
     def cd(self, d: str) -> None:
         """
