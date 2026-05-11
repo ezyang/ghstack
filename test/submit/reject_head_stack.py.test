@@ -1,20 +1,20 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-write_file_and_add("a", "asdf")
-git("commit", "-m", "Commit 1\n\nThis is my first commit")
+await write_file_and_add("a", "asdf")
+await git("commit", "-m", "Commit 1\n\nThis is my first commit")
 tick()
-gh_submit("Initial 1")
+await gh_submit("Initial 1")
 
-git("checkout", "gh/ezyang/1/head")
+await git("checkout", "gh/ezyang/1/head")
 
-write_file_and_add("b", "asdf")
-git("commit", "-m", "Commit 2\n\nThis is my second commit")
+await write_file_and_add("b", "asdf")
+await git("commit", "-m", "Commit 2\n\nThis is my second commit")
 tick()
 
 if is_direct():
-    assert_expected_raises_inline(
+    await assert_expected_raises_inline(
         RuntimeError,
         lambda: gh_submit("Initial 2"),
         """\
@@ -31,7 +31,7 @@ Since we cannot proceed, ghstack will abort now.
 """,
     )
 else:
-    assert_expected_raises_inline(
+    await assert_expected_raises_inline(
         RuntimeError,
         lambda: gh_submit("Initial 2"),
         """\

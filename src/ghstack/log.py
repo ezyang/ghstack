@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import subprocess
+import asyncio
 import sys
 from typing import List, Optional, Tuple
 
@@ -10,12 +10,12 @@ import ghstack.github_utils
 import ghstack.shell
 
 
-def _resolve_refs(
+async def _resolve_refs(
     *,
     github: ghstack.github.GitHubEndpoint,
     params: ghstack.github_utils.GitHubPullRequestParams,
 ) -> Tuple[str, str]:
-    pr_result = github.graphql(
+    pr_result = await github.graphql(
         """
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
@@ -32,7 +32,7 @@ def _resolve_refs(
     return pr["headRefName"], pr["baseRefName"]
 
 
-def main(
+async def main(
     github: ghstack.github.GitHubEndpoint,
     sh: ghstack.shell.Shell,
     remote_name: str,
@@ -43,15 +43,15 @@ def main(
     if pull_request is not None:
         # Explicit PR: fetch from remote and show what's there.  HEAD isn't
         # involved; no synthesized pending-changes commit.
-        params = ghstack.github_utils.parse_pull_request(
+        params = await ghstack.github_utils.parse_pull_request(
             pull_request, sh=sh, remote_name=remote_name
         )
-        sh.git("fetch", "--prune", remote_name)
+        await sh.agit("fetch", "--prune", remote_name)
         show_pending = False
     else:
         # Infer PR from HEAD's Pull-Request trailer; show the log relative
         # to the local understanding of the remote state (no fetch).
-        commit_msg = sh.git("log", "-1", "--format=%B", "HEAD")
+        commit_msg = await sh.agit("log", "-1", "--format=%B", "HEAD")
         pr = ghstack.diff.PullRequestResolved.search(commit_msg, github_url)
         if pr is None:
             raise RuntimeError(
@@ -67,7 +67,7 @@ def main(
         }
         show_pending = True
 
-    head_ref, base_ref = _resolve_refs(github=github, params=params)
+    head_ref, base_ref = await _resolve_refs(github=github, params=params)
 
     remote_head = f"{remote_name}/{head_ref}"
     remote_base = f"{remote_name}/{base_ref}"
@@ -77,10 +77,10 @@ def main(
         # If the local HEAD tree differs from the remote head tree, synthesize
         # a disposable commit on top of the remote head so pending changes
         # show up as the newest commit in `git log`.
-        local_tree = sh.git("rev-parse", "HEAD^{tree}")
-        remote_tree = sh.git("rev-parse", f"{remote_head}^{{tree}}")
+        local_tree = await sh.agit("rev-parse", "HEAD^{tree}")
+        remote_tree = await sh.agit("rev-parse", f"{remote_head}^{{tree}}")
         if local_tree != remote_tree:
-            tip = sh.git(
+            tip = await sh.agit(
                 "commit-tree",
                 local_tree,
                 "-p",
@@ -99,17 +99,18 @@ def main(
     # git 2.35+.  Users who prefer a portable alternative can pass
     # --diff-merges=cc to override.
     log_args = ["--diff-merges=remerge", tip]
-    if sh.git("rev-parse", "--verify", "--quiet", remote_base, exitcode=True):
+    if await sh.agit("rev-parse", "--verify", "--quiet", remote_base, exitcode=True):
         log_args.append(f"^{remote_base}")
     log_args.extend(args)
 
     if sys.stdout.isatty():
         # Let git manage its own pager.
-        subprocess.run(["git", "log", *log_args], cwd=sh.cwd, check=False)
+        proc = await asyncio.create_subprocess_exec("git", "log", *log_args, cwd=sh.cwd)
+        await proc.wait()
     else:
         # In test/piped contexts, capture and write to sys.stdout so the
         # caller can intercept it.
-        out = sh.git("log", *log_args)
+        out = await sh.agit("log", *log_args)
         if out:
             sys.stdout.write(out)
             if not out.endswith("\n"):

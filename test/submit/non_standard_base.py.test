@@ -1,27 +1,27 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # make release branch
-git("branch", "release", "main")
+await git("branch", "release", "main")
 
 # diverge release and regular branch
-git("checkout", "main")
-commit("M")
-git("push", "origin", "main")
+await git("checkout", "main")
+await commit("M")
+await git("push", "origin", "main")
 
-git("checkout", "release")
-commit("R")
-git("push", "origin", "release")
+await git("checkout", "release")
+await commit("R")
+await git("push", "origin", "release")
 
 # make commit on release branch
-commit("A")
+await commit("A")
 
 # use non-standard base
-gh_submit("Initial 1", base="release")
+await gh_submit("Initial 1", base="release")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> release)
 
@@ -40,7 +40,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

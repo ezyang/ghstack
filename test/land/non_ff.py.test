@@ -1,21 +1,21 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-(diff,) = gh_submit("Initial")
+await commit("A")
+(diff,) = await gh_submit("Initial")
 assert diff is not None
 pr_url = diff.pr_url
 
-git("reset", "--hard", "origin/main")
-commit("U")
-git("push")
+await git("reset", "--hard", "origin/main")
+await commit("U")
+await git("push")
 
-git("checkout", "gh/ezyang/1/orig")
-gh_land(pr_url)
+await git("checkout", "gh/ezyang/1/orig")
+await gh_land(pr_url)
 
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "main"),
+    await get_upstream_sh().agit("log", "--oneline", "main"),
     """\
 8b61aeb Commit A (#500)
 38808c0 Commit U

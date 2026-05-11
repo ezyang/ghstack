@@ -1,19 +1,19 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-commit("C")
-A, B, C = gh_submit("Initial")
+await commit("A")
+await commit("B")
+await commit("C")
+A, B, C = await gh_submit("Initial")
 
 # Go back to B, amend it, cherry-pick C on top
-checkout(B)
-amend("B2")
-cherry_pick(C)
+await checkout(B)
+await amend("B2")
+await cherry_pick(C)
 
 # Submit only B (the middle), not A or C
-(B2,) = gh_submit("Update middle only", revs=["HEAD~"], stack=False)
+(B2,) = await gh_submit("Update middle only", revs=["HEAD~"], stack=False)
 
 assert_eq(B.number, B2.number)
 
@@ -21,7 +21,7 @@ if is_direct():
     pass
 else:
     # We expect A (#500) below and C (#502) above to both appear
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

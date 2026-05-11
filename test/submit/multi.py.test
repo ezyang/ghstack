@@ -1,11 +1,11 @@
 from ghstack.test_prelude import *
 
-commit("A")
-commit("B")
-A, B = gh_submit("Initial 1 and 2")
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial 1 and 2")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -30,7 +30,7 @@ if is_direct():
         """,
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

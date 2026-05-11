@@ -17,6 +17,9 @@ max-line-length = 120
 # F403 should turn this on for ghstack/, lookup exclude format TODO
 # E704 see https://github.com/PyCQA/flake8/issues/1925
 ignore = E127, E128, E203, E265, E266, E402, E501, E722, P207, P208, W503, C901, F403, F405, E704
+per-file-ignores =
+  # Script tests are executed by the ghstack test harness and allow top-level await.
+  *.py.test: F401,F704
 exclude =
   .git,
   .hg,

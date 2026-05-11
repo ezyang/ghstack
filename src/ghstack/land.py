@@ -12,10 +12,10 @@ from ghstack.diff import PullRequestResolved
 from ghstack.types import GitCommitHash
 
 
-def lookup_pr_to_orig_ref_and_closed(
+async def lookup_pr_to_orig_ref_and_closed(
     github: ghstack.github.GitHubEndpoint, *, owner: str, name: str, number: int
 ) -> Tuple[str, bool]:
-    pr_result = github.graphql(
+    pr_result = await github.graphql(
         """
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
@@ -42,7 +42,7 @@ def lookup_pr_to_orig_ref_and_closed(
     return orig_ref, closed
 
 
-def main(
+async def main(
     pull_request: str,
     remote_name: str,
     github: ghstack.github.GitHubEndpoint,
@@ -57,21 +57,22 @@ def main(
     # Furthermore, the parent commits of PR are ignored: we always
     # take the canonical version of the patch from any given pr
 
-    params = ghstack.github_utils.parse_pull_request(
+    params = await ghstack.github_utils.parse_pull_request(
         pull_request, sh=sh, remote_name=remote_name
     )
-    default_branch = ghstack.github_utils.get_github_repo_info(
+    repo_info = await ghstack.github_utils.get_github_repo_info(
         github=github,
         sh=sh,
         repo_owner=params["owner"],
         repo_name=params["name"],
         github_url=github_url,
         remote_name=remote_name,
-    )["default_branch"]
+    )
+    default_branch = repo_info["default_branch"]
 
     needs_force = False
     try:
-        protection = github.get(
+        protection = await github.aget(
             f"repos/{params['owner']}/{params['name']}/branches/{default_branch}/protection"
         )
         if not protection["allow_force_pushes"]["enabled"]:
@@ -89,7 +90,7 @@ to complain to the ghstack authors."""
     except ghstack.github.NotFoundError:
         pass
 
-    orig_ref, closed = lookup_pr_to_orig_ref_and_closed(
+    orig_ref, closed = await lookup_pr_to_orig_ref_and_closed(
         github,
         owner=params["owner"],
         name=params["name"],
@@ -104,27 +105,27 @@ to complain to the ghstack authors."""
         sh = ghstack.shell.Shell()
 
     # Get up-to-date
-    sh.git("fetch", "--prune", remote_name)
+    await sh.agit("fetch", "--prune", remote_name)
     remote_orig_ref = remote_name + "/" + orig_ref
     base = GitCommitHash(
-        sh.git("merge-base", f"{remote_name}/{default_branch}", remote_orig_ref)
+        await sh.agit("merge-base", f"{remote_name}/{default_branch}", remote_orig_ref)
     )
 
     # compute the stack of commits in chronological order (does not
     # include base)
     stack = ghstack.git.parse_header(
-        sh.git("rev-list", "--reverse", "--header", "^" + base, remote_orig_ref),
+        await sh.agit("rev-list", "--reverse", "--header", "^" + base, remote_orig_ref),
         github_url=github_url,
     )
 
     # Switch working copy
     try:
-        prev_ref = sh.git("symbolic-ref", "--short", "HEAD")
+        prev_ref = await sh.agit("symbolic-ref", "--short", "HEAD")
     except RuntimeError:
-        prev_ref = sh.git("rev-parse", "HEAD")
+        prev_ref = await sh.agit("rev-parse", "HEAD")
 
     # If this fails, we don't have to reset
-    sh.git("checkout", f"{remote_name}/{default_branch}")
+    await sh.agit("checkout", f"{remote_name}/{default_branch}")
 
     try:
         # Compute the metadata for each commit
@@ -134,7 +135,7 @@ to complain to the ghstack authors."""
             # We got this from GitHub, this better not be corrupted
             assert pr_resolved is not None
 
-            ref, closed = lookup_pr_to_orig_ref_and_closed(
+            ref, closed = await lookup_pr_to_orig_ref_and_closed(
                 github,
                 owner=pr_resolved.owner,
                 name=pr_resolved.repo,
@@ -147,16 +148,16 @@ to complain to the ghstack authors."""
         # OK, actually do the land now
         for orig_ref, pr_resolved in stack_orig_refs:
             try:
-                sh.git("cherry-pick", f"{remote_name}/{orig_ref}")
+                await sh.agit("cherry-pick", f"{remote_name}/{orig_ref}")
             except BaseException:
-                sh.git("cherry-pick", "--abort")
+                await sh.agit("cherry-pick", "--abort")
                 raise
 
             # Add PR number to commit message like GitHub does
-            commit_msg = sh.git("log", "-1", "--pretty=%B")
+            commit_msg = await sh.agit("log", "-1", "--pretty=%B")
             # Get the original author and committer dates to preserve the commit hash
-            author_date = sh.git("log", "-1", "--pretty=%aD")
-            committer_date = sh.git("log", "-1", "--pretty=%cD")
+            author_date = await sh.agit("log", "-1", "--pretty=%aD")
+            committer_date = await sh.agit("log", "-1", "--pretty=%cD")
             lines = commit_msg.split("\n")
             if lines:
                 # Add PR number to the subject line (first line)
@@ -168,7 +169,7 @@ to complain to the ghstack authors."""
                 lines[0] = subject
                 new_msg = "\n".join(lines)
                 # Preserve dates to keep the commit hash consistent
-                sh.git(
+                await sh.agit(
                     "commit",
                     "--amend",
                     "-F",
@@ -184,7 +185,7 @@ to complain to the ghstack authors."""
         maybe_force_arg = []
         if needs_force:
             maybe_force_arg = ["--force-with-lease"]
-        sh.git(
+        await sh.agit(
             "push", *maybe_force_arg, remote_name, f"HEAD:refs/heads/{default_branch}"
         )
 
@@ -203,7 +204,7 @@ to complain to the ghstack authors."""
             # TODO: regex here so janky
             base_ref = re.sub(r"/orig$", "/base", orig_ref)
             head_ref = re.sub(r"/orig$", "/head", orig_ref)
-            sh.git(
+            await sh.agit(
                 "push", remote_name, f"{remote_name}/{head_ref}:refs/heads/{base_ref}"
             )
             github.notify_merged(pr_resolved)
@@ -214,16 +215,16 @@ to complain to the ghstack authors."""
             base_ref = re.sub(r"/orig$", "/base", orig_ref)
             head_ref = re.sub(r"/orig$", "/head", orig_ref)
             try:
-                sh.git("push", remote_name, "--delete", orig_ref, base_ref)
+                await sh.agit("push", remote_name, "--delete", orig_ref, base_ref)
             except RuntimeError:
                 # Whatever, keep going
                 logging.warning("Failed to delete branch, continuing", exc_info=True)
             # Try deleting head_ref separately since often after it's merged it doesn't exist anymore
             try:
-                sh.git("push", remote_name, "--delete", head_ref)
+                await sh.agit("push", remote_name, "--delete", head_ref)
             except RuntimeError:
                 # Whatever, keep going
                 logging.warning("Failed to delete branch, continuing", exc_info=True)
 
     finally:
-        sh.git("checkout", prev_ref)
+        await sh.agit("checkout", prev_ref)

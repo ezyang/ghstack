@@ -1,16 +1,16 @@
 from ghstack.test_prelude import *
 import textwrap
 
-init_test()
+await init_test()
 
-commit(
+await commit(
     "A",
     msg="Commit 1\n\nThis is my first commit, hello @foobar @Ivan\n\nSigned-off-by: foo@gmail.com",
 )
 
-(A,) = gh_submit("Initial")
+(A,) = await gh_submit("Initial")
 
-get_github().patch(
+await get_github().apatch(
     "repos/pytorch/pytorch/pulls/500",
     body="""\
 Stack:
@@ -22,12 +22,12 @@ Signed-off-by: foo@gmail.com""",
     title="This is my first commit",
 )
 
-amend("A2")
-(A2,) = gh_submit("Update 1")
+await amend("A2")
+(A2,) = await gh_submit("Update 1")
 
 # Ensure no mentions in the log
 assert_expected_inline(
-    git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"),
+    await git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/head"),
     """\
 Update 1
 
@@ -36,7 +36,7 @@ Update 1
 if is_direct():
     assert_expected_inline(
         textwrap.indent(
-            git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
+            await git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
         ),
         """\
         Commit 1
@@ -51,7 +51,7 @@ if is_direct():
 else:
     assert_expected_inline(
         textwrap.indent(
-            git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
+            await git("log", "--format=%B", "-n1", "origin/gh/ezyang/1/orig"), " " * 8
         ),
         """\
         Commit 1

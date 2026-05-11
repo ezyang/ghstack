@@ -1,18 +1,18 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-A, B = gh_submit("Initial")
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial")
 
-checkout(GitCommitHash("HEAD~~"))
-cherry_pick(B)
-cherry_pick(A)
-B2, A2 = gh_submit("Reorder")
+await checkout(GitCommitHash("HEAD~~"))
+await cherry_pick(B)
+await cherry_pick(A)
+B2, A2 = await gh_submit("Reorder")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/2/head)
 
@@ -43,7 +43,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

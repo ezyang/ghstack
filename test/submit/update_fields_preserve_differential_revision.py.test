@@ -1,23 +1,23 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Check that Differential Revision is preserved
 
-commit("A")
-gh_submit("Initial 1")
+await commit("A")
+await gh_submit("Initial 1")
 
 body = """\n
 Directly updated message body
 
 Differential Revision: [D14778507](https://our.internmc.facebook.com/intern/diff/D14778507)
 """
-get_github().patch(
+await get_github().apatch(
     "repos/pytorch/pytorch/pulls/500", body=body, title="Directly updated title"
 )
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
@@ -39,7 +39,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -63,10 +63,10 @@ else:
         """
     )
 
-gh_submit("Update 1", update_fields=True)
+await gh_submit("Update 1", update_fields=True)
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -85,7 +85,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

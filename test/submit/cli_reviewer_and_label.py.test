@@ -1,18 +1,18 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Create first commit with one set of reviewers/labels
-commit("A")
-(A,) = gh_submit("Initial commit", reviewer="reviewer1", label="bug")
+await commit("A")
+(A,) = await gh_submit("Initial commit", reviewer="reviewer1", label="bug")
 
 # Verify first PR has correct reviewers and labels
 assert_eq(get_pr_reviewers(500), ["reviewer1"])
 assert_eq(get_pr_labels(500), ["bug"])
 
 # Create second commit with different reviewers/labels
-commit("B")
-(A2, B) = gh_submit(
+await commit("B")
+(A2, B) = await gh_submit(
     "Add B", reviewer="reviewer2,reviewer3", label="enhancement,priority-high"
 )
 
@@ -21,7 +21,7 @@ assert_eq(get_pr_reviewers(501), ["reviewer2", "reviewer3"])
 assert_eq(get_pr_labels(501), ["enhancement", "priority-high"])
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -46,7 +46,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

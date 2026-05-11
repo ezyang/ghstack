@@ -1,22 +1,22 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-git("checkout", "-b", "feature")
+await git("checkout", "-b", "feature")
 
-commit("A")
-commit("B")
-A, B = gh_submit("Initial 2")
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial 2")
 
-git("checkout", "main")
-commit("M")
-git("push", "origin", "main")
+await git("checkout", "main")
+await commit("M")
+await git("push", "origin", "main")
 
-cherry_pick(B)
-gh_submit("Cherry pick")
+await cherry_pick(B)
+await gh_submit("Cherry pick")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -47,7 +47,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

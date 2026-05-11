@@ -1,20 +1,20 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
+await commit("A")
+await commit("B")
 (
     diff1,
     diff2,
-) = gh_submit("Initial")
+) = await gh_submit("Initial")
 assert diff1 is not None
 assert diff2 is not None
 pr_url = diff2.pr_url
 
-gh_land(pr_url)
+await gh_land(pr_url)
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "main"),
+    await get_upstream_sh().agit("log", "--oneline", "main"),
     """\
 4099517 Commit B (#501)
 c28edd5 Commit A (#500)

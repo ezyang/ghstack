@@ -8,7 +8,7 @@ import ghstack.github_utils
 import ghstack.shell
 
 
-def main(
+async def main(
     pull_request: str,
     github: ghstack.github.GitHubEndpoint,
     sh: ghstack.shell.Shell,
@@ -16,10 +16,10 @@ def main(
     same_base: bool = False,
 ) -> None:
 
-    params = ghstack.github_utils.parse_pull_request(
+    params = await ghstack.github_utils.parse_pull_request(
         pull_request, sh=sh, remote_name=remote_name
     )
-    head_ref = github.get_head_ref(**params)
+    head_ref = await github.get_head_ref(**params)
     orig_ref = re.sub(r"/head$", "/orig", head_ref)
     if orig_ref == head_ref:
         logging.warning(
@@ -31,7 +31,7 @@ def main(
     # If --same-base is specified, check if checkout would change the merge-base
     if same_base:
         # Get the default branch name from the repo
-        repo_info = ghstack.github_utils.get_github_repo_info(
+        repo_info = await ghstack.github_utils.get_github_repo_info(
             github=github,
             sh=sh,
             repo_owner=params["owner"],
@@ -43,19 +43,19 @@ def main(
         default_branch_ref = f"{remote_name}/{default_branch}"
 
         # Get current merge-base with default branch
-        current_base = sh.git("merge-base", default_branch_ref, "HEAD")
+        current_base = await sh.agit("merge-base", default_branch_ref, "HEAD")
     else:
         current_base = None
         default_branch_ref = None
 
-    sh.git("fetch", "--prune", remote_name)
+    await sh.agit("fetch", "--prune", remote_name)
 
     # If --same-base is specified, check what the new merge-base would be
     if same_base:
         assert default_branch_ref is not None
         assert current_base is not None
         target_ref = remote_name + "/" + orig_ref
-        new_base = sh.git("merge-base", default_branch_ref, target_ref)
+        new_base = await sh.agit("merge-base", default_branch_ref, target_ref)
 
         if current_base != new_base:
             raise RuntimeError(
@@ -63,4 +63,4 @@ def main(
                 f"aborting due to --same-base flag"
             )
 
-    sh.git("checkout", remote_name + "/" + orig_ref)
+    await sh.agit("checkout", remote_name + "/" + orig_ref)

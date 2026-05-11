@@ -1,42 +1,42 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-(diff1, diff2) = gh_submit("Initial 1")
+await commit("A")
+await commit("B")
+(diff1, diff2) = await gh_submit("Initial 1")
 assert diff1 is not None
 assert diff2 is not None
 
 # setup an upstream commit, so the land isn't just trivial
-git("reset", "--hard", "origin/main")
-commit("U")
-git("push")
+await git("reset", "--hard", "origin/main")
+await commit("U")
+await git("push")
 
 # land first pr
-gh_land(diff1.pr_url)
+await gh_land(diff1.pr_url)
 
 # go back to stack
-git("checkout", "gh/ezyang/2/orig")
+await git("checkout", "gh/ezyang/2/orig")
 
 # update second pr
-amend("B2")
+await amend("B2")
 
 # try to push
-assert_expected_raises_inline(
+await assert_expected_raises_inline(
     RuntimeError,
     lambda: gh_submit("Run 2"),
     """Cannot ghstack a stack with closed PR #500 whose branch was deleted.  If you were just trying to update a later PR in the stack, `git rebase` and try again.  Otherwise, you may have been trying to update a PR that was already closed. To disassociate your update from the old PR and open a new PR, run `ghstack unlink`, `git rebase` and then try again.""",
 )
 
 # show the remediation works
-git("rebase", "origin/main")
-gh_submit("Run 3")
+await git("rebase", "origin/main")
+await gh_submit("Run 3")
 
 if is_direct():
-    assert_github_state("""""")
+    await assert_github_state("""""")
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [X] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

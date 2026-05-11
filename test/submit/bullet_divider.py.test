@@ -1,9 +1,9 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-write_file_and_add("file1.txt", "A")
-git(
+await write_file_and_add("file1.txt", "A")
+await git(
     "commit",
     "-m",
     """This is my commit
@@ -12,10 +12,10 @@ git(
 * Bullet list""",
 )
 tick()
-gh_submit("Initial")
+await gh_submit("Initial")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 This is my commit (gh/ezyang/1/head -> main)
 
@@ -33,7 +33,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 This is my commit (gh/ezyang/1/head -> gh/ezyang/1/base)
 

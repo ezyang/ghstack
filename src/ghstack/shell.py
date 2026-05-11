@@ -82,38 +82,17 @@ class Shell(object):
         self.testing = testing
         self.testing_time = 1112911993
 
-    def sh(
-        self,
-        *args: str,  # noqa: C901
-        env: Optional[Dict[str, str]] = None,
-        stderr: _HANDLE = None,
-        # TODO: Arguably bytes should be accepted here too
-        input: Optional[str] = None,
-        stdin: _HANDLE = None,
-        stdout: _HANDLE = subprocess.PIPE,
-        exitcode: bool = False,
-        tick: bool = False,
-    ) -> _SHELL_RET:
-        return self._run_async(
-            self.ash(
-                *args,
-                env=env,
-                stderr=stderr,
-                input=input,
-                stdin=stdin,
-                stdout=stdout,
-                exitcode=exitcode,
-                tick=tick,
-            )
-        )
+    @overload
+    async def ash(self, *args: str) -> str: ...
 
-    @staticmethod
-    def _run_async(coro: Any) -> Any:
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+    @overload
+    async def ash(self, *args: str, input: str) -> str: ...
+
+    @overload
+    async def ash(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
+
+    @overload
+    async def ash(self, *args: str, stdout: _HANDLE) -> _SHELL_RET: ...
 
     async def ash(
         self,
@@ -264,27 +243,17 @@ class Shell(object):
         else:
             return s
 
-    @overload  # noqa: F811
-    def git(self, *args: str) -> str: ...
+    @overload
+    async def agit(self, *args: str) -> str: ...
 
-    @overload  # noqa: F811
-    def git(self, *args: str, input: str) -> str: ...
+    @overload
+    async def agit(self, *args: str, input: str) -> str: ...
 
-    @overload  # noqa: F811
-    def git(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
+    @overload
+    async def agit(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
 
-    @overload  # noqa: F811
-    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
-
-    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET:  # noqa: F811
-        """
-        Run a git command.  The returned stdout has trailing newlines stripped.
-
-        Args:
-            *args: Arguments to git
-            **kwargs: Any valid kwargs for sh()
-        """
-        return self._run_async(self.agit(*args, **kwargs))
+    @overload
+    async def agit(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
 
     async def agit(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
@@ -323,25 +292,14 @@ class Shell(object):
 
         return self._maybe_rstrip(await self.ash(*(("git",) + args), **kwargs))
 
-    @overload  # noqa: F811
-    def hg(self, *args: str) -> str: ...
+    @overload
+    async def ahg(self, *args: str) -> str: ...
 
-    @overload  # noqa: F811
-    def hg(self, *args: str, input: str) -> str: ...
+    @overload
+    async def ahg(self, *args: str, input: str) -> str: ...
 
-    @overload  # noqa: F811
-    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
-
-    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET:  # noqa: F811
-        """
-        Run a hg command.  The returned stdout has trailing newlines stripped.
-
-        Args:
-            *args: Arguments to hg
-            **kwargs: Any valid kwargs for sh()
-        """
-
-        return self._run_async(self.ahg(*args, **kwargs))
+    @overload
+    async def ahg(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
 
     async def ahg(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
@@ -354,17 +312,6 @@ class Shell(object):
         """
 
         return self._maybe_rstrip(await self.ash(*(("hg",) + args), **kwargs))
-
-    def jf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
-        """
-        Run a jf command.  The returned stdout has trailing newlines stripped.
-
-        Args:
-            *args: Arguments to jf
-            **kwargs: Any valid kwargs for sh()
-        """
-
-        return self._run_async(self.ajf(*args, **kwargs))
 
     async def ajf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """

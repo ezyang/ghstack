@@ -1,23 +1,23 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Check that we do clobber fields when explicitly asked
 
-write_file_and_add("b", "asdf")
-git("commit", "-m", "Commit 1\n\nOriginal message")
+await write_file_and_add("b", "asdf")
+await git("commit", "-m", "Commit 1\n\nOriginal message")
 tick()
-gh_submit("Initial 1")
+await gh_submit("Initial 1")
 tick()
 
-get_github().patch(
+await get_github().apatch(
     "repos/pytorch/pytorch/pulls/500",
     body="Directly updated message body",
     title="Directly updated title",
 )
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
@@ -34,7 +34,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -53,10 +53,10 @@ else:
         """
     )
 
-gh_submit("Update 1", update_fields=True)
+await gh_submit("Update 1", update_fields=True)
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit 1 (gh/ezyang/1/head -> main)
 
@@ -73,7 +73,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 

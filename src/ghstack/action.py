@@ -8,15 +8,15 @@ import ghstack.github_utils
 import ghstack.shell
 
 
-def main(
+async def main(
     pull_request: str,
     github: ghstack.github.GitHubEndpoint,
     sh: Optional[ghstack.shell.Shell] = None,
     close: bool = False,
 ) -> None:
 
-    params = ghstack.github_utils.parse_pull_request(pull_request)
-    pr_result = github.graphql(
+    params = await ghstack.github_utils.parse_pull_request(pull_request)
+    pr_result = await github.graphql(
         """
         query ($owner: String!, $name: String!, $number: Int!) {
             repository(name: $name, owner: $owner) {
@@ -32,7 +32,7 @@ def main(
 
     if close:
         logging.info("Closing {owner}/{name}#{number}".format(**params))
-        github.graphql(
+        await github.graphql(
             """
             mutation ($input: ClosePullRequestInput!) {
                 closePullRequest(input: $input) {
