@@ -26,7 +26,9 @@ assert "Commit A" in current_log
 # Try to checkout second PR with --same-base
 # This should fail because merge-base would change from initial commit to commit B
 with pytest.raises(RuntimeError, match="would change merge-base"):
-    await gh_checkout(f"https://github.com/pytorch/pytorch/pull/{C.number}", same_base=True)
+    await gh_checkout(
+        f"https://github.com/pytorch/pytorch/pull/{C.number}", same_base=True
+    )
 
 # Verify we're still on PR A (checkout was aborted)
 current_log = await git("log", "--oneline", "-n", "1")
