@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import contextlib
 import datetime
 import functools
@@ -141,7 +143,7 @@ def _emit_with_metrics(
         handler.handleError(record)
 
 
-class MetricStreamHandler(logging.StreamHandler[Any]):
+class MetricStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
     def __init__(self, metrics: HandlerMetrics) -> None:
         super().__init__()
         self.metrics = metrics
