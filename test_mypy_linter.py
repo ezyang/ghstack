@@ -27,9 +27,9 @@ def test_py_test_allows_top_level_await(tmp_path: Path) -> None:
     test_file = tmp_path / "ok.py.test"
     test_file.write_text(
         """\
-from ghstack.test_prelude import *
+async def commit(name: str) -> None:
+    pass
 
-await init_test()
 await commit("A")
 """
     )
@@ -41,7 +41,8 @@ def test_py_test_detects_unawaited_coroutine(tmp_path: Path) -> None:
     test_file = tmp_path / "missing_await.py.test"
     test_file.write_text(
         """\
-from ghstack.test_prelude import *
+async def commit(name: str) -> None:
+    pass
 
 commit("A")
 """
@@ -50,7 +51,7 @@ commit("A")
     lint_messages = _check([test_file])
     assert [message["name"] for message in lint_messages] == ["[unused-coroutine]"]
     assert lint_messages[0]["path"] == str(test_file)
-    assert lint_messages[0]["line"] == 3
+    assert lint_messages[0]["line"] == 4
     assert lint_messages[0]["description"] == (
         'Value of type "Coroutine[Any, Any, None]" must be used '
     )
