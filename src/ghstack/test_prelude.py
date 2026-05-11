@@ -1,8 +1,8 @@
 import argparse
 import atexit
 import contextlib
-import io
 import inspect
+import io
 import os
 import re
 import shutil
