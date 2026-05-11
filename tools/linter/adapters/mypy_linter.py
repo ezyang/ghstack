@@ -287,7 +287,10 @@ def main() -> None:
                 args.config,
                 args.retries,
                 args.code,
-                extra_mypy_args=["--disable-error-code=top-level-await"],
+                extra_mypy_args=[
+                    "--no-incremental",
+                    "--disable-error-code=top-level-await",
+                ],
                 path_map=path_map,
             )
     for lint_message in lint_messages:
