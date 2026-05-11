@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+import pytest
+
 from tools.linter.adapters.mypy_linter import RESULTS_RE
 
 
@@ -39,6 +41,10 @@ await commit("A")
     assert _check([test_file]) == []
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="mypy does not report this top-level coroutine fixture on Windows",
+)
 def test_py_test_detects_unawaited_coroutine(tmp_path: Path) -> None:
     test_file = tmp_path / "missing_await.py.test"
     test_file.write_text(
