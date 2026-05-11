@@ -4,7 +4,7 @@ import logging
 import sys
 import unittest
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, cast, List
 
 import expecttest
 
@@ -31,13 +31,17 @@ class big_dump(ConsoleMsg):
     pass
 
 
-class TestShell(expecttest.TestCase):
+class TestShell(expecttest.TestCase, unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.sh = ghstack.shell.Shell()
-        # TODO: probably should make this scoped smh
-        logging.getLogger("asyncio").setLevel(logging.WARNING)
+        asyncio_logger = logging.getLogger("asyncio")
+        previous_asyncio_level = asyncio_logger.level
+        self.addCleanup(asyncio_logger.setLevel, previous_asyncio_level)
+        asyncio_logger.setLevel(logging.ERROR)
 
-    def emit(self, *payload: ConsoleMsg, **kwargs: Any) -> ghstack.shell._SHELL_RET:
+    async def emit(
+        self, *payload: ConsoleMsg, **kwargs: Any
+    ) -> ghstack.shell._SHELL_RET:
         args: List[str] = [sys.executable, "emitter.py"]
         for p in payload:
             if isinstance(p, out):
@@ -46,7 +50,7 @@ class TestShell(expecttest.TestCase):
                 args.extend(("e", p.msg))
             elif isinstance(p, big_dump):
                 args.extend(("r", "-"))
-        return self.sh.sh(*args, **kwargs)
+        return cast(ghstack.shell._SHELL_RET, await self.sh.ash(*args, **kwargs))
 
     def flog(self, cm: "unittest._AssertLogsContext") -> str:  # type: ignore[name-defined]
         def redact(s: str) -> str:
@@ -56,9 +60,9 @@ class TestShell(expecttest.TestCase):
 
         return "\n".join(redact(r.getMessage()) for r in cm.records)
 
-    def test_stdout(self) -> None:
+    async def test_stdout(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(out(r"arf\n"))
+            await self.emit(out(r"arf\n"))
         self.assertExpectedInline(
             self.flog(cm),
             """\
@@ -67,9 +71,9 @@ arf
 """,
         )
 
-    def test_stderr(self) -> None:
+    async def test_stderr(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(err(r"arf\n"))
+            await self.emit(err(r"arf\n"))
         self.assertExpectedInline(
             self.flog(cm),
             """\
@@ -79,9 +83,9 @@ arf
 """,
         )
 
-    def test_stdout_passthru(self) -> None:
+    async def test_stdout_passthru(self) -> None:
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(out(r"arf\n"), stdout=None)
+            await self.emit(out(r"arf\n"), stdout=None)
         self.assertExpectedInline(
             self.flog(cm),
             """\
@@ -90,10 +94,10 @@ arf
 """,
         )
 
-    def test_stdout_with_stderr_prefix(self) -> None:
+    async def test_stdout_with_stderr_prefix(self) -> None:
         # What most commands should look like
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(
+            await self.emit(
                 err(r"Step 1...\n"),
                 err(r"Step 2...\n"),
                 err(r"Step 3...\n"),
@@ -114,10 +118,12 @@ out
 """,
         )
 
-    def test_interleaved_stdout_stderr_passthru(self) -> None:
+    async def test_interleaved_stdout_stderr_passthru(self) -> None:
         # NB: stdout is flushed in each of these cases
         with self.assertLogs(level=logging.DEBUG) as cm:
-            self.emit(out(r"A\n"), err(r"B\n"), out(r"C\n"), err(r"D\n"), stdout=None)
+            await self.emit(
+                out(r"A\n"), err(r"B\n"), out(r"C\n"), err(r"D\n"), stdout=None
+            )
         self.assertExpectedInline(
             self.flog(cm),
             """\
@@ -132,11 +138,11 @@ C
 """,
         )
 
-    def test_deadlock(self) -> None:
-        self.emit(big_dump())
+    async def test_deadlock(self) -> None:
+        await self.emit(big_dump())
 
-    def test_uses_raw_fd(self) -> None:
-        self.emit(out(r"A\n"), stdout=sys.stdout)
+    async def test_uses_raw_fd(self) -> None:
+        await self.emit(out(r"A\n"), stdout=sys.stdout)
 
 
 if __name__ == "__main__":

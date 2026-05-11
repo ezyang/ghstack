@@ -1,24 +1,24 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-commit("D")
-A, B, D = gh_submit("Initial")
+await commit("A")
+await commit("B")
+await commit("D")
+A, B, D = await gh_submit("Initial")
 
 # Go back to B, amend it, and add a new commit C on top (dropping D)
-checkout(B)
-amend("B2")
-commit("C")
+await checkout(B)
+await amend("B2")
+await commit("C")
 
 # Submit B and C. C is new (no old stack text), so the orphan logic
 # must skip past C and find B's old stack text to discover D as an
 # orphan above the submitted PRs.
-gh_submit("Add C", revs=["HEAD~", "HEAD"], stack=False)
+await gh_submit("Add C", revs=["HEAD~", "HEAD"], stack=False)
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -62,7 +62,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

@@ -10,7 +10,6 @@ import time
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import aiohttp
-import requests
 
 import ghstack.github
 
@@ -55,7 +54,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
     # The certificate bundle to be used to verify the connection.
     # Passed to requests as 'verify'.
-    verify: Optional[str]
+    verify: Optional[Union[str, bool]]
 
     # Client side certificate to use when connecitng.
     # Passed to requests as 'cert'.
@@ -66,7 +65,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         oauth_token: Optional[str],
         github_url: str,
         proxy: Optional[str] = None,
-        verify: Optional[str] = None,
+        verify: Optional[Union[str, bool]] = None,
         cert: Optional[Union[str, Tuple[str, str]]] = None,
     ):
         self.oauth_token = oauth_token
@@ -79,7 +78,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def push_hook(self, refName: Sequence[str]) -> None:
         pass
 
-    def graphql(self, query: str, **kwargs: Any) -> Any:
+    async def graphql(self, query: str, **kwargs: Any) -> Any:
         headers = {}
         if self.oauth_token:
             headers["Authorization"] = "bearer {}".format(self.oauth_token)
@@ -92,61 +91,69 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
             "Request GraphQL variables:\n{}".format(json.dumps(kwargs, indent=1))
         )
 
-        resp = requests.post(
-            self.graphql_endpoint.format(github_url=self.github_url),
-            json={"query": query, "variables": kwargs},
-            headers=headers,
-            proxies=self._proxies(),
-            verify=self.verify,
-            cert=self.cert,
-        )
+        request_kwargs: Dict[str, Any] = {
+            "json": {"query": query, "variables": kwargs},
+            "headers": headers,
+        }
+        if self.proxy:
+            request_kwargs["proxy"] = self.proxy
+        aiohttp_ssl = self._aiohttp_ssl()
+        if aiohttp_ssl is not None:
+            request_kwargs["ssl"] = aiohttp_ssl
 
-        logging.debug("Response status: {}".format(resp.status_code))
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                self.graphql_endpoint.format(github_url=self.github_url),
+                **request_kwargs,
+            ) as resp:
+                logging.debug("Response status: {}".format(resp.status))
 
-        try:
-            r = resp.json()
-        except ValueError:
-            logging.debug("Response body:\n{}".format(resp.text))
-            raise
-        else:
-            pretty_json = json.dumps(r, indent=1)
-            logging.debug("Response JSON:\n{}".format(pretty_json))
+                try:
+                    r = await resp.json()
+                except (aiohttp.ContentTypeError, ValueError):
+                    logging.debug("Response body:\n{}".format(await resp.text()))
+                    raise
+                else:
+                    pretty_json = json.dumps(r, indent=1)
+                    logging.debug("Response JSON:\n{}".format(pretty_json))
 
-        # Actually, this code is dead on the GitHub GraphQL API, because
-        # they seem to always return 200, even in error case (as of
-        # 11/5/2018)
-        try:
-            resp.raise_for_status()
-        except requests.HTTPError:
-            raise RuntimeError(pretty_json)
+                # Actually, this code is dead on the GitHub GraphQL API, because
+                # they seem to always return 200, even in error case (as of
+                # 11/5/2018)
+                if resp.status >= 400:
+                    raise RuntimeError(pretty_json)
 
         if "errors" in r:
             raise RuntimeError(pretty_json)
 
         return r
 
-    def get_head_ref(self, **params: Any) -> str:
+    async def get_head_ref(self, **params: Any) -> str:
 
         if self.oauth_token:
-            return super().get_head_ref(**params)
+            return await super().get_head_ref(**params)
         else:
             owner = params["owner"]
             name = params["name"]
             number = params["number"]
-            resp = requests.get(
-                f"{self.www_endpoint.format(github_url=self.github_url)}/{owner}/{name}/pull/{number}",
-                proxies=self._proxies(),
-                verify=self.verify,
-                cert=self.cert,
-            )
-            logging.debug("Response status: {}".format(resp.status_code))
+            request_kwargs: Dict[str, Any] = {}
+            if self.proxy:
+                request_kwargs["proxy"] = self.proxy
+            aiohttp_ssl = self._aiohttp_ssl()
+            if aiohttp_ssl is not None:
+                request_kwargs["ssl"] = aiohttp_ssl
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{self.www_endpoint.format(github_url=self.github_url)}/{owner}/{name}/pull/{number}",
+                    **request_kwargs,
+                ) as resp:
+                    logging.debug("Response status: {}".format(resp.status))
+                    r = await resp.text()
 
-            r = resp.text
             if m := re.search(r'<clipboard-copy.+?value="(gh/[^/]+/\d+/head)"', r):
                 return m.group(1)
-            else:
-                # couldn't find, fall back to regular query
-                return super().get_head_ref(**params)
+            # couldn't find, fall back to regular query
+            return await super().get_head_ref(**params)
 
     def _proxies(self) -> Dict[str, str]:
         if self.proxy:

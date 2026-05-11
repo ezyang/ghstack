@@ -1,21 +1,21 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-write_file_and_add("bar", "baz")
-git("commit", "-m", "Commit 1\n\nThis is my first commit")
+await write_file_and_add("bar", "baz")
+await git("commit", "-m", "Commit 1\n\nThis is my first commit")
 
-(A,) = gh_submit("Initial")
+(A,) = await gh_submit("Initial")
 
-git("rm", "bar")
-git("commit", "--amend", "--allow-empty", "--no-edit")
+await git("rm", "bar")
+await git("commit", "--amend", "--allow-empty", "--no-edit")
 tick()
 
 # TODO: direct NYI
 if not is_direct():
-    gh_submit("Update")
+    await gh_submit("Update")
 
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit 1 (gh/ezyang/1/head -> gh/ezyang/1/base)
 

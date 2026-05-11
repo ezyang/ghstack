@@ -161,6 +161,8 @@ class GitHubState:
         self._next_issue_comment_full_database_id[GraphQLId("1000")] = 1500
 
         self.upstream_sh = upstream_sh
+
+    async def initialize(self) -> None:
         if self.upstream_sh is not None:
             # Setup upstream Git repository representing the
             # pytorch/pytorch repository in the directory specified
@@ -168,16 +170,19 @@ class GitHubState:
             # operations depend on repository state (e.g., what
             # the headRef is at the time a PR is created), so
             # we need this information
-            self.upstream_sh.git("init", "--bare", "-b", "main")
-            tree = self.upstream_sh.git("write-tree")
-            commit = self.upstream_sh.git("commit-tree", tree, input="Initial commit")
-            self.upstream_sh.git("branch", "-f", "main", commit)
+            await self.upstream_sh.agit("init", "--bare", "-b", "main")
+            tree = await self.upstream_sh.agit("write-tree")
+            commit = await self.upstream_sh.agit(
+                "commit-tree", tree, input="Initial commit"
+            )
+            await self.upstream_sh.agit("branch", "-f", "main", commit)
 
             # We only update this when a PATCH changes the default
             # branch; hopefully that's fine?  In any case, it should
             # work for now since currently we only ever access the name
             # of the default branch rather than other parts of its ref.
-            repo.defaultBranchRef = repo._make_ref(self, "main")
+            repo = self.repository("pytorch", "pytorch")
+            repo.defaultBranchRef = await repo._make_ref_async(self, "main")
 
 
 @dataclass
@@ -214,13 +219,6 @@ class Repository(Node):
                     github_state(info).pull_requests.values(),
                 )
             )
-        )
-
-    # TODO: This should take which repository the ref is in
-    # This only works if you have upstream_sh
-    def _make_ref(self, state: GitHubState, refName: str) -> "Ref":
-        return ghstack.github.GitHubEndpoint._run_async(
-            self._make_ref_async(state, refName)
         )
 
     async def _make_ref_async(self, state: GitHubState, refName: str) -> "Ref":
@@ -343,8 +341,8 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell] = None) -> None:
         self.state = GitHubState(upstream_sh)
 
-    def graphql(self, query: str, **kwargs: Any) -> Any:
-        r = graphql.graphql_sync(
+    async def graphql(self, query: str, **kwargs: Any) -> Any:
+        r = await graphql.graphql(
             schema=GITHUB_SCHEMA,
             source=query,
             root_value=self.state.root,

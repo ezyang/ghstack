@@ -1,21 +1,21 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-gh_submit("Initial 1")
+await commit("A")
+await gh_submit("Initial 1")
 
-commit("B")
-A2, B2 = gh_submit("Initial 2")
+await commit("B")
+A2, B2 = await gh_submit("Initial 2")
 
-checkout(A2)
-amend("A3")
-cherry_pick(B2)
-amend("B3")
-A3, B3 = gh_submit("Update A")
+await checkout(A2)
+await amend("A3")
+await cherry_pick(B2)
+await amend("B3")
+A3, B3 = await gh_submit("Update A")
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> main)
 
@@ -46,7 +46,7 @@ if is_direct():
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 

@@ -1,17 +1,17 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-commit("C")
-A, B, C = gh_submit("Initial")
+await commit("A")
+await commit("B")
+await commit("C")
+A, B, C = await gh_submit("Initial")
 
-checkout(A)
-amend("A2")
-cherry_pick(B)
-cherry_pick(C)
-A2, B2 = gh_submit("Don't update C", revs=["HEAD~"], stack=True)
+await checkout(A)
+await amend("A2")
+await cherry_pick(B)
+await cherry_pick(C)
+A2, B2 = await gh_submit("Don't update C", revs=["HEAD~"], stack=True)
 
 assert_eq(A.number, A2.number)
 assert_eq(B.number, B2.number)

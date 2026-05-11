@@ -16,7 +16,7 @@ from ghstack.types import GitCommitHash
 RE_GHSTACK_SOURCE_ID = re.compile(r"^ghstack-source-id: (.+)\n?", re.MULTILINE)
 
 
-def main(
+async def main(
     *,
     commits: Optional[List[str]] = None,
     github: ghstack.github.GitHubEndpoint,
@@ -36,30 +36,31 @@ def main(
         # Use CWD
         sh = ghstack.shell.Shell()
 
-    default_branch = ghstack.github_utils.get_github_repo_info(
+    repo_info = await ghstack.github_utils.get_github_repo_info(
         github=github,
         sh=sh,
         repo_owner=repo_owner,
         repo_name=repo_name,
         github_url=github_url,
         remote_name=remote_name,
-    )["default_branch"]
+    )
+    default_branch = repo_info["default_branch"]
 
     # Parse the commits
     parsed_commits: Optional[Set[GitCommitHash]] = None
     if commits:
         parsed_commits = set()
         for c in commits:
-            parsed_commits.add(GitCommitHash(sh.git("rev-parse", c)))
+            parsed_commits.add(GitCommitHash(await sh.agit("rev-parse", c)))
 
     base = GitCommitHash(
-        sh.git("merge-base", f"{remote_name}/{default_branch}", "HEAD")
+        await sh.agit("merge-base", f"{remote_name}/{default_branch}", "HEAD")
     )
 
     # compute the stack of commits in chronological order (does not
     # include base)
     stack = ghstack.git.split_header(
-        sh.git("rev-list", "--reverse", "--header", "^" + base, "HEAD")
+        await sh.agit("rev-list", "--reverse", "--header", "^" + base, "HEAD")
     )
 
     # sanity check the parsed_commits
@@ -103,9 +104,9 @@ def main(
                 "-- edited commit_msg:\n{}".format(textwrap.indent(commit_msg, "   "))
             )
         head = GitCommitHash(
-            sh.git(
+            await sh.agit(
                 "commit-tree",
-                *ghstack.gpg_sign.gpg_args_if_necessary(sh),
+                *(await ghstack.gpg_sign.gpg_args_if_necessary(sh)),
                 s.tree,
                 "-p",
                 head,
@@ -113,7 +114,7 @@ def main(
             )
         )
 
-    sh.git("reset", "--soft", head)
+    await sh.agit("reset", "--soft", head)
 
     logging.info(
         """

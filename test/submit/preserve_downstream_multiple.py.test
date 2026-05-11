@@ -1,26 +1,26 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-commit("B")
-commit("C")
-A, B, C = gh_submit("Initial")
+await commit("A")
+await commit("B")
+await commit("C")
+A, B, C = await gh_submit("Initial")
 
 # Direct mode NYI for 3-commit partial submit
 if not is_direct():
     # Go back to A, amend it, cherry-pick B and C on top
-    checkout(A)
-    amend("A2")
-    cherry_pick(B)
-    cherry_pick(C)
+    await checkout(A)
+    await amend("A2")
+    await cherry_pick(B)
+    await cherry_pick(C)
 
     # Submit only A (bottom), leaving B and C as orphans
-    (A2,) = gh_submit("Update base only", revs=["HEAD~2"], stack=False)
+    (A2,) = await gh_submit("Update base only", revs=["HEAD~2"], stack=False)
 
     assert_eq(A.number, A2.number)
 
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
