@@ -5,10 +5,11 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Pattern
+from typing import Any, Dict, List, NamedTuple, Optional, Pattern, Tuple
 
 
 IS_WINDOWS: bool = os.name == "nt"
@@ -39,6 +40,10 @@ class LintMessage(NamedTuple):
 
 def as_posix(name: str) -> str:
     return name.replace("\\", "/") if IS_WINDOWS else name
+
+
+def _path_key(name: str) -> str:
+    return as_posix(os.path.abspath(name))
 
 
 # tools/linter/flake8_linter.py:15:13: error: Incompatibl...int")  [assignment]
@@ -122,6 +127,7 @@ def check_files(
     retries: int,
     code: str,
     extra_mypy_args: Optional[List[str]] = None,
+    path_map: Optional[Dict[str, str]] = None,
 ) -> List[LintMessage]:
     try:
         proc = run_command(
@@ -147,9 +153,15 @@ def check_files(
         ]
     stdout = str(proc.stdout, "utf-8").strip()
     stderr = str(proc.stderr, "utf-8").strip()
+
+    def report_path(path: str) -> str:
+        if path_map is None:
+            return path
+        return path_map.get(_path_key(path), path)
+
     rc = [
         LintMessage(
-            path=match["file"],
+            path=report_path(match["file"]),
             name=match["code"],
             description=match["message"],
             line=int(match["line"]),
@@ -166,7 +178,7 @@ def check_files(
         for match in RESULTS_RE.finditer(stdout)
     ] + [
         LintMessage(
-            path=match["file"],
+            path=report_path(match["file"]),
             name="INTERNAL ERROR",
             description=match["message"],
             line=int(match["line"]),
@@ -179,6 +191,20 @@ def check_files(
         for match in INTERNAL_ERROR_RE.finditer(stderr)
     ]
     return rc
+
+
+def make_py_test_mypy_inputs(
+    filenames: List[str],
+    tmpdir: str,
+) -> Tuple[List[str], Dict[str, str]]:
+    mypy_filenames: List[str] = []
+    path_map: Dict[str, str] = {}
+    for i, filename in enumerate(filenames):
+        mypy_filename = os.path.join(tmpdir, f"py_test_{i}.py")
+        Path(mypy_filename).write_text(Path(filename).read_text())
+        mypy_filenames.append(mypy_filename)
+        path_map[_path_key(mypy_filename)] = filename
+    return mypy_filenames, path_map
 
 
 def main() -> None:
@@ -252,13 +278,18 @@ def main() -> None:
     if py_filenames:
         lint_messages += check_files(py_filenames, args.config, args.retries, args.code)
     if py_test_filenames:
-        lint_messages += check_files(
-            py_test_filenames,
-            args.config,
-            args.retries,
-            args.code,
-            extra_mypy_args=["--disable-error-code=top-level-await"],
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mypy_filenames, path_map = make_py_test_mypy_inputs(
+                py_test_filenames, tmpdir
+            )
+            lint_messages += check_files(
+                mypy_filenames,
+                args.config,
+                args.retries,
+                args.code,
+                extra_mypy_args=["--disable-error-code=top-level-await"],
+                path_map=path_map,
+            )
     for lint_message in lint_messages:
         print(json.dumps(lint_message._asdict()), flush=True)
 
