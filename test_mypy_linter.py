@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+from tools.linter.adapters.mypy_linter import RESULTS_RE
+
 
 def _check(paths: List[Path]) -> List[Dict[str, Any]]:
     repo_root = Path(__file__).parent
@@ -55,3 +57,15 @@ commit("A")
     assert lint_messages[0]["description"] == (
         'Value of type "Coroutine[Any, Any, None]" must be used '
     )
+
+
+def test_results_re_parses_windows_drive_paths() -> None:
+    match = RESULTS_RE.match(
+        r'C:\tmp\py_test_0.py:4:1: error: Value of type "Coroutine[Any, Any, None]" must be used  [unused-coroutine]'
+    )
+    assert match is not None
+    assert match["file"] == r"C:\tmp\py_test_0.py"
+    assert match["line"] == "4"
+    assert match["column"] == "1"
+    assert match["severity"] == "error"
+    assert match["code"] == "[unused-coroutine]"
