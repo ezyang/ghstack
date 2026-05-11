@@ -50,7 +50,7 @@ def _path_key(name: str) -> str:
 RESULTS_RE: Pattern[str] = re.compile(
     r"""(?mx)
     ^
-    (?P<file>.*?):
+    (?P<file>(?:[A-Za-z]:)?.*?):
     (?P<line>\d+):
     (?:(?P<column>-?\d+):)?
     \s(?P<severity>\S+?):?
@@ -64,7 +64,7 @@ RESULTS_RE: Pattern[str] = re.compile(
 INTERNAL_ERROR_RE: Pattern[str] = re.compile(
     r"""(?mx)
     ^
-    (?P<file>.*?):
+    (?P<file>(?:[A-Za-z]:)?.*?):
     (?P<line>\d+):
     \s(?P<severity>\S+?):?
     \s(?P<message>INTERNAL\sERROR.*)
