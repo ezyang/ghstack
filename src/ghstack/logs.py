@@ -105,7 +105,7 @@ def _encoded_len(stream: Any, s: str) -> int:
 
 
 def _emit_with_metrics(
-    handler: logging.StreamHandler,
+    handler: logging.StreamHandler[Any],
     record: logging.LogRecord,
     metrics: HandlerMetrics,
 ) -> None:
@@ -141,7 +141,7 @@ def _emit_with_metrics(
         handler.handleError(record)
 
 
-class MetricStreamHandler(logging.StreamHandler):
+class MetricStreamHandler(logging.StreamHandler[Any]):
     def __init__(self, metrics: HandlerMetrics) -> None:
         super().__init__()
         self.metrics = metrics
@@ -200,7 +200,9 @@ def manager(*, debug: bool = False) -> Iterator[None]:
     if log_metrics:
         console_metrics = HandlerMetrics("console")
         metrics.append(console_metrics)
-        console_handler: logging.StreamHandler = MetricStreamHandler(console_metrics)
+        console_handler: logging.StreamHandler[Any] = MetricStreamHandler(
+            console_metrics
+        )
     else:
         console_handler = logging.StreamHandler()
     if debug:
