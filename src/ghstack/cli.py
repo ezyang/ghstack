@@ -33,6 +33,16 @@ def run_async(coro: Coroutine[Any, Any, object]) -> object:
     return asyncio.run(coro)
 
 
+async def run_with_github(
+    github: ghstack.github_real.RealGitHubEndpoint,
+    coro: Coroutine[Any, Any, object],
+) -> object:
+    try:
+        return await coro
+    finally:
+        await github.aclose()
+
+
 @contextlib.contextmanager
 def cli_context(
     *,
@@ -176,11 +186,14 @@ def action(close: bool, pull_request: str) -> None:
     """
     with cli_context() as (shell, _, github):
         run_async(
-            ghstack.action.main(
-                pull_request=pull_request,
-                github=github,
-                sh=shell,
-                close=close,
+            run_with_github(
+                github,
+                ghstack.action.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    close=close,
+                ),
             )
         )
 
@@ -198,12 +211,15 @@ def checkout(same_base: bool, pull_request: str) -> None:
     """
     with cli_context(request_github_token=False) as (shell, config, github):
         run_async(
-            ghstack.checkout.main(
-                pull_request=pull_request,
-                github=github,
-                sh=shell,
-                remote_name=config.remote_name,
-                same_base=same_base,
+            run_with_github(
+                github,
+                ghstack.checkout.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    same_base=same_base,
+                ),
             )
         )
 
@@ -227,13 +243,16 @@ def cherry_pick(stack: bool, no_fetch: bool, pull_request: str) -> None:
     """
     with cli_context(request_github_token=False) as (shell, config, github):
         run_async(
-            ghstack.cherry_pick.main(
-                pull_request=pull_request,
-                github=github,
-                sh=shell,
-                remote_name=config.remote_name,
-                stack=stack,
-                no_fetch=no_fetch,
+            run_with_github(
+                github,
+                ghstack.cherry_pick.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    stack=stack,
+                    no_fetch=no_fetch,
+                ),
             )
         )
 
@@ -247,13 +266,16 @@ def land(force: bool, pull_request: str) -> None:
     """
     with cli_context() as (shell, config, github):
         run_async(
-            ghstack.land.main(
-                pull_request=pull_request,
-                github=github,
-                sh=shell,
-                github_url=config.github_url,
-                remote_name=config.remote_name,
-                force=force,
+            run_with_github(
+                github,
+                ghstack.land.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                    force=force,
+                ),
             )
         )
 
@@ -278,13 +300,16 @@ def log(pull_request: Optional[str], git_log_args: Tuple[str, ...]) -> None:
     """
     with cli_context(request_github_token=False) as (shell, config, github):
         run_async(
-            ghstack.log.main(
-                github=github,
-                sh=shell,
-                remote_name=config.remote_name,
-                github_url=config.github_url,
-                args=list(git_log_args),
-                pull_request=pull_request,
+            run_with_github(
+                github,
+                ghstack.log.main(
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    github_url=config.github_url,
+                    args=list(git_log_args),
+                    pull_request=pull_request,
+                ),
             )
         )
 
@@ -312,10 +337,13 @@ def status(pull_request: str) -> None:
         )
 
         run_async(
-            ghstack.status.main(
-                pull_request=pull_request,
-                github=github,
-                circleci=circleci,
+            run_with_github(
+                github,
+                ghstack.status.main(
+                    pull_request=pull_request,
+                    github=github,
+                    circleci=circleci,
+                ),
             )
         )
 
@@ -420,25 +448,28 @@ def submit(
     """
     with cli_context() as (shell, config, github):
         run_async(
-            ghstack.submit.main(
-                msg=message,
-                username=config.github_username,
-                sh=shell,
-                github=github,
-                update_fields=update_fields,
-                short=short,
-                force=force,
-                no_skip=no_skip,
-                draft=draft,
-                github_url=config.github_url,
-                remote_name=config.remote_name,
-                base_opt=base,
-                revs=revs,
-                stack=stack,
-                direct_opt=direct_opt,
-                reviewer=reviewer if reviewer is not None else config.reviewer,
-                label=label if label is not None else config.label,
-                no_fetch=no_fetch,
+            run_with_github(
+                github,
+                ghstack.submit.main(
+                    msg=message,
+                    username=config.github_username,
+                    sh=shell,
+                    github=github,
+                    update_fields=update_fields,
+                    short=short,
+                    force=force,
+                    no_skip=no_skip,
+                    draft=draft,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                    base_opt=base,
+                    revs=revs,
+                    stack=stack,
+                    direct_opt=direct_opt,
+                    reviewer=reviewer if reviewer is not None else config.reviewer,
+                    label=label if label is not None else config.label,
+                    no_fetch=no_fetch,
+                ),
             )
         )
 
@@ -450,11 +481,14 @@ def sync() -> None:
     """
     with cli_context() as (shell, config, github):
         run_async(
-            ghstack.sync.main(
-                github=github,
-                sh=shell,
-                github_url=config.github_url,
-                remote_name=config.remote_name,
+            run_with_github(
+                github,
+                ghstack.sync.main(
+                    github=github,
+                    sh=shell,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                ),
             )
         )
 
@@ -467,11 +501,14 @@ def unlink(commits: List[str]) -> None:
     """
     with cli_context() as (shell, config, github):
         run_async(
-            ghstack.unlink.main(
-                commits=commits,
-                github=github,
-                sh=shell,
-                github_url=config.github_url,
-                remote_name=config.remote_name,
+            run_with_github(
+                github,
+                ghstack.unlink.main(
+                    commits=commits,
+                    github=github,
+                    sh=shell,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                ),
             )
         )
