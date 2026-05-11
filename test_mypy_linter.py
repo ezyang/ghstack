@@ -49,6 +49,7 @@ commit("A")
 
     lint_messages = _check([test_file])
     assert [message["name"] for message in lint_messages] == ["[unused-coroutine]"]
+    assert lint_messages[0]["path"] == str(test_file)
     assert lint_messages[0]["line"] == 3
     assert lint_messages[0]["description"] == (
         'Value of type "Coroutine[Any, Any, None]" must be used '
