@@ -34,8 +34,10 @@ class big_dump(ConsoleMsg):
 class TestShell(expecttest.TestCase, unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.sh = ghstack.shell.Shell()
-        # TODO: probably should make this scoped smh
-        logging.getLogger("asyncio").setLevel(logging.WARNING)
+        asyncio_logger = logging.getLogger("asyncio")
+        previous_asyncio_level = asyncio_logger.level
+        self.addCleanup(asyncio_logger.setLevel, previous_asyncio_level)
+        asyncio_logger.setLevel(logging.ERROR)
 
     async def emit(
         self, *payload: ConsoleMsg, **kwargs: Any
