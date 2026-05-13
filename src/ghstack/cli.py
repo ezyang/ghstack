@@ -1,4 +1,5 @@
 import asyncio
+import configparser
 import contextlib
 from typing import Any, Coroutine, Generator, List, Optional, Tuple
 
@@ -74,7 +75,7 @@ def cli_context(
 @click.option(
     "--message",
     "-m",
-    default="Update",
+    default=None,
     help="Description of change you made",
 )
 @click.option(
@@ -134,7 +135,7 @@ def cli_context(
 def main(
     ctx: click.Context,
     debug: bool,
-    message: str,
+    message: Optional[str],
     update_fields: bool,
     short: bool,
     force: bool,
@@ -149,7 +150,8 @@ def main(
     """
     Submit stacks of diffs to Github
     """
-    EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
+    if ctx.invoked_subcommand not in {"auth", "config"}:
+        EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
 
     if not ctx.invoked_subcommand:
         ctx.invoke(
@@ -175,6 +177,62 @@ def auth() -> None:
     """
     with EXIT_STACK:
         ghstack.config.read_config()
+
+
+def _normalize_config_key(key: str) -> str:
+    if key.startswith("ghstack."):
+        key = key[len("ghstack.") :]
+    return key
+
+
+def _run_config_command(
+    unset: bool, key: Optional[str], value: Tuple[str, ...]
+) -> None:
+    if key is None:
+        raise click.UsageError("Missing KEY")
+
+    option = _normalize_config_key(key)
+    if unset and value:
+        raise click.UsageError("--unset cannot be combined with VALUE")
+
+    if unset:
+        path = ghstack.config.update_config_option(option, None)
+        click.echo(f"Unset {option} in {path}")
+        return
+
+    if value:
+        config_value = " ".join(value)
+        path = ghstack.config.update_config_option(option, config_value)
+        click.echo(f"Set {option} = {config_value} in {path}")
+        return
+
+    path, _ = ghstack.config.find_config_path()
+    parser = configparser.ConfigParser()
+    parser.read(path)
+    if parser.has_option("ghstack", option):
+        click.echo(parser.get("ghstack", option))
+    else:
+        raise click.ClickException(f"{option} is not set")
+
+
+@main.group(
+    "config",
+    invoke_without_command=True,
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.option("--unset", is_flag=True, help="Unset a configuration key")
+@click.argument("key", required=False)
+@click.argument("value", nargs=-1, type=click.UNPROCESSED)
+@click.pass_context
+def config_cmd(
+    ctx: click.Context, unset: bool, key: Optional[str], value: Tuple[str, ...]
+) -> None:
+    """
+    Read or update ghstack configuration.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    _run_config_command(unset, key, value)
 
 
 @main.command("action")
@@ -352,7 +410,7 @@ def status(pull_request: str) -> None:
 @click.option(
     "--message",
     "-m",
-    default="Update",
+    default=None,
     help="Description of change you made",
 )
 @click.option(
@@ -429,7 +487,7 @@ def status(pull_request: str) -> None:
     metavar="REVS",
 )
 def submit(
-    message: str,
+    message: Optional[str],
     update_fields: bool,
     short: bool,
     force: bool,
@@ -469,6 +527,7 @@ def submit(
                     reviewer=reviewer if reviewer is not None else config.reviewer,
                     label=label if label is not None else config.label,
                     no_fetch=no_fetch,
+                    automsg=config.automsg,
                 ),
             )
         )

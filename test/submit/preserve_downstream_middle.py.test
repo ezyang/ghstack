@@ -32,7 +32,7 @@ else:
 
             This is commit A
 
-            * 32289fc Initial
+            * 2dad5bb [INITIAL] Initial
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -43,8 +43,8 @@ else:
 
             This is commit B
 
-            * db9d220 Update middle only
-            * ac0c499 Initial
+            * 5eeb05d [UPDATE] Update middle only
+            * 64921b5 [INITIAL] Initial
 
         [O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -55,22 +55,22 @@ else:
 
             This is commit C
 
-            * adfef3f Initial
+            * 610d342 [INITIAL] Initial
 
         Repository state:
 
-            * db9d220 (gh/ezyang/2/head)
-            |    Update middle only
-            * ac0c499
-            |    Initial
+            * 5eeb05d (gh/ezyang/2/head)
+            |    [UPDATE] Update middle only
+            * 64921b5
+            |    [INITIAL] Initial
             * db684f8 (gh/ezyang/2/base)
             |    Initial (base update)
-            | * 32289fc (gh/ezyang/1/head)
-            | |    Initial
+            | * 2dad5bb (gh/ezyang/1/head)
+            | |    [INITIAL] Initial
             | * 4e92121 (gh/ezyang/1/base)
             |/     Initial (base update)
-            | * adfef3f (gh/ezyang/3/head)
-            | |    Initial
+            | * 610d342 (gh/ezyang/3/head)
+            | |    [INITIAL] Initial
             | * 8fe2454 (gh/ezyang/3/base)
             |/     Initial (base update)
             * dc8bfe4 (HEAD -> main)

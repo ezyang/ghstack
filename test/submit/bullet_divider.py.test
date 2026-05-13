@@ -22,12 +22,12 @@ if is_direct():
             * It starts with a fabulous
             * Bullet list
 
-            * b167219 Initial
+            * ae6e7a9 [INITIAL] Initial
 
         Repository state:
 
-            * b167219 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial
+            * ae6e7a9 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [INITIAL] Initial
             * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
@@ -45,12 +45,12 @@ else:
             * It starts with a fabulous
             * Bullet list
 
-            * 7e90855 Initial
+            * c4c128f [INITIAL] Initial
 
         Repository state:
 
-            * 7e90855 (gh/ezyang/1/head)
-            |    Initial
+            * c4c128f (gh/ezyang/1/head)
+            |    [INITIAL] Initial
             * 11e6d4d (gh/ezyang/1/base)
             |    Initial (base update)
             * dc8bfe4 (HEAD -> main)
