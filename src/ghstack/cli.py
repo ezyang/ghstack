@@ -15,6 +15,7 @@ import ghstack.github_real
 import ghstack.land
 import ghstack.log
 import ghstack.logs
+import ghstack.pull
 import ghstack.rage
 import ghstack.status
 import ghstack.submit
@@ -277,6 +278,34 @@ def checkout(same_base: bool, pull_request: str) -> None:
                     sh=shell,
                     remote_name=config.remote_name,
                     same_base=same_base,
+                ),
+            )
+        )
+
+
+@main.command("pull")
+@click.option(
+    "--continue",
+    "continue_",
+    is_flag=True,
+    help="Finish a ghstack pull after resolving conflicts",
+)
+@click.argument("pull_request", metavar="PR", required=False)
+def pull(continue_: bool, pull_request: Optional[str]) -> None:
+    """
+    Pull remote updates for a ghstack PR
+    """
+    with cli_context(request_github_token=False) as (shell, config, github):
+        run_async(
+            run_with_github(
+                github,
+                ghstack.pull.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    github_url=config.github_url,
+                    continue_=continue_,
                 ),
             )
         )
