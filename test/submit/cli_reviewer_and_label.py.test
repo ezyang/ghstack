@@ -27,20 +27,20 @@ if is_direct():
 
             This is commit A
 
-            * 9cb2ede Initial commit
+            * d6c39c3 [INITIAL] Initial commit
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/1/head)
 
             This is commit B
 
-            * d012f5c Add B
+            * 406f531 [INITIAL] Add B
 
         Repository state:
 
-            * d012f5c (gh/ezyang/2/next, gh/ezyang/2/head)
-            |    Add B
-            * 9cb2ede (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial commit
+            * 406f531 (gh/ezyang/2/next, gh/ezyang/2/head)
+            |    [INITIAL] Add B
+            * d6c39c3 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [INITIAL] Initial commit
             * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
@@ -56,7 +56,7 @@ else:
 
             This is commit A
 
-            * 62602bd Initial commit
+            * 2c03b2f [INITIAL] Initial commit
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -66,16 +66,16 @@ else:
 
             This is commit B
 
-            * afd9aaf Add B
+            * c9b998b [INITIAL] Add B
 
         Repository state:
 
-            * afd9aaf (gh/ezyang/2/head)
-            |    Add B
+            * c9b998b (gh/ezyang/2/head)
+            |    [INITIAL] Add B
             * 5d2de57 (gh/ezyang/2/base)
             |    Add B (base update)
-            | * 62602bd (gh/ezyang/1/head)
-            | |    Initial commit
+            | * 2c03b2f (gh/ezyang/1/head)
+            | |    [INITIAL] Initial commit
             | * 5956f18 (gh/ezyang/1/base)
             |/     Initial commit (base update)
             * dc8bfe4 (HEAD -> main)

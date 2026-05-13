@@ -18,7 +18,7 @@ assert_expected_inline(
     out.getvalue(),
     """\
 Local pending changes (not yet submitted)
-Initial commit
+[INITIAL] Initial commit
 """,
 )
 
@@ -39,7 +39,7 @@ index 8c7e5a6..9593583 100644
 \\ No newline at end of file
 +pending local change
 \\ No newline at end of file
-Initial commit
+[INITIAL] Initial commit
 
 diff --git a/A.txt b/A.txt
 new file mode 100644

@@ -17,7 +17,7 @@ with captured_output() as (out, _):
 assert_expected_inline(
     out.getvalue(),
     """\
-Initial commit
+[INITIAL] Initial commit
 """,
 )
 

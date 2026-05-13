@@ -18,12 +18,12 @@ if is_direct():
 
             This is commit A
 
-            * 9cb2ede Initial commit
+            * d6c39c3 [INITIAL] Initial commit
 
         Repository state:
 
-            * 9cb2ede (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial commit
+            * d6c39c3 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [INITIAL] Initial commit
             * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
@@ -38,12 +38,12 @@ else:
 
             This is commit A
 
-            * 62602bd Initial commit
+            * 2c03b2f [INITIAL] Initial commit
 
         Repository state:
 
-            * 62602bd (gh/ezyang/1/head)
-            |    Initial commit
+            * 2c03b2f (gh/ezyang/1/head)
+            |    [INITIAL] Initial commit
             * 5956f18 (gh/ezyang/1/base)
             |    Initial commit (base update)
             * dc8bfe4 (HEAD -> main)

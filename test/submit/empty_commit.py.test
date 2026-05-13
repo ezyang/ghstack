@@ -17,12 +17,12 @@ else:
 
             This is commit B
 
-            * ea3fb27 Initial
+            * 7e83dce [INITIAL] Initial
 
         Repository state:
 
-            * ea3fb27 (gh/ezyang/1/head)
-            |    Initial
+            * 7e83dce (gh/ezyang/1/head)
+            |    [INITIAL] Initial
             * 11e6d4d (gh/ezyang/1/base)
             |    Initial (base update)
             * dc8bfe4 (HEAD -> main)

@@ -33,12 +33,12 @@ await assert_github_state(
 
             This is commit A
 
-            * 36fcfdf Initial 1
+            * 3cac216 [INITIAL] Initial 1
 
         Repository state:
 
-            * 36fcfdf (gh/ezyang/1/head)
-            |    Initial 1
+            * 3cac216 (gh/ezyang/1/head)
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
             * dc8bfe4 (HEAD -> main)
@@ -83,7 +83,7 @@ await assert_github_state(
 
             This is commit A
 
-            * 36fcfdf Initial 1
+            * 3cac216 [INITIAL] Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -92,18 +92,18 @@ await assert_github_state(
 
             This is commit B
 
-            * ab7d5ca Initial 2
+            * 56daa52 [INITIAL] Initial 2
 
         Repository state:
 
-            * ab7d5ca (gh/ezyang/2/head)
-            |    Initial 2
+            * 56daa52 (gh/ezyang/2/head)
+            |    [INITIAL] Initial 2
             * 742ae0b (gh/ezyang/2/base)
             |    Initial 2 (base update)
             * 8927014 (release, gh/ezyang/1/orig)
             |    Commit A
-            | * 36fcfdf (gh/ezyang/1/head)
-            | |    Initial 1
+            | * 3cac216 (gh/ezyang/1/head)
+            | |    [INITIAL] Initial 1
             | * 5a32949 (gh/ezyang/1/base)
             |/     Initial 1 (base update)
             * dc8bfe4 (HEAD -> main)

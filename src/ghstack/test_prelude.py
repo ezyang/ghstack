@@ -212,7 +212,7 @@ async def scoped_test(direct: bool) -> AsyncIterator[None]:
 
 # NB: returns earliest first
 async def gh_submit(
-    msg: str = "Update",
+    msg: Optional[str] = "Update",
     update_fields: bool = False,
     short: bool = False,
     no_skip: bool = False,
@@ -221,6 +221,7 @@ async def gh_submit(
     stack: bool = True,
     reviewer: Optional[str] = None,
     label: Optional[str] = None,
+    automsg: Optional[str] = None,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
     r = await ghstack.submit.main(
@@ -243,6 +244,7 @@ async def gh_submit(
         check_invariants=True,
         reviewer=reviewer,
         label=label,
+        automsg=automsg,
     )
     await self.check_global_github_invariants(self.direct)
     return r

@@ -22,9 +22,9 @@ with captured_output() as (out, _):
 assert_expected_inline(
     out.getvalue(),
     """\
-Third update
-Second update
-Initial commit
+[UPDATE] Third update
+[UPDATE] Second update
+[INITIAL] Initial commit
 """,
 )
 
