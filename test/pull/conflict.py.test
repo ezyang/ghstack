@@ -1,0 +1,32 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+(A,) = await gh_submit("Initial")
+old_orig = A.orig
+
+await write_file_and_add("A.txt", "remote change")
+await git("commit", "--amend", "--no-edit")
+await gh_submit("Remote update")
+
+await checkout(old_orig)
+await write_file_and_add("A.txt", "local change")
+await git("commit", "--amend", "--no-edit")
+
+await assert_raises(RuntimeError, gh_pull)
+
+status = await git("status", "--porcelain")
+assert "UU A.txt" in status
+contents = await git("show", ":2:A.txt")
+assert_eq(contents, "local change")
+contents = await git("show", ":3:A.txt")
+assert_eq(contents, "remote change")
+
+await write_file_and_add("A.txt", "resolved change")
+await gh_pull(continue_=True)
+
+assert_eq(await git("show", "HEAD:A.txt"), "resolved change")
+await gh_submit("Resolved update")
+
+ok()
