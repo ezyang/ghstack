@@ -188,7 +188,7 @@ def strip_mentions(body: str) -> str:
 STACK_HEADER = f"Stack from [ghstack](https://github.com/ezyang/ghstack/tree/{ghstack.__version__}) (oldest at bottom)"
 
 CHANGE_DESCRIPTION_PROMPT = """\
-Generate a concise pull request update description for ghstack.
+Generate a git commit-style update description for ghstack.
 
 The PR title is: {title}
 The commit being updated is: {commit}
@@ -198,8 +198,12 @@ The context file contains the local commit message and, for existing PRs, the
 current PR description from GitHub. Use it only for background.
 The patch update is included below. For existing PRs, it is an interdiff between
 the previously submitted PR patch and the updated PR patch. For new PRs, it is
-the PR patch. Describe what changed in this update. Output only the description
-text, with no preamble, markdown fence, or explanation of your process.
+the PR patch.
+
+Output only the message text, with no preamble, markdown fence, or explanation
+of your process. Follow git commit message conventions: start with a short
+single-line subject, then a blank line, then a fuller description. The body does
+not need to be overly concise; include enough detail to explain the update.
 
 Patch update:
 {patch_update}
@@ -1793,6 +1797,7 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         description = output.strip()
         if not description:
             raise RuntimeError("automsg command produced an empty change description")
+        logging.info("automsg for %s:\n%s", diff.title, description)
         self._change_description_cache[diff.oid] = description
         return description
 
