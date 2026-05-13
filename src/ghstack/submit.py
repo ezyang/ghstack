@@ -2,10 +2,13 @@
 
 import asyncio
 import dataclasses
+import difflib
 import itertools
 import logging
 import os
 import re
+import shlex
+import tempfile
 import time
 from dataclasses import dataclass
 from typing import (
@@ -183,6 +186,25 @@ def strip_mentions(body: str) -> str:
 
 
 STACK_HEADER = f"Stack from [ghstack](https://github.com/ezyang/ghstack/tree/{ghstack.__version__}) (oldest at bottom)"
+
+CHANGE_DESCRIPTION_PROMPT = """\
+Generate a concise pull request update description for ghstack.
+
+The PR title is: {title}
+The commit being updated is: {commit}
+Read the PR context from this file: {context_path}
+
+The context file contains the local commit message and, for existing PRs, the
+current PR description from GitHub. Use it only for background.
+The patch update is included below. For existing PRs, it is an interdiff between
+the previously submitted PR patch and the updated PR patch. For new PRs, it is
+the PR patch. Describe what changed in this update. Output only the description
+text, with no preamble, markdown fence, or explanation of your process.
+
+Patch update:
+{patch_update}
+End patch update.
+"""
 
 
 def starts_with_bullet(body: str) -> bool:
@@ -416,6 +438,9 @@ class Submitter:
     # Skip fetching remote refs before submitting
     no_fetch: bool = False
 
+    # Command to generate a per-PR update description from diff contents.
+    automsg: Optional[str] = None
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
 
@@ -446,6 +471,10 @@ class Submitter:
 
     _pending_new_prs: List[_PendingNewPR] = dataclasses.field(
         default_factory=list, init=False
+    )
+
+    _change_description_cache: Dict[str, str] = dataclasses.field(
+        default_factory=dict, init=False
     )
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1475,6 +1504,19 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             push_branches = await self._resolve_gh_branches(username, ghnum)
         else:
             push_branches = GhBranches()
+        previous_head = (
+            push_branches.head.commit.commit_id
+            if push_branches.head.commit is not None
+            else None
+        )
+        if elab_diff is None:
+            previous_base = None
+        elif self.direct:
+            previous_base = f"{self.remote_name}/{elab_diff.base_ref}"
+        elif push_branches.base.commit is not None:
+            previous_base = push_branches.base.commit.commit_id
+        else:
+            previous_base = None
 
         # Initialize head arguments (as original head parent must come first
         # in parents list)
@@ -1490,6 +1532,13 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 push_branches.base.commit is None
                 or push_branches.base.commit.tree != base.tree
             ):
+                update_msg = await self._change_description(
+                    base,
+                    diff,
+                    previous_base,
+                    previous_head,
+                    elab_diff.body if elab_diff is not None else None,
+                )
                 # Base is not the same, perform base update
                 updated_base = True
                 base_args: List[str] = []
@@ -1519,7 +1568,9 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                         *(await ghstack.gpg_sign.gpg_args_if_necessary(self.sh)),
                         *base_args,
                         base.tree,
-                        input="{} (base update)\n\n[ghstack-poisoned]".format(self.msg),
+                        input="{} (base update)\n\n[ghstack-poisoned]".format(
+                            update_msg
+                        ),
                     )
                 )
                 head_args.extend(("-p", new_base))
@@ -1668,13 +1719,20 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
             or updated_base
             or push_branches.head.commit.tree != diff.tree
         ):
+            update_msg = await self._change_description(
+                base,
+                diff,
+                previous_base,
+                previous_head,
+                elab_diff.body if elab_diff is not None else None,
+            )
             new_head = GitCommitHash(
                 await self.sh.agit(
                     "commit-tree",
                     *(await ghstack.gpg_sign.gpg_args_if_necessary(self.sh)),
                     *head_args,
                     diff.tree,
-                    input="{}\n\n[ghstack-poisoned]".format(self.msg),
+                    input="{}\n\n[ghstack-poisoned]".format(update_msg),
                 )
             )
             if self.direct:
@@ -1686,6 +1744,124 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 push_branches.head.update(GhCommit(new_head, diff.tree))
 
         return push_branches, base_branch
+
+    async def _change_description(
+        self,
+        base: ghstack.git.CommitHeader,
+        diff: ghstack.diff.Diff,
+        previous_base: Optional[str],
+        previous_head: Optional[str],
+        current_pr_body: Optional[str],
+    ) -> str:
+        if self.msg is not None:
+            return self.msg
+
+        if self.automsg is None:
+            return "Update"
+
+        if diff.oid in self._change_description_cache:
+            return self._change_description_cache[diff.oid]
+
+        new_patch = await self.sh.agit(
+            "diff",
+            "--find-renames",
+            "--binary",
+            base.commit_id,
+            GitCommitHash(diff.oid),
+        )
+        patch = new_patch
+        if previous_base is not None and previous_head is not None:
+            old_patch = await self.sh.agit(
+                "diff",
+                "--find-renames",
+                "--binary",
+                previous_base,
+                previous_head,
+            )
+            patch = self._interdiff(old_patch, new_patch)
+            if not patch.strip():
+                return "Update"
+
+        with tempfile.TemporaryDirectory(prefix="ghstack-automsg-") as tmpdir:
+            context_path = os.path.join(tmpdir, "context.txt")
+            with open(context_path, "w", encoding="utf-8") as f:
+                f.write(self._change_description_context(diff, current_pr_body))
+            output = await self._run_change_description_command(
+                diff, patch, context_path, tmpdir
+            )
+        assert isinstance(output, str)
+        description = output.strip()
+        if not description:
+            raise RuntimeError("automsg command produced an empty change description")
+        self._change_description_cache[diff.oid] = description
+        return description
+
+    def _interdiff(self, old_patch: str, new_patch: str) -> str:
+        return "".join(
+            difflib.unified_diff(
+                old_patch.splitlines(keepends=True),
+                new_patch.splitlines(keepends=True),
+                fromfile="previous.patch",
+                tofile="updated.patch",
+            )
+        )
+
+    def _change_description_context(
+        self, diff: ghstack.diff.Diff, current_pr_body: Optional[str]
+    ) -> str:
+        context = f"""\
+PR title:
+{diff.title}
+
+Local commit message:
+{diff.summary}
+"""
+        if current_pr_body is not None:
+            context += f"""
+
+Current PR description:
+{current_pr_body}
+"""
+        return context
+
+    async def _run_change_description_command(
+        self, diff: ghstack.diff.Diff, patch_update: str, context_path: str, cwd: str
+    ) -> str:
+        assert self.automsg is not None
+        command = shlex.split(self.automsg)
+        if not command:
+            raise RuntimeError("automsg command is empty")
+
+        prompt = CHANGE_DESCRIPTION_PROMPT.format(
+            title=diff.title,
+            commit=diff.oid,
+            context_path=context_path,
+            patch_update=patch_update,
+        )
+        executable = os.path.basename(command[0])
+        automsg_sh = ghstack.shell.Shell(
+            cwd=cwd,
+            quiet=self.sh.quiet,
+            testing=self.sh.testing,
+        )
+        if executable == "claude":
+            return await automsg_sh.ash(*command, "-p", prompt)
+        if executable == "codex":
+            if "exec" in command[1:]:
+                return await automsg_sh.ash(*command, prompt)
+            return await automsg_sh.ash(command[0], "exec", *command[1:], prompt)
+
+        if any(
+            "{patch}" in arg or "{context}" in arg or "{prompt}" in arg
+            for arg in command
+        ):
+            command = [
+                arg.format(patch=patch_update, context=context_path, prompt=prompt)
+                for arg in command
+            ]
+            return await automsg_sh.ash(*command)
+
+        return await automsg_sh.ash(*command, context_path, prompt)
 
     async def _create_pull_request(
         self,

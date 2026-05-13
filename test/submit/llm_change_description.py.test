@@ -1,0 +1,117 @@
+from ghstack.test_prelude import *
+
+import difflib
+import hashlib
+import os
+
+
+def llm_description(patch: str) -> str:
+    return "LLM " + hashlib.sha1(patch.encode()).hexdigest()
+
+
+def interdiff(old_patch: str, new_patch: str) -> str:
+    return "".join(
+        difflib.unified_diff(
+            old_patch.splitlines(keepends=True),
+            new_patch.splitlines(keepends=True),
+            fromfile="previous.patch",
+            tofile="updated.patch",
+        )
+    )
+
+
+async def pull_request_patches():
+    r = await get_github().graphql(
+        """
+      query {
+        repository(name: "pytorch", owner: "pytorch") {
+          pullRequests {
+            nodes {
+              number
+              baseRefName
+              headRefName
+            }
+          }
+        }
+      }
+    """
+    )
+    patches = {}
+    for pr in r["data"]["repository"]["pullRequests"]["nodes"]:
+        patches[pr["number"]] = await get_upstream_sh().agit(
+            "diff",
+            "--find-renames",
+            "--binary",
+            pr["baseRefName"],
+            pr["headRefName"],
+        )
+    return patches
+
+
+await init_test()
+
+fake_llm = get_sh().abspath("claude")
+with get_sh().open("claude", "w") as f:
+    f.write(
+        """\
+#!/usr/bin/env python3
+import hashlib
+import os
+import re
+import sys
+
+assert sys.argv[1] == "-p"
+assert os.listdir(".") == ["context.txt"]
+context_match = re.search(r"Read the PR context from this file: (.+)", sys.argv[2])
+patch_match = re.search(
+    r"Patch update:\\n(.*)\\nEnd patch update\\.",
+    sys.argv[2],
+    re.DOTALL,
+)
+assert context_match is not None
+assert patch_match is not None
+with open(context_match.group(1)) as f:
+    context = f.read()
+assert "Local commit message:" in context
+assert "Current PR description:" in context
+print("LLM " + hashlib.sha1(patch_match.group(1).encode()).hexdigest())
+"""
+    )
+await get_sh().ash("chmod", "+x", fake_llm)
+
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial")
+old_patches = await pull_request_patches()
+
+await checkout(A)
+await write_file_and_add("A.txt", "AA")
+await git("commit", "--amend", "--no-edit", tick=True)
+await cherry_pick(B)
+await write_file_and_add("B.txt", "BB")
+await git("commit", "--amend", "--no-edit", tick=True)
+
+root = await git("rev-parse", "HEAD~2")
+a_commit = await git("rev-parse", "HEAD~")
+b_commit = await git("rev-parse", "HEAD")
+expected_a = llm_description(
+    interdiff(
+        old_patches[A.number],
+        await git("diff", "--find-renames", "--binary", root, a_commit),
+    )
+)
+expected_b = llm_description(
+    interdiff(
+        old_patches[B.number],
+        await git("diff", "--find-renames", "--binary", a_commit, b_commit),
+    )
+)
+
+await gh_submit(msg=None, automsg=fake_llm)
+
+state = await dump_github()
+assert expected_a in state
+assert expected_b in state
+assert expected_a != expected_b
+
+ok()

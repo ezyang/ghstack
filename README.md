@@ -22,7 +22,24 @@ github_url = github.com
 github_oauth = [your_own_token]
 github_username = [your_username]
 remote_name = upstream [if remote is called upstream and not origin]
+automsg = claude [optional; also supports codex]
 ```
+
+You can toggle generated change descriptions with:
+
+```
+ghstack config automsg claude
+ghstack config automsg codex
+ghstack config automsg codex --model gpt-5.4
+ghstack config --unset automsg
+```
+
+If `automsg` is set to `claude` or `codex`, ghstack writes
+PR context (the local commit message and current PR description) to a temporary
+file and invokes the agent with a prompt to summarize the specific update.  The
+patch update itself is included directly in the prompt.  For existing PRs the
+patch update is an interdiff against the previously submitted PR patch, not the
+whole PR patch.  Explicit `ghstack -m MESSAGE` still overrides this.
 
 ## How to use
 
