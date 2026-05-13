@@ -1730,13 +1730,17 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 previous_head,
                 elab_diff.body if elab_diff is not None else None,
             )
+            head_msg = self._head_commit_message(
+                update_msg,
+                initial=previous_head is None,
+            )
             new_head = GitCommitHash(
                 await self.sh.agit(
                     "commit-tree",
                     *(await ghstack.gpg_sign.gpg_args_if_necessary(self.sh)),
                     *head_args,
                     diff.tree,
-                    input="{}\n\n[ghstack-poisoned]".format(update_msg),
+                    input="{}\n\n[ghstack-poisoned]".format(head_msg),
                 )
             )
             if self.direct:
@@ -1800,6 +1804,14 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         logging.info("automsg for %s:\n%s", diff.title, description)
         self._change_description_cache[diff.oid] = description
         return description
+
+    def _head_commit_message(self, message: str, *, initial: bool) -> str:
+        prefix = "[INITIAL]" if initial else "[UPDATE]"
+        lines = message.splitlines()
+        if not lines:
+            return prefix
+        lines[0] = f"{prefix} {lines[0]}"
+        return "\n".join(lines)
 
     def _interdiff(self, old_patch: str, new_patch: str) -> str:
         return "".join(

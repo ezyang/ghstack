@@ -114,5 +114,7 @@ state = await dump_github()
 assert expected_a in state
 assert expected_b in state
 assert expected_a != expected_b
+assert "[UPDATE] " + expected_a in state
+assert "[UPDATE] " + expected_b in state
 
 ok()

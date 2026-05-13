@@ -1,9 +1,9 @@
 import configparser
 from pathlib import Path
 
-from click.testing import CliRunner
-
 import ghstack.cli
+
+from click.testing import CliRunner
 
 
 def read_config(path: Path) -> configparser.ConfigParser:

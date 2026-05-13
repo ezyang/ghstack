@@ -17,8 +17,8 @@ with captured_output() as (out, _):
 assert_expected_inline(
     out.getvalue(),
     """\
-Top update
-Initial
+[UPDATE] Top update
+[INITIAL] Initial
 """,
 )
 
@@ -29,7 +29,7 @@ with captured_output() as (out, _):
 assert_expected_inline(
     out.getvalue(),
     """\
-Initial
+[INITIAL] Initial
 """,
 )
 

@@ -30,12 +30,12 @@ if is_direct():
 
             Directly updated message body
 
-            * 6c1d876 Initial 1
+            * 7a0c4fe [INITIAL] Initial 1
 
         Repository state:
 
-            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1
+            * 7a0c4fe (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [INITIAL] Initial 1
             * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
@@ -50,12 +50,12 @@ else:
 
             Directly updated message body
 
-            * 54d43aa Initial 1
+            * 17a07ca [INITIAL] Initial 1
 
         Repository state:
 
-            * 54d43aa (gh/ezyang/1/head)
-            |    Initial 1
+            * 17a07ca (gh/ezyang/1/head)
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
             * dc8bfe4 (HEAD -> main)
@@ -79,15 +79,15 @@ if is_direct():
 
             Directly updated message body
 
-            * 3c9d67f Update 1
-            * 6c1d876 Initial 1
+            * 0447dbb [UPDATE] Update 1
+            * 7a0c4fe [INITIAL] Initial 1
 
         Repository state:
 
-            * 3c9d67f (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Update 1
-            * 6c1d876
-            |    Initial 1
+            * 0447dbb (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [UPDATE] Update 1
+            * 7a0c4fe
+            |    [INITIAL] Initial 1
             * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
@@ -102,15 +102,15 @@ else:
 
             Directly updated message body
 
-            * 66af150 Update 1
-            * 54d43aa Initial 1
+            * f902334 [UPDATE] Update 1
+            * 17a07ca [INITIAL] Initial 1
 
         Repository state:
 
-            * 66af150 (gh/ezyang/1/head)
-            |    Update 1
-            * 54d43aa
-            |    Initial 1
+            * f902334 (gh/ezyang/1/head)
+            |    [UPDATE] Update 1
+            * 17a07ca
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
             * dc8bfe4 (HEAD -> main)

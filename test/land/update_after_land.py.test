@@ -55,21 +55,21 @@ else:
 
             This is commit B
 
-            * 87c9ccd Run 3
-            * 16e1e12 Initial 1
+            * c6d7450 [UPDATE] Run 3
+            * 6c70328 [INITIAL] Initial 1
 
         Repository state:
 
-            *   87c9ccd (gh/ezyang/2/head)
-            |\\     Run 3
+            *   c6d7450 (gh/ezyang/2/head)
+            |\\     [UPDATE] Run 3
             | *   a800ca6 (gh/ezyang/2/base)
             | |\\     Run 3 (base update)
             | | * 70eb094 (HEAD -> main)
             | | |    Commit A (#500)
             | | * 7f0288c
             | | |    Commit U
-            * | | 16e1e12
-            |/ /     Initial 1
+            * | | 6c70328
+            |/ /     [INITIAL] Initial 1
             * / 9d4a439
             |/     Initial 1 (base update)
             * dc8bfe4

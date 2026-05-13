@@ -15,15 +15,15 @@ if is_direct():
 
             This is commit A
 
-            * 324abac Update A
-            * 8c7d059 Initial 1
+            * d602cd7 [UPDATE] Update A
+            * f5336bd [INITIAL] Initial 1
 
         Repository state:
 
-            * 324abac (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Update A
-            * 8c7d059
-            |    Initial 1
+            * d602cd7 (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [UPDATE] Update A
+            * f5336bd
+            |    [INITIAL] Initial 1
             * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
@@ -38,15 +38,15 @@ else:
 
             This is commit A
 
-            * f004e08 Update A
-            * 36fcfdf Initial 1
+            * 57ec684 [UPDATE] Update A
+            * 3cac216 [INITIAL] Initial 1
 
         Repository state:
 
-            * f004e08 (gh/ezyang/1/head)
-            |    Update A
-            * 36fcfdf
-            |    Initial 1
+            * 57ec684 (gh/ezyang/1/head)
+            |    [UPDATE] Update A
+            * 3cac216
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
             * dc8bfe4 (HEAD -> main)

@@ -31,8 +31,8 @@ if not is_direct():
 
             This is commit A
 
-            * 3b4b38a Update base only
-            * 32289fc Initial
+            * 694bea3 [UPDATE] Update base only
+            * 2dad5bb [INITIAL] Initial
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -43,7 +43,7 @@ if not is_direct():
 
             This is commit B
 
-            * ac0c499 Initial
+            * 64921b5 [INITIAL] Initial
 
         [O] #502 Commit C (gh/ezyang/3/head -> gh/ezyang/3/base)
 
@@ -54,22 +54,22 @@ if not is_direct():
 
             This is commit C
 
-            * adfef3f Initial
+            * 610d342 [INITIAL] Initial
 
         Repository state:
 
-            * 3b4b38a (gh/ezyang/1/head)
-            |    Update base only
-            * 32289fc
-            |    Initial
+            * 694bea3 (gh/ezyang/1/head)
+            |    [UPDATE] Update base only
+            * 2dad5bb
+            |    [INITIAL] Initial
             * 4e92121 (gh/ezyang/1/base)
             |    Initial (base update)
-            | * ac0c499 (gh/ezyang/2/head)
-            | |    Initial
+            | * 64921b5 (gh/ezyang/2/head)
+            | |    [INITIAL] Initial
             | * db684f8 (gh/ezyang/2/base)
             |/     Initial (base update)
-            | * adfef3f (gh/ezyang/3/head)
-            | |    Initial
+            | * 610d342 (gh/ezyang/3/head)
+            | |    [INITIAL] Initial
             | * 8fe2454 (gh/ezyang/3/base)
             |/     Initial (base update)
             * dc8bfe4 (HEAD -> main)
