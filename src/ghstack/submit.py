@@ -1833,7 +1833,7 @@ Current PR description:
         self, diff: ghstack.diff.Diff, patch_update: str, context_path: str, cwd: str
     ) -> str:
         assert self.automsg is not None
-        command = shlex.split(self.automsg)
+        command = shlex.split(self.automsg, posix=os.name != "nt")
         if not command:
             raise RuntimeError("automsg command is empty")
 
