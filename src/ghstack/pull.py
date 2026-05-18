@@ -75,7 +75,8 @@ async def _read_state(sh: ghstack.shell.Shell) -> Dict[str, Any]:
     if not os.path.exists(path):
         raise RuntimeError("No ghstack pull conflict in progress.")
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        result: Dict[str, Any] = json.load(f)
+        return result
 
 
 async def _write_state(sh: ghstack.shell.Shell, state: Dict[str, Any]) -> None:
