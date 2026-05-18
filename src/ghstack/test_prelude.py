@@ -32,6 +32,7 @@ import ghstack.github_fake
 import ghstack.github_utils
 import ghstack.land
 import ghstack.log
+import ghstack.pull
 import ghstack.shell
 import ghstack.submit
 import ghstack.sync
@@ -49,6 +50,7 @@ __all__ = [
     "gh_cherry_pick",
     "gh_checkout",
     "gh_log",
+    "gh_pull",
     "gh_sync",
     "GitCommitHash",
     "checkout",
@@ -304,6 +306,18 @@ async def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -
         github_url="github.com",
         args=list(args),
         pull_request=pull_request,
+    )
+
+
+async def gh_pull(pull_request: Optional[str] = None, continue_: bool = False) -> None:
+    self = CTX
+    return await ghstack.pull.main(
+        github=self.github,
+        sh=self.sh,
+        remote_name="origin",
+        github_url="github.com",
+        pull_request=pull_request,
+        continue_=continue_,
     )
 
 
