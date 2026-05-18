@@ -1,0 +1,14 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+(A,) = await gh_submit("Initial")
+
+await git("checkout", "main")
+await gh_pull(f"https://github.com/pytorch/pytorch/pull/{A.number}")
+
+current_log = await git("log", "--oneline", "-n", "1")
+assert "Commit A" in current_log
+
+ok()
