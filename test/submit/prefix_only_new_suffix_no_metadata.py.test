@@ -1,0 +1,26 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+await commit("B")
+await commit("C")
+
+# Submit only A. B and C are local-only suffix commits and should not be
+# annotated as ghstack PRs.
+(A,) = await gh_submit("Submit bottom only", revs=["HEAD~2"], stack=False)
+
+bottom_msg = await git("show", "-s", "--pretty=%B", "HEAD~2")
+middle_msg = await git("show", "-s", "--pretty=%B", "HEAD~")
+top_msg = await git("show", "-s", "--pretty=%B", "HEAD")
+
+assert "ghstack-source-id:" in bottom_msg
+assert "Pull-Request:" in bottom_msg
+
+assert "ghstack-source-id:" not in middle_msg, middle_msg
+assert "Pull-Request:" not in middle_msg, middle_msg
+
+assert "ghstack-source-id:" not in top_msg, top_msg
+assert "Pull-Request:" not in top_msg, top_msg
+
+ok()
