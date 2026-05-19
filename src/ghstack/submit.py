@@ -581,8 +581,9 @@ class Submitter:
         # we always have to generate orig commits for submitted diffs.)
         # However, commits_to_submit does not necessarily contain
         # diffs_to_rebase.  If you ask to submit only a prefix of your current
-        # stack, the suffix is not to be submitted, but it needs to be rebased
-        # (to, e.g., update the ghstack-source-id)
+        # stack, the suffix is not to be submitted, but it needs to be rebased.
+        # Existing ghstack PRs in the suffix still need their source IDs kept
+        # up-to-date, but local-only suffix commits should stay local-only.
 
         commit_count = len(commits_to_submit)
 
@@ -883,7 +884,8 @@ class Submitter:
             pr_info_cache = await self._prefetch_pr_info(commits_to_rebase)
 
         # Phase 1: Process all commits (oldest first) to determine what
-        # needs updating, create head/base commits, and identify new PRs.
+        # needs updating, create head/base commits, and identify submitted
+        # new PRs.
         # New PRs are NOT pushed/created yet — deferred to batch operation.
         submit_set = set(h.commit_id for h in commits_to_submit)
         diff_meta_index: Dict[GitCommitHash, DiffMeta] = {}
@@ -1212,6 +1214,12 @@ class Submitter:
                     "To disassociate your update from the old PR and open a new PR, "
                     "run `ghstack unlink`, `git rebase` and then try again."
                 )
+            return None
+
+        # This commit has no existing PR and is not part of the requested
+        # submit set.  It may still be rebased later if an earlier commit was
+        # rewritten, but it should not get ghstack trailers or a new PR.
+        if elab_diff is None and not submit:
             return None
 
         # Edge case: check if the commit is empty; if so skip submitting
