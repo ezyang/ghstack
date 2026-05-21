@@ -52,8 +52,11 @@ async def main(
     orig_ref = re.sub(r"/head$", "/orig", head_ref)
     if orig_ref == head_ref:
         logging.warning(
-            "The ref {} doesn't look like a ghstack reference".format(head_ref)
+            "The ref {} doesn't look like a ghstack reference; "
+            "delegating to gh pr checkout".format(head_ref)
         )
+        await sh.ash("gh", "pr", "checkout", pull_request.lstrip("#"))
+        return
 
     # TODO: Handle remotes correctly too (so this subsumes hub)
 
