@@ -2016,6 +2016,30 @@ Current PR description:
         submitted_numbers = {s.number for s in diffs_to_submit}
         orphan_above: List[GitHubNumber] = []
         orphan_below: List[GitHubNumber] = []
+        seen_orphans: Set[GitHubNumber] = set()
+
+        async def _add_orphan(num: GitHubNumber, *, above: bool) -> None:
+            if num in submitted_numbers or num in seen_orphans:
+                return
+            pr_info = await self.github.aget(
+                f"repos/{self.repo_owner}/{self.repo_name}/pulls/{num}",
+            )
+            if pr_info.get("state") != "open":
+                return
+            seen_orphans.add(num)
+            if above:
+                orphan_above.append(num)
+            else:
+                orphan_below.append(num)
+
+        async def _add_orphans_from_stack(numbers: Sequence[GitHubNumber]) -> None:
+            seen_submitted = False
+            for num in numbers:
+                if num in submitted_numbers:
+                    seen_submitted = True
+                    continue
+                await _add_orphan(num, above=not seen_submitted)
+
         for s in all_diffs or diffs_to_submit:
             old_stack_text: Optional[str] = None
             if self.direct and s.elab_diff.comment_id is not None:
@@ -2034,20 +2058,19 @@ Current PR description:
                 ]
                 if not old_pr_numbers:
                     continue
-                seen_submitted = False
-                for num in old_pr_numbers:
-                    if num in submitted_numbers:
-                        seen_submitted = True
-                        continue
-                    pr_info = await self.github.aget(
-                        f"repos/{self.repo_owner}/{self.repo_name}/pulls/{num}",
-                    )
-                    if pr_info.get("state") == "open":
-                        if seen_submitted:
-                            orphan_below.append(num)
-                        else:
-                            orphan_above.append(num)
+                await _add_orphans_from_stack(old_pr_numbers)
                 break
+
+        # The PR body/comment is best when it is available because it may
+        # mention stack members that are not in the local checkout anymore.
+        # If that stack text is missing or malformed, still preserve adjacent
+        # submitted PRs from local Pull-Request trailers.
+        local_pr_numbers = [
+            s.number
+            for s in all_diffs or diffs_to_submit
+            if s.elab_diff.pull_request_resolved is not None
+        ]
+        await _add_orphans_from_stack(local_pr_numbers)
 
         def _update_pr_args(s: DiffMeta) -> Tuple[str, Dict[str, Any], Optional[str]]:
             assert not s.closed
@@ -2067,14 +2090,14 @@ Current PR description:
             stack_desc = self._format_stack(
                 diffs_to_submit, s.number, orphan_above, orphan_below
             )
+            body, stack_replacements = RE_STACK.subn(stack_desc, s.body)
+            if stack_replacements == 0 and not self.direct:
+                body = f"{stack_desc}\n{s.body.lstrip()}"
             path = "repos/{owner}/{repo}/pulls/{number}".format(
                 owner=self.repo_owner, repo=self.repo_name, number=s.number
             )
             kwargs = {
-                "body": RE_STACK.sub(
-                    stack_desc,
-                    s.body,
-                ),
+                "body": body,
                 "title": s.title,
                 **base_kwargs,
             }
