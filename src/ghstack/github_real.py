@@ -248,7 +248,10 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                         )
                         await asyncio.sleep(sleep_time)
                         continue
-                    else:
+                    # GitHub doesn't document the content of these messages, but this
+                    # seems to be an accurate way to find secondary rate limits.  Any
+                    # other reason for 403 or 429 will fall through to the error below.
+                    elif b"rate limit" in resp.content.lower():
                         retry_after_seconds = resp.headers.get("retry-after")
                         if retry_after_seconds:
                             sleep_time = int(retry_after_seconds)
