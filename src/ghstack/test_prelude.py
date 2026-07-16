@@ -69,6 +69,7 @@ __all__ = [
     "get_sh",
     "get_upstream_sh",
     "get_github",
+    "get_github_stacks",
     "get_pr_reviewers",
     "get_pr_labels",
     "tick",
@@ -224,6 +225,7 @@ async def gh_submit(
     reviewer: Optional[str] = None,
     label: Optional[str] = None,
     automsg: Optional[str] = None,
+    github_stacks: bool = False,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
     r = await ghstack.submit.main(
@@ -247,6 +249,7 @@ async def gh_submit(
         reviewer=reviewer,
         label=label,
         automsg=automsg,
+        github_stacks=github_stacks,
     )
     await self.check_global_github_invariants(self.direct)
     return r
@@ -467,6 +470,11 @@ def get_pr_reviewers(pr_number: int) -> List[str]:
     repo = github.state.repository("pytorch", "pytorch")
     pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
     return pr.reviewers
+
+
+def get_github_stacks() -> List[List[int]]:
+    github = get_github()
+    return [list(stack.pull_request_numbers) for stack in github.state.stacks.values()]
 
 
 def get_pr_labels(pr_number: int) -> List[str]:

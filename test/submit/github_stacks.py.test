@@ -1,0 +1,57 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial", github_stacks=True)
+
+# Native GitHub stacks require direct mode (each PR must target the head
+# branch of the PR below it)
+if is_direct():
+    assert_eq(get_github_stacks(), [[500, 501]])
+else:
+    assert_eq(get_github_stacks(), [])
+
+# Resubmitting an unchanged stack is idempotent
+await amend("B")
+await gh_submit("Update B", github_stacks=True)
+
+if is_direct():
+    assert_eq(get_github_stacks(), [[500, 501]])
+else:
+    assert_eq(get_github_stacks(), [])
+
+# A new commit on top is appended to the existing stack
+# (in direct mode, PR number 502 was consumed by the stack itself)
+await commit("C")
+await gh_submit("Add C", github_stacks=True)
+
+if is_direct():
+    assert_eq(get_github_stacks(), [[500, 501, 503]])
+else:
+    assert_eq(get_github_stacks(), [])
+
+# Submitting only a prefix of the stack leaves the existing stack alone
+await gh_submit("Update A only", github_stacks=True, revs=["HEAD~~"])
+
+if is_direct():
+    assert_eq(get_github_stacks(), [[500, 501, 503]])
+else:
+    assert_eq(get_github_stacks(), [])
+
+# Inserting a commit mid-stack retargets the PR above it, which requires
+# dissolving and recreating the native stack
+top = GitCommitHash(await git("rev-parse", "HEAD"))
+await checkout(GitCommitHash(await git("rev-parse", "HEAD~")))
+await commit("M")
+await cherry_pick(top)
+await gh_submit("Insert M", github_stacks=True)
+
+if is_direct():
+    # 504 is M's PR (505 was consumed by the recreated stack)
+    assert_eq(get_github_stacks(), [[500, 501, 504, 503]])
+else:
+    assert_eq(get_github_stacks(), [])
+
+ok()

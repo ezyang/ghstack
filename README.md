@@ -41,6 +41,25 @@ patch update itself is included directly in the prompt.  For existing PRs the
 patch update is an interdiff against the previously submitted PR patch, not the
 whole PR patch.  Explicit `ghstack -m MESSAGE` still overrides this.
 
+## Native GitHub Stacks
+
+If your repository has [GitHub Stacks](https://github.github.com/gh-stack/)
+enabled (currently a private preview), ghstack can link the PRs it submits
+into a native stack, which gets you the stack navigation UI, stack-aware
+branch protection, and partial-stack merges.  Enable it with:
+
+```
+ghstack config github_stacks true
+```
+
+or per-invocation with `ghstack --direct --github-stacks`.  This requires
+`--direct` mode, because GitHub requires each PR in a stack to target the
+head branch of the PR below it, which the classic base-branch layout does
+not satisfy.  ghstack keeps the native stack in sync on resubmit: new
+commits on top are appended, and restructures (inserts, reorders) dissolve
+and recreate the stack, since the API has no reorder operation.  Stack
+linking failures are never fatal; the PRs themselves are always submitted.
+
 ## How to use
 
 Make sure you have write permission to the repo you're opening PR with.

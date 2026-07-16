@@ -113,6 +113,9 @@ Config = NamedTuple(
         ("label", Optional[str]),
         # Command to generate a per-PR update description from diff contents
         ("automsg", Optional[str]),
+        # Link submitted PRs into a native GitHub stack (requires direct mode
+        # and a repository with GitHub Stacks enabled)
+        ("github_stacks", bool),
     ],
 )
 
@@ -334,6 +337,11 @@ def read_config(
     else:
         automsg = None
 
+    if config.has_option("ghstack", "github_stacks"):
+        github_stacks = config.getboolean("ghstack", "github_stacks")
+    else:
+        github_stacks = False
+
     if write_back:
         with open(config_path, "w") as f:
             config.write(f)
@@ -352,6 +360,7 @@ def read_config(
         reviewer=reviewer,
         label=label,
         automsg=automsg,
+        github_stacks=github_stacks,
     )
     logging.debug(f"conf = {conf}")
     return conf
