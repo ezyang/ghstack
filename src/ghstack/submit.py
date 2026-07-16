@@ -1977,38 +1977,6 @@ Current PR description:
         all_diffs: Optional[List[DiffMeta]] = None,
         import_help: bool = True,
     ) -> None:
-        # Collect all refspecs into a single batched push.  This is being
-        # tested in production because GitHub may observe base/head ref updates
-        # out of order when refreshing PR diffs.  If that happens, revert this
-        # block to three grouped pushes in this order:
-        #   1. base branches
-        #   2. head/next branches
-        #   3. orig branches
-        # Per-refspec force is encoded with the + prefix:
-        #   orig branches: always force-pushed
-        #   head/next branches: force-pushed only with --force flag
-        #   base branches: never force-pushed
-        # It is VERY important that we preserve base-before-head ordering,
-        # otherwise GitHub can spuriously think that the user pushed a number
-        # of patches as part of the PR, when actually they were just from the
-        # new upstream branch.
-        all_push_specs: List[str] = []
-
-        for s in reversed(diffs_to_submit):
-            for diff, b in s.push_branches:
-                # Careful!  Don't push main.
-                if b == "orig":
-                    force = True
-                elif b == "base":
-                    force = False
-                else:
-                    force = self.force
-                all_push_specs.append(
-                    push_spec(diff, branch(s.username, s.ghnum, b), force=force)
-                )
-        if all_push_specs:
-            await self._git_push(all_push_specs)
-
         # Discover orphan PR numbers from the old stack listing.
         # We search the full local stack for old stack text, then
         # collect open PRs that aren't being submitted — both above
@@ -2049,6 +2017,49 @@ Current PR description:
                             orphan_above.append(num)
                 break
 
+        native_pr_numbers = self._native_stack_pr_numbers(
+            diffs_to_submit, orphan_above, orphan_below
+        )
+        native_stacks_available = False
+        native_stack = None
+        if self.direct and len(native_pr_numbers) >= 2:
+            native_stacks_available, native_stack = await self._prepare_native_stack(
+                native_pr_numbers,
+                diffs_to_submit,
+            )
+
+        # Collect all refspecs into a single batched push.  This is being
+        # tested in production because GitHub may observe base/head ref updates
+        # out of order when refreshing PR diffs.  If that happens, revert this
+        # block to three grouped pushes in this order:
+        #   1. base branches
+        #   2. head/next branches
+        #   3. orig branches
+        # Per-refspec force is encoded with the + prefix:
+        #   orig branches: always force-pushed
+        #   head/next branches: force-pushed only with --force flag
+        #   base branches: never force-pushed
+        # It is VERY important that we preserve base-before-head ordering,
+        # otherwise GitHub can spuriously think that the user pushed a number
+        # of patches as part of the PR, when actually they were just from the
+        # new upstream branch.
+        all_push_specs: List[str] = []
+
+        for s in reversed(diffs_to_submit):
+            for diff, b in s.push_branches:
+                # Careful!  Don't push main.
+                if b == "orig":
+                    force = True
+                elif b == "base":
+                    force = False
+                else:
+                    force = self.force
+                all_push_specs.append(
+                    push_spec(diff, branch(s.username, s.ghnum, b), force=force)
+                )
+        if all_push_specs:
+            await self._git_push(all_push_specs)
+
         def _update_pr_args(s: DiffMeta) -> Tuple[str, Dict[str, Any], Optional[str]]:
             assert not s.closed
             logging.info(
@@ -2060,10 +2071,10 @@ Current PR description:
                 )
             )
             base_kwargs = {}
-            if self.direct:
+            if self.direct and s.base != s.elab_diff.base_ref:
                 base_kwargs["base"] = s.base
             else:
-                assert s.base == s.elab_diff.base_ref
+                assert self.direct or s.base == s.elab_diff.base_ref
             stack_desc = self._format_stack(
                 diffs_to_submit, s.number, orphan_above, orphan_below
             )
@@ -2101,6 +2112,9 @@ Current PR description:
                 )
 
         await _gather_ordered(_update_pr_async(s) for s in reversed(diffs_to_submit))
+
+        if native_stacks_available:
+            await self._publish_native_stack(native_pr_numbers, native_stack)
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
@@ -2303,6 +2317,123 @@ Current PR description:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Small helpers
+
+    def _native_stack_pr_numbers(
+        self,
+        diffs_to_submit: Sequence[DiffMeta],
+        orphan_above: Sequence[GitHubNumber],
+        orphan_below: Sequence[GitHubNumber],
+    ) -> List[GitHubNumber]:
+        top_to_bottom = [
+            *orphan_above,
+            *(s.number for s in diffs_to_submit),
+            *orphan_below,
+        ]
+        seen: Set[GitHubNumber] = set()
+        result = []
+        for number in reversed(top_to_bottom):
+            if number not in seen:
+                result.append(number)
+                seen.add(number)
+        return result
+
+    def _remote_stack_pr_numbers(self, stack: Any) -> List[GitHubNumber]:
+        result = []
+        for pr in stack.get("pull_requests", []):
+            number = pr.get("number") if isinstance(pr, dict) else pr
+            if isinstance(number, int):
+                result.append(GitHubNumber(number))
+        return result
+
+    async def _find_native_stack(
+        self, pr_numbers: Sequence[GitHubNumber]
+    ) -> Tuple[bool, Optional[Any]]:
+        for number in pr_numbers:
+            try:
+                stacks = await self.github.aget(
+                    f"repos/{self.repo_owner}/{self.repo_name}/stacks"
+                    f"?pull_request={number}"
+                )
+            except ghstack.github.NotFoundError:
+                return False, None
+            except RuntimeError as e:
+                logging.warning("Failed to query GitHub native stacks: %s", e)
+                return False, None
+            if stacks:
+                return True, stacks[0]
+        return True, None
+
+    async def _prepare_native_stack(
+        self,
+        pr_numbers: List[GitHubNumber],
+        diffs_to_submit: Sequence[DiffMeta],
+    ) -> Tuple[bool, Optional[Any]]:
+        available, stack = await self._find_native_stack(pr_numbers)
+        if not available or stack is None:
+            return available, stack
+
+        current = self._remote_stack_pr_numbers(stack)
+        if current != pr_numbers[: len(current)]:
+            for prefix_len in range(1, len(current)):
+                remote_prefix = current[:prefix_len]
+                remote_suffix = current[prefix_len:]
+                if remote_suffix == pr_numbers[: len(remote_suffix)] and not set(
+                    remote_prefix
+                ).intersection(pr_numbers):
+                    pr_numbers[:0] = remote_prefix
+                    break
+            else:
+                raise RuntimeError(
+                    "The GitHub native stack has a different pull request order. "
+                    "Native stacks own their pull requests' base branches, so ghstack "
+                    "cannot reorder it directly. Unstack it in the GitHub UI, then "
+                    "rerun ghstack."
+                )
+
+        current_numbers = set(current)
+        for diff_meta in diffs_to_submit:
+            if (
+                diff_meta.number in current_numbers
+                and diff_meta.base != diff_meta.elab_diff.base_ref
+            ):
+                raise RuntimeError(
+                    f"GitHub native stack #{stack['number']} owns the base branch "
+                    f"for PR #{diff_meta.number}. Unstack it in the GitHub UI, "
+                    "then rerun ghstack."
+                )
+        return available, stack
+
+    async def _publish_native_stack(
+        self, pr_numbers: List[GitHubNumber], stack: Optional[Any]
+    ) -> None:
+        path = f"repos/{self.repo_owner}/{self.repo_name}/stacks"
+        try:
+            if stack is None:
+                result = await self.github.apost(
+                    path, pull_requests=[int(n) for n in pr_numbers]
+                )
+                logging.info(
+                    "Created GitHub native stack #%s", result.get("number", "unknown")
+                )
+                return
+
+            current = self._remote_stack_pr_numbers(stack)
+            delta = pr_numbers[len(current) :]
+            if not delta:
+                return
+            result = await self.github.apost(
+                f"{path}/{stack['number']}/add",
+                pull_requests=[int(n) for n in delta],
+            )
+            logging.info(
+                "Added %d pull request(s) to GitHub native stack #%s",
+                len(delta),
+                result.get("number", stack["number"]),
+            )
+        except ghstack.github.NotFoundError:
+            logging.info("GitHub native stacks are not enabled for this repository")
+        except RuntimeError as e:
+            logging.warning("Failed to update GitHub native stack: %s", e)
 
     # TODO: do the tree formatting minigame
     # Main things:

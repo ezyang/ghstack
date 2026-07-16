@@ -75,6 +75,7 @@ CreatePullRequestPayload = TypedDict(
 class GitHubState:
     repositories: Dict[GraphQLId, "Repository"]
     pull_requests: Dict[GraphQLId, "PullRequest"]
+    native_stacks: Dict[int, "NativeStack"]
     # This is very inefficient but whatever
     issue_comments: Dict[GraphQLId, "IssueComment"]
     _next_id: int
@@ -83,6 +84,7 @@ class GitHubState:
     _next_issue_comment_full_database_id: Dict[GraphQLId, int]
     root: "Root"
     upstream_sh: Optional[ghstack.shell.Shell]
+    native_stacks_enabled: bool
 
     def repository(self, owner: str, name: str) -> "Repository":
         nameWithOwner = "{}/{}".format(owner, name)
@@ -142,11 +144,13 @@ class GitHubState:
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
         self.repositories = {}
         self.pull_requests = {}
+        self.native_stacks = {}
         self.issue_comments = {}
         self._next_id = 5000
         self._next_pull_request_number = {}
         self._next_issue_comment_full_database_id = {}
         self.root = Root()
+        self.native_stacks_enabled = False
 
         # Populate it with the most important repo ;)
         repo = Repository(
@@ -297,6 +301,12 @@ class PullRequestConnection:
     nodes: List[PullRequest]
 
 
+@dataclass
+class NativeStack:
+    number: int
+    pull_requests: List[GitHubNumber]
+
+
 class Root:
     def repository(self, info: GraphQLResolveInfo, owner: str, name: str) -> Repository:
         return github_state(info).repository(owner, name)
@@ -417,10 +427,65 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "title" in input and input["title"] is not None:
             pr.title = input["title"]
         if "base" in input and input["base"] is not None:
+            if any(
+                number in stack.pull_requests for stack in state.native_stacks.values()
+            ):
+                raise RuntimeError("Native stacks own pull request base branches")
             pr.baseRefName = input["base"]
             pr.baseRef = await repo._make_ref_async(state, pr.baseRefName)
         if "body" in input and input["body"] is not None:
             pr.body = input["body"]
+
+    def _native_stack_payload(
+        self, state: GitHubState, stack: NativeStack
+    ) -> Dict[str, Any]:
+        repo = state.repository("pytorch", "pytorch")
+        pull_requests = [
+            state.pull_request(repo, number) for number in stack.pull_requests
+        ]
+        return {
+            "id": stack.number,
+            "number": stack.number,
+            "pull_requests": [{"number": pr.number} for pr in pull_requests],
+        }
+
+    def _validate_native_stack(
+        self, state: GitHubState, pull_requests: Sequence[GitHubNumber]
+    ) -> None:
+        if len(pull_requests) < 2:
+            raise RuntimeError("Stack must contain at least two pull requests")
+        repo = state.repository("pytorch", "pytorch")
+        prs = [state.pull_request(repo, number) for number in pull_requests]
+        for lower, upper in zip(prs, prs[1:]):
+            if upper.baseRefName != lower.headRefName:
+                raise RuntimeError("Pull requests must form a stack")
+
+    def _create_native_stack(
+        self, state: GitHubState, pull_requests: Sequence[int]
+    ) -> Dict[str, Any]:
+        numbers = [GitHubNumber(number) for number in pull_requests]
+        self._validate_native_stack(state, numbers)
+        stacked = {
+            number
+            for stack in state.native_stacks.values()
+            for number in stack.pull_requests
+        }
+        if any(number in stacked for number in numbers):
+            raise RuntimeError("Pull requests are already part of a stack")
+        repo = state.repository("pytorch", "pytorch")
+        number = int(state.next_pull_request_number(repo.id))
+        stack = NativeStack(number=number, pull_requests=numbers)
+        state.native_stacks[number] = stack
+        return self._native_stack_payload(state, stack)
+
+    def _add_to_native_stack(
+        self, state: GitHubState, stack_number: int, pull_requests: Sequence[int]
+    ) -> Dict[str, Any]:
+        stack = state.native_stacks[stack_number]
+        additions = [GitHubNumber(number) for number in pull_requests]
+        self._validate_native_stack(state, [stack.pull_requests[-1], *additions])
+        stack.pull_requests.extend(additions)
+        return self._native_stack_payload(state, stack)
 
     async def _create_issue_comment_async(
         self, owner: str, name: str, comment_id: int, input: CreateIssueCommentInput
@@ -467,6 +532,21 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
     async def _arest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
         if method == "get":
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/stacks(?:\?pull_request=([0-9]+))?$",
+                path,
+            ):
+                if not self.state.native_stacks_enabled:
+                    raise ghstack.github.NotFoundError()
+                pull_request = (
+                    GitHubNumber(int(m.group(3))) if m.group(3) is not None else None
+                )
+                stacks = [
+                    self._native_stack_payload(self.state, stack)
+                    for stack in self.state.native_stacks.values()
+                    if pull_request is None or pull_request in stack.pull_requests
+                ]
+                return stacks
             m = re.match(r"^repos/([^/]+)/([^/]+)/branches/([^/]+)/protection", path)
             if m:
                 # For now, pretend all branches are not protected
@@ -497,6 +577,18 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 }
 
         elif method == "post":
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/stacks$", path):
+                if not self.state.native_stacks_enabled:
+                    raise ghstack.github.NotFoundError()
+                return self._create_native_stack(self.state, kwargs["pull_requests"])
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/stacks/([0-9]+)/add$", path):
+                if not self.state.native_stacks_enabled:
+                    raise ghstack.github.NotFoundError()
+                return self._add_to_native_stack(
+                    self.state,
+                    int(m.group(3)),
+                    kwargs["pull_requests"],
+                )
             if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
                 return await self._create_pull_async(
                     m.group(1), m.group(2), cast(CreatePullRequestInput, kwargs)

@@ -80,6 +80,18 @@ You can also setup a GitHub action to allow a bot land.
 [ghstack_land_example](https://github.com/Chillee/ghstack_land_example/blob/main/.github/workflows/ghstack_land.yml)
 is an end-to-end example of how to do this.
 
+## GitHub native stacked PRs
+
+When direct mode is enabled with `--direct` or `.github/ghstack_direct`,
+ghstack links chains of two or more pull requests using GitHub's native Stack
+API. Existing native stacks are reused, and newly submitted pull requests are
+appended to the top. Repositories where native stacked PRs are not enabled
+continue to use the existing direct-mode behavior.
+
+GitHub owns a pull request's base branch while it belongs to a native stack.
+To reorder a submitted stack or otherwise change an existing PR's base,
+unstack it in the GitHub UI before rerunning ghstack.
+
 ## Structure of submitted pull requests
 
 Every commit in your local commit stack gets submitted into a separate
