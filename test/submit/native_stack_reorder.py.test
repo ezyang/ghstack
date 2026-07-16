@@ -1,0 +1,25 @@
+from ghstack.test_prelude import *
+
+await init_test()
+enable_native_stacks()
+
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial")
+
+if is_direct():
+    await checkout(GitCommitHash("HEAD~~"))
+    await cherry_pick(B)
+    await cherry_pick(A)
+    await assert_expected_raises_inline(
+        RuntimeError,
+        gh_submit,
+        """\
+The GitHub native stack has a different pull request order. Native stacks own their pull requests' base branches, so ghstack cannot reorder it directly. Unstack it in the GitHub UI, then rerun ghstack.""",
+        "Reorder",
+    )
+    assert_eq(get_native_stacks(), [[500, 501]])
+else:
+    assert_eq(get_native_stacks(), [])
+
+ok()

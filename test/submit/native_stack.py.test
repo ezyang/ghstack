@@ -1,0 +1,25 @@
+from ghstack.test_prelude import *
+
+await init_test()
+enable_native_stacks()
+
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial")
+
+if is_direct():
+    assert_eq(get_native_stacks(), [[500, 501]])
+
+    await gh_submit("No changes")
+    assert_eq(get_native_stacks(), [[500, 501]])
+
+    await commit("C")
+    A2, B2, C = await gh_submit("Append")
+    assert_eq(A.number, A2.number)
+    assert_eq(B.number, B2.number)
+    assert_eq(C.number, 503)
+    assert_eq(get_native_stacks(), [[500, 501, 503]])
+else:
+    assert_eq(get_native_stacks(), [])
+
+ok()
