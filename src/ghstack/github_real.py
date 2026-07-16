@@ -224,6 +224,8 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
             async with getattr(session, method)(url, **request_kwargs) as resp:
                 logging.debug("%s response status: %s", log_prefix, resp.status)
+                if resp.status == 204:
+                    return None
                 try:
                     r = await resp.json()
                 except (aiohttp.ContentTypeError, ValueError):

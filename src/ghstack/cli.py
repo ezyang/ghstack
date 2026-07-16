@@ -111,6 +111,13 @@ def cli_context(
     help="Create stack that directly merges into main",
 )
 @click.option(
+    "--github-stacks/--no-github-stacks",
+    "github_stacks_opt",
+    is_flag=True,
+    default=None,
+    help="Link submitted PRs into a native GitHub stack (requires --direct)",
+)
+@click.option(
     "--base",
     "-B",
     default=None,
@@ -141,6 +148,7 @@ def main(
     short: bool,
     force: bool,
     direct_opt: Optional[bool],
+    github_stacks_opt: Optional[bool],
     no_skip: bool,
     draft: bool,
     base: Optional[str],
@@ -166,6 +174,7 @@ def main(
             base=base,
             stack=stack,
             direct_opt=direct_opt,
+            github_stacks_opt=github_stacks_opt,
             reviewer=reviewer,
             label=label,
         )
@@ -506,6 +515,14 @@ def status(pull_request: str) -> None:
     help="Create stack that directly merges into main",
 )
 @click.option(
+    "--github-stacks/--no-github-stacks",
+    "github_stacks_opt",
+    default=None,
+    is_flag=True,
+    help="Link submitted PRs into a native GitHub stack (requires --direct and "
+    "a repository with GitHub Stacks enabled; overrides .ghstackrc setting)",
+)
+@click.option(
     "--no-fetch",
     is_flag=True,
     help="Skip fetching remote refs (faster when you know local refs are up-to-date)",
@@ -523,6 +540,7 @@ def submit(
     no_skip: bool,
     draft: bool,
     direct_opt: Optional[bool],
+    github_stacks_opt: Optional[bool],
     base: Optional[str],
     revs: Tuple[str, ...],
     stack: bool,
@@ -553,6 +571,11 @@ def submit(
                     revs=revs,
                     stack=stack,
                     direct_opt=direct_opt,
+                    github_stacks=(
+                        github_stacks_opt
+                        if github_stacks_opt is not None
+                        else config.github_stacks
+                    ),
                     reviewer=reviewer if reviewer is not None else config.reviewer,
                     label=label if label is not None else config.label,
                     no_fetch=no_fetch,

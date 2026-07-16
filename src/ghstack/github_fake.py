@@ -71,10 +71,20 @@ CreatePullRequestPayload = TypedDict(
 )
 
 
+# A native GitHub stack (the REST resource behind `gh stack`).  Stack
+# numbers are allocated from the same sequence as PR numbers.
+@dataclass
+class PullRequestStack:
+    number: GitHubNumber
+    _repository: GraphQLId
+    pull_request_numbers: List[GitHubNumber]
+
+
 # The "database" for our mock instance
 class GitHubState:
     repositories: Dict[GraphQLId, "Repository"]
     pull_requests: Dict[GraphQLId, "PullRequest"]
+    stacks: Dict[GitHubNumber, "PullRequestStack"]
     # This is very inefficient but whatever
     issue_comments: Dict[GraphQLId, "IssueComment"]
     _next_id: int
@@ -142,6 +152,7 @@ class GitHubState:
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
         self.repositories = {}
         self.pull_requests = {}
+        self.stacks = {}
         self.issue_comments = {}
         self._next_id = 5000
         self._next_pull_request_number = {}
@@ -417,6 +428,14 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "title" in input and input["title"] is not None:
             pr.title = input["title"]
         if "base" in input and input["base"] is not None:
+            # Real GitHub rejects any PATCH with a base field on a PR that
+            # is part of a native stack, even if the value is unchanged
+            for stack in state.stacks.values():
+                if number in stack.pull_request_numbers:
+                    raise RuntimeError(
+                        "Cannot change the base branch because the pull "
+                        "request is part of a stack (HTTP 422)"
+                    )
             pr.baseRefName = input["base"]
             pr.baseRef = await repo._make_ref_async(state, pr.baseRefName)
         if "body" in input and input["body"] is not None:
@@ -450,6 +469,79 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         comment = state.issue_comment(repo, comment_id)
         if (r := input.get("body")) is not None:
             comment.body = r
+
+    def _dump_stack(self, owner: str, name: str, stack: PullRequestStack) -> Any:
+        state = self.state
+        repo = state.repository(owner, name)
+        prs = [state.pull_request(repo, n) for n in stack.pull_request_numbers]
+        return {
+            "number": stack.number,
+            "base": {"ref": prs[0].baseRefName},
+            "open": True,
+            "pull_requests": [
+                {
+                    "number": pr.number,
+                    "state": "closed" if pr.closed else "open",
+                    "head": {"ref": pr.headRefName},
+                    "base": {"ref": pr.baseRefName},
+                }
+                for pr in prs
+            ],
+        }
+
+    # Mimics the base-chaining rule the real server enforces on both
+    # create and add: each PR's base ref must be the previous PR's head ref
+    def _validate_stack_chain(
+        self, repo: Repository, numbers: List[GitHubNumber], prev_head: Optional[str]
+    ) -> None:
+        state = self.state
+        for number in numbers:
+            for stack in state.stacks.values():
+                if number in stack.pull_request_numbers:
+                    raise RuntimeError(
+                        f"Pull request #{number} is already in a stack (HTTP 422)"
+                    )
+            pr = state.pull_request(repo, number)
+            if prev_head is not None and pr.baseRefName != prev_head:
+                raise RuntimeError(
+                    "Pull requests must form a stack, where each PR's base ref "
+                    "is the previous PR's head ref (HTTP 422)"
+                )
+            prev_head = pr.headRefName
+
+    async def _create_stack_async(
+        self, owner: str, name: str, pull_requests: List[int]
+    ) -> Any:
+        state = self.state
+        repo = state.repository(owner, name)
+        numbers = [GitHubNumber(n) for n in pull_requests]
+        if len(numbers) < 2:
+            raise RuntimeError("A stack must contain at least two PRs (HTTP 422)")
+        self._validate_stack_chain(repo, numbers, None)
+        number = state.next_pull_request_number(repo.id)
+        stack = PullRequestStack(
+            number=number,
+            _repository=repo.id,
+            pull_request_numbers=numbers,
+        )
+        state.stacks[number] = stack
+        return self._dump_stack(owner, name, stack)
+
+    async def _add_to_stack_async(
+        self,
+        owner: str,
+        name: str,
+        stack_number: GitHubNumber,
+        pull_requests: List[int],
+    ) -> Any:
+        state = self.state
+        repo = state.repository(owner, name)
+        stack = state.stacks[stack_number]
+        numbers = [GitHubNumber(n) for n in pull_requests]
+        top = state.pull_request(repo, stack.pull_request_numbers[-1])
+        self._validate_stack_chain(repo, numbers, top.headRefName)
+        stack.pull_request_numbers.extend(numbers)
+        return self._dump_stack(owner, name, stack)
 
     # NB: This may have a payload, but we don't
     # use it so I didn't bother constructing it.
@@ -495,6 +587,18 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     "id": comment.fullDatabaseId,
                     "body": comment.body,
                 }
+            if m := re.match(
+                r"^repos/([^/]+)/([^/]+)/stacks\?pull_request=(\d+)$", path
+            ):
+                pr_number = int(m.group(3))
+                return [
+                    self._dump_stack(m.group(1), m.group(2), stack)
+                    for stack in self.state.stacks.values()
+                    if pr_number in stack.pull_request_numbers
+                ]
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/stacks/(\d+)$", path):
+                stack = self.state.stacks[GitHubNumber(int(m.group(3)))]
+                return self._dump_stack(m.group(1), m.group(2), stack)
 
         elif method == "post":
             if m := re.match(r"^repos/([^/]+)/([^/]+)/pulls$", path):
@@ -518,6 +622,20 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 reviewers = kwargs.get("reviewers", [])
                 pr.reviewers.extend(reviewers)
                 return {}
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/stacks$", path):
+                return await self._create_stack_async(
+                    m.group(1), m.group(2), kwargs["pull_requests"]
+                )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/stacks/(\d+)/add$", path):
+                return await self._add_to_stack_async(
+                    m.group(1),
+                    m.group(2),
+                    GitHubNumber(int(m.group(3))),
+                    kwargs["pull_requests"],
+                )
+            if m := re.match(r"^repos/([^/]+)/([^/]+)/stacks/(\d+)/unstack$", path):
+                del self.state.stacks[GitHubNumber(int(m.group(3)))]
+                return None
             if m := re.match(r"^repos/([^/]+)/([^/]+)/issues/([^/]+)/labels", path):
                 # Handle adding labels
                 state = self.state
