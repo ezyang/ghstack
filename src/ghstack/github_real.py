@@ -224,12 +224,11 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
 
             async with getattr(session, method)(url, **request_kwargs) as resp:
                 logging.debug("%s response status: %s", log_prefix, resp.status)
+                resp_text = await resp.text()
                 try:
-                    r = await resp.json()
-                except (aiohttp.ContentTypeError, ValueError):
-                    logging.debug(
-                        "%s response body:\n%s", log_prefix, await resp.text()
-                    )
+                    r = json.loads(resp_text)
+                except ValueError:
+                    logging.debug("%s response body:\n%s", log_prefix, resp_text)
                     raise
                 else:
                     pretty_json = json.dumps(r, indent=1)
@@ -251,7 +250,7 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                     # GitHub doesn't document the content of these messages, but this
                     # seems to be an accurate way to find secondary rate limits.  Any
                     # other reason for 403 or 429 will fall through to the error below.
-                    elif b"rate limit" in resp.content.lower():
+                    elif "rate limit" in resp_text.lower():
                         retry_after_seconds = resp.headers.get("retry-after")
                         if retry_after_seconds:
                             sleep_time = int(retry_after_seconds)
