@@ -522,10 +522,11 @@ class Submitter:
     async def _initialize_direct(self, pr_info_cache: Dict[GitHubNumber, Any]) -> None:
         direct = self.direct_opt
         if direct is None:
-            direct = await self.sh.agit(
+            direct_r = await self.sh.agit(
                 "cat-file", "-e", "HEAD:.github/ghstack_direct", exitcode=True
             )
-            assert isinstance(direct, bool)
+            assert isinstance(direct_r, bool)
+            direct = direct_r
         if self.direct_opt is None and not direct:
             styles = {
                 re.fullmatch(r"gh/[^/]+/[0-9]+/base", base_ref) is None
