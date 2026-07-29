@@ -516,8 +516,10 @@ class Submitter:
 
         object.__setattr__(self, "base", default_branch)
 
-        # Check if direct should be used, if the user didn't explicitly
-        # specify an option
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # The main algorithm
+
+    async def _initialize_direct(self, pr_info_cache: Dict[GitHubNumber, Any]) -> None:
         direct = self.direct_opt
         if direct is None:
             direct_r = await self.sh.agit(
@@ -525,11 +527,21 @@ class Submitter:
             )
             assert isinstance(direct_r, bool)
             direct = direct_r
-
+        if self.direct_opt is None and not direct:
+            styles = {
+                re.fullmatch(r"gh/[^/]+/[0-9]+/base", base_ref) is None
+                for pr_info in pr_info_cache.values()
+                if (base_ref := self._pr_ref_name(pr_info, "base")) is not None
+            }
+            if len(styles) > 1:
+                raise RuntimeError(
+                    "Cannot infer ghstack submission style: the stack contains "
+                    "both direct and non-direct pull requests. Pass --direct or "
+                    "--no-direct explicitly."
+                )
+            if styles:
+                direct = styles.pop()
         object.__setattr__(self, "direct", direct)
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~
-    # The main algorithm
 
     async def run(self) -> List[DiffMeta]:
         timer = _Timer() if _TIMING_ENABLED else None
@@ -601,6 +613,7 @@ class Submitter:
         )
 
         pr_info_cache = await self._prefetch_pr_info(commits_to_rebase)
+        await self._initialize_direct(pr_info_cache)
         if not self.no_fetch:
             await self._fetch_foreign_pr_refs(pr_info_cache.values())
 
