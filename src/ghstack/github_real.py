@@ -13,9 +13,6 @@ import aiohttp
 
 import ghstack.github
 
-MAX_RETRIES = 5
-INITIAL_BACKOFF_SECONDS = 60
-
 
 class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     """
@@ -61,6 +58,9 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
     cert: Optional[Union[str, Tuple[str, str]]]
     _session: Optional[aiohttp.ClientSession]
 
+    max_retries: int
+    initial_backoff_seconds: int
+
     def __init__(
         self,
         oauth_token: Optional[str],
@@ -68,12 +68,16 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         proxy: Optional[str] = None,
         verify: Optional[Union[str, bool]] = None,
         cert: Optional[Union[str, Tuple[str, str]]] = None,
+        max_retries: int = 5,
+        initial_backoff_seconds: int = 60,
     ):
         self.oauth_token = oauth_token
         self.proxy = proxy
         self.github_url = github_url
         self.verify = verify
         self.cert = cert
+        self.max_retries = max_retries
+        self.initial_backoff_seconds = initial_backoff_seconds
         self._rest_request_ids = itertools.count(1)
         self._session = None
 
@@ -212,11 +216,11 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if aiohttp_ssl is not None:
             request_kwargs["ssl"] = aiohttp_ssl
 
-        backoff_seconds = INITIAL_BACKOFF_SECONDS
+        backoff_seconds = self.initial_backoff_seconds
         request_id = next(self._rest_request_ids)
         log_prefix = f"rest[{request_id}]"
         session = self._get_session()
-        for attempt in range(0, MAX_RETRIES):
+        for attempt in range(0, self.max_retries):
             logging.debug("# %s %s %s", log_prefix, method, url)
             logging.debug(
                 "%s request body:\n%s", log_prefix, json.dumps(kwargs, indent=1)
@@ -239,14 +243,16 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 if resp.status in (403, 429):
                     remaining_count = resp.headers.get("x-ratelimit-remaining")
                     reset_time = resp.headers.get("x-ratelimit-reset")
+                    more_attempts = attempt < self.max_retries - 1
 
                     if remaining_count == "0" and reset_time:
-                        sleep_time = int(reset_time) - int(time.time())
-                        logging.warning(
-                            f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
-                        )
-                        await asyncio.sleep(sleep_time)
-                        continue
+                        sleep_time = max(0, int(reset_time) - int(time.time()))
+                        if more_attempts:
+                            logging.warning(
+                                f"Rate limit exceeded. Sleeping until reset in {sleep_time} seconds."
+                            )
+                            await asyncio.sleep(sleep_time)
+                            continue
                     # GitHub doesn't document the content of these messages, but this
                     # seems to be an accurate way to find secondary rate limits.  Any
                     # other reason for 403 or 429 will fall through to the error below.
@@ -254,17 +260,15 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                         retry_after_seconds = resp.headers.get("retry-after")
                         if retry_after_seconds:
                             sleep_time = int(retry_after_seconds)
+                        else:
+                            sleep_time = backoff_seconds
+                            backoff_seconds *= 2
+                        if more_attempts:
                             logging.warning(
                                 f"Secondary rate limit hit. Sleeping for {sleep_time} seconds."
                             )
-                        else:
-                            sleep_time = backoff_seconds
-                            logging.warning(
-                                f"Secondary rate limit hit. Sleeping for {sleep_time} seconds (exponential backoff)."
-                            )
-                            backoff_seconds *= 2
-                        await asyncio.sleep(sleep_time)
-                        continue
+                            await asyncio.sleep(max(0, sleep_time))
+                            continue
 
                 if resp.status == 404:
                     raise ghstack.github.NotFoundError(
