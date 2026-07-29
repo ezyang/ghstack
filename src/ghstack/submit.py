@@ -445,6 +445,12 @@ class Submitter:
     # Command to generate a per-PR update description from diff contents.
     automsg: Optional[str] = None
 
+    # Link submitted PRs into a native GitHub stack.  Only has an effect
+    # with --direct, because GitHub requires each PR's base ref to be the
+    # previous PR's head ref, which non-direct ghstack branches don't
+    # satisfy.  Requires the repository to have GitHub Stacks enabled.
+    github_stacks: bool = False
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
     # Computed in post init
 
@@ -2061,7 +2067,10 @@ Current PR description:
             )
             base_kwargs = {}
             if self.direct:
-                base_kwargs["base"] = s.base
+                # Don't send no-op base updates: GitHub rejects any PATCH
+                # containing the base field on a PR in a native stack
+                if s.base != s.elab_diff.base_ref:
+                    base_kwargs["base"] = s.base
             else:
                 assert s.base == s.elab_diff.base_ref
             stack_desc = self._format_stack(
@@ -2100,7 +2109,27 @@ Current PR description:
                     ),
                 )
 
+        # GitHub rejects base changes on PRs in a native stack, so any PR
+        # we are about to retarget must be unstacked first;
+        # _sync_github_stack will recreate the stack afterwards
+        if self.github_stacks and self.direct:
+            retarget_numbers = [
+                s.number for s in diffs_to_submit if s.base != s.elab_diff.base_ref
+            ]
+            if retarget_numbers:
+                await self._unstack_prs(retarget_numbers)
+
         await _gather_ordered(_update_pr_async(s) for s in reversed(diffs_to_submit))
+
+        if self.github_stacks and diffs_to_submit:
+            if self.direct:
+                await self._sync_github_stack(all_diffs or diffs_to_submit)
+            else:
+                logging.warning(
+                    "Not linking a GitHub stack: github_stacks requires --direct, "
+                    "because GitHub requires each PR to target the head branch of "
+                    "the PR below it"
+                )
 
         # Report what happened
         def format_url(s: DiffMeta) -> str:
@@ -2162,6 +2191,95 @@ Current PR description:
                 print(
                     "I did NOT close or update PRs previously associated with these commits."
                 )
+
+    # Dissolve any native GitHub stacks containing the given PRs.  Errors
+    # are non-fatal here: if a PR is genuinely stacked and unstacking
+    # failed, the subsequent base-changing PATCH will fail loudly anyway.
+    async def _unstack_prs(self, numbers: List[GitHubNumber]) -> None:
+        prefix = f"repos/{self.repo_owner}/{self.repo_name}/stacks"
+        try:
+            memberships = await _gather_ordered(
+                self.github.aget(f"{prefix}?pull_request={n}") for n in numbers
+            )
+            for stack_number in {s["number"] for r in memberships for s in r}:
+                await self.github.apost(f"{prefix}/{stack_number}/unstack")
+                logging.info(
+                    "Dissolved GitHub stack #%s to allow retargeting; it will "
+                    "be recreated after the update",
+                    stack_number,
+                )
+        except Exception:
+            logging.warning("Failed to unstack PRs", exc_info=True)
+
+    # Sync the current chain of PRs to a native GitHub stack (the
+    # first-class REST resource behind `gh stack`).  The server requires
+    # each PR's base ref to be the head ref of the PR below it, which is
+    # exactly what --direct submits produce.  Stack linking failures are
+    # never fatal: the PRs themselves are already submitted correctly.
+    async def _sync_github_stack(self, all_diffs: List[DiffMeta]) -> None:
+        # all_diffs is in topo order (top of stack first); the stacks API
+        # wants bottom-to-top
+        chain = list(reversed(all_diffs))
+        expected_base = self.base
+        for s in chain:
+            if s.base != expected_base:
+                logging.warning(
+                    "Not linking a GitHub stack: PR #%s targets %s but the PR "
+                    "below it ends at %s.  This usually means the stack is "
+                    "mid-restructure; resubmit the whole stack and try again.",
+                    s.number,
+                    s.base,
+                    expected_base,
+                )
+                return
+            expected_base = branch_head(s.username, s.ghnum)
+        numbers = [s.number for s in chain]
+        prefix = f"repos/{self.repo_owner}/{self.repo_name}/stacks"
+        try:
+            memberships = await _gather_ordered(
+                self.github.aget(f"{prefix}?pull_request={n}") for n in numbers
+            )
+            existing = {s["number"]: s for r in memberships for s in r}
+            if len(existing) == 1:
+                (stack,) = existing.values()
+                open_numbers = [
+                    pr["number"]
+                    for pr in stack["pull_requests"]
+                    if pr["state"] == "open"
+                ]
+                if open_numbers[: len(numbers)] == numbers:
+                    return
+                if numbers[: len(open_numbers)] == open_numbers:
+                    added = numbers[len(open_numbers) :]
+                    await self.github.apost(
+                        f"{prefix}/{stack['number']}/add", pull_requests=added
+                    )
+                    logging.info(
+                        "Added %s to GitHub stack #%s",
+                        ", ".join(f"#{n}" for n in added),
+                        stack["number"],
+                    )
+                    return
+            # The server has no reorder/remove endpoint, so any other
+            # restructure is unstack + recreate
+            for stack_number in existing:
+                await self.github.apost(f"{prefix}/{stack_number}/unstack")
+            if len(numbers) < 2:
+                return
+            r = await self.github.apost(prefix, pull_requests=numbers)
+            logging.info(
+                "Linked GitHub stack #%s: %s",
+                r["number"],
+                " <- ".join(f"#{n}" for n in numbers),
+            )
+        except ghstack.github.NotFoundError:
+            logging.warning(
+                "Not linking a GitHub stack: the stacks API returned 404, which "
+                "usually means GitHub Stacks is not enabled on this repository "
+                "(it is in private preview; see https://github.github.com/gh-stack/)"
+            )
+        except Exception:
+            logging.warning("Failed to link GitHub stack", exc_info=True)
 
     async def check_invariants_for_diff(
         self,
