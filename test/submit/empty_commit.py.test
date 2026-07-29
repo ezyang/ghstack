@@ -1,14 +1,14 @@
 from ghstack.test_prelude import *
 
-git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
-commit("B")
+await git("commit", "--allow-empty", "-m", "Commit 1\n\nThis is my first commit")
+await commit("B")
 
 if is_direct():
     # TODO: NYI
     pass
 else:
-    gh_submit("Initial")
-    assert_github_state(
+    await gh_submit("Initial")
+    await assert_github_state(
         """\
         [O] #500 Commit B (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -17,15 +17,15 @@ else:
 
             This is commit B
 
-            * ea3fb27 Initial
+            * 7e83dce [INITIAL] Initial
 
         Repository state:
 
-            * ea3fb27 (gh/ezyang/1/head)
-            |    Initial
+            * 7e83dce (gh/ezyang/1/head)
+            |    [INITIAL] Initial
             * 11e6d4d (gh/ezyang/1/base)
             |    Initial (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )

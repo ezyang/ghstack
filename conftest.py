@@ -1,10 +1,11 @@
 # mypy: ignore-errors
 
+import asyncio
 import pathlib
-import runpy
 
 import expecttest
 
+import ghstack.async_script
 import ghstack.test_prelude
 
 import pytest
@@ -23,7 +24,7 @@ def pytest_collect_file(file_path: pathlib.Path, parent):
 class Script(pytest.File):
     def collect(self):
         yield ScriptItem.from_parent(self, name="default", direct=False)
-        if self.path.parent.name in ["submit", "unlink"]:
+        if self.path.parent.name in ["submit", "unlink", "log", "sync"]:
             yield ScriptItem.from_parent(self, name="direct", direct=True)
 
 
@@ -33,9 +34,12 @@ class ScriptItem(pytest.Item):
         self.direct = direct
 
     def runtest(self):
-        with ghstack.test_prelude.scoped_test(direct=self.direct):
+        asyncio.run(self.aruntest())
+
+    async def aruntest(self):
+        async with ghstack.test_prelude.scoped_test(direct=self.direct):
             expecttest.EDIT_HISTORY.reload_file(self.fspath)
-            runpy.run_path(self.fspath)
+            await ghstack.async_script.run_path(str(self.fspath))
 
     def repr_failure(self, excinfo):
         excinfo.traceback = excinfo.traceback.cut(path=self.fspath)

@@ -12,7 +12,7 @@ class NotFoundError(RuntimeError):
 
 class GitHubEndpoint(metaclass=ABCMeta):
     @abstractmethod
-    def graphql(self, query: str, **kwargs: Any) -> Any:
+    async def graphql(self, query: str, **kwargs: Any) -> Any:
         """
         Args:
             query: string GraphQL query to execute
@@ -22,13 +22,13 @@ class GitHubEndpoint(metaclass=ABCMeta):
         """
         pass
 
-    def get_head_ref(self, **params: Any) -> str:
+    async def get_head_ref(self, **params: Any) -> str:
         """
         Fetch the headRefName associated with a PR.  Defaults to a
         GraphQL query but if we're hitting a real GitHub endpoint
         we'll do a regular HTTP request to avoid rate limit.
         """
-        pr_result = self.graphql(
+        pr_result = await self.graphql(
             """
             query ($owner: String!, $name: String!, $number: Int!) {
                 repository(name: $name, owner: $owner) {
@@ -58,34 +58,19 @@ class GitHubEndpoint(metaclass=ABCMeta):
     def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         pass
 
-    def get(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a GET request to endpoint 'path'.
+    async def aget(self, path: str, **kwargs: Any) -> Any:
+        return await self.arest("get", path, **kwargs)
 
-        Returns: parsed JSON response
-        """
-        return self.rest("get", path, **kwargs)
+    async def apost(self, path: str, **kwargs: Any) -> Any:
+        return await self.arest("post", path, **kwargs)
 
-    def post(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a POST request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self.rest("post", path, **kwargs)
-
-    def patch(self, path: str, **kwargs: Any) -> Any:
-        """
-        Send a PATCH request to endpoint 'path'.
-
-        Returns: parsed JSON response
-        """
-        return self.rest("patch", path, **kwargs)
+    async def apatch(self, path: str, **kwargs: Any) -> Any:
+        return await self.arest("patch", path, **kwargs)
 
     @abstractmethod
-    def rest(self, method: str, path: str, **kwargs: Any) -> Any:
+    async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
         """
-        Send a 'method' request to endpoint 'path'.
+        Send an async 'method' request to endpoint 'path'.
 
         Args:
             method: 'GET', 'POST', etc.

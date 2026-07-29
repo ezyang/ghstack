@@ -1,0 +1,26 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+(A,) = await gh_submit("Initial")
+old_orig = A.orig
+
+await write_file_and_add("remote.txt", "remote change")
+await git("commit", "--amend", "--no-edit")
+await gh_submit("Remote update")
+
+await checkout(old_orig)
+await write_file_and_add("local.txt", "local change")
+await git("commit", "--amend", "--no-edit")
+
+await gh_pull()
+
+assert_eq(await git("show", "HEAD:remote.txt"), "remote change")
+assert_eq(await git("show", "HEAD:local.txt"), "local change")
+
+# The pulled commit records that it is based on the latest remote orig, so a
+# normal submit should not need --force.
+await gh_submit("Local update")
+
+ok()
