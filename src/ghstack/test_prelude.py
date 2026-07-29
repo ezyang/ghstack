@@ -122,9 +122,9 @@ class Context:
     github: ghstack.github.GitHubEndpoint
     upstream_sh: ghstack.shell.Shell
     sh: ghstack.shell.Shell
-    direct: bool
+    direct: Optional[bool]
 
-    def __init__(self, direct: bool) -> None:
+    def __init__(self, direct: Optional[bool]) -> None:
         # Set up a "parent" repository with an empty initial commit that we'll operate on
         upstream_dir = tempfile.mkdtemp()
         self.upstream_sh = ghstack.shell.Shell(cwd=upstream_dir, testing=True)
@@ -154,7 +154,7 @@ class Context:
                 onerror=handle_remove_read_only,
             )
 
-    async def check_global_github_invariants(self, direct: bool) -> None:
+    async def check_global_github_invariants(self, direct: Optional[bool]) -> None:
         r = await self.github.graphql(
             """
           query {
@@ -177,7 +177,7 @@ class Context:
                 continue
             # In direct mode, only head refs may not be reused;
             # base refs can be reused in octopus situations
-            if not direct:
+            if direct is False:
                 assert pr["baseRefName"] not in seen_refs
                 seen_refs.add(pr["baseRefName"])
             assert pr["headRefName"] not in seen_refs
@@ -200,7 +200,7 @@ async def init_test() -> Context:
 
 
 @contextlib.asynccontextmanager
-async def scoped_test(direct: bool) -> AsyncIterator[None]:
+async def scoped_test(direct: Optional[bool]) -> AsyncIterator[None]:
     global CTX
     assert CTX is None
     try:
@@ -224,8 +224,10 @@ async def gh_submit(
     reviewer: Optional[str] = None,
     label: Optional[str] = None,
     automsg: Optional[str] = None,
+    **submit_kwargs: Any,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
+    direct_opt = submit_kwargs.pop("direct_opt", self.direct)
     r = await ghstack.submit.main(
         msg=msg,
         username="ezyang",
@@ -236,7 +238,7 @@ async def gh_submit(
         repo_owner_opt="pytorch",
         repo_name_opt="pytorch",
         short=short,
-        direct_opt=self.direct,
+        direct_opt=direct_opt,
         no_skip=no_skip,
         github_url="github.com",
         remote_name="origin",
@@ -247,6 +249,7 @@ async def gh_submit(
         reviewer=reviewer,
         label=label,
         automsg=automsg,
+        **submit_kwargs,
     )
     await self.check_global_github_invariants(self.direct)
     return r
@@ -451,7 +454,7 @@ async def assert_github_state(expect: str, *, skip: int = 0) -> None:
     assert_expected_inline(await dump_github(), expect, skip=skip + 1)
 
 
-def is_direct() -> bool:
+def is_direct() -> Optional[bool]:
     return CTX.direct
 
 

@@ -2,7 +2,7 @@
 
 ## Lint
 
-Run `python -m black src/ghstack/` and `python -m flake8 src/ghstack/` to fix and check lint before committing. If lint fixes are needed after a commit, amend the commit rather than creating a separate lint fix commit.
+Run `uv run --frozen lintrunner --all-files` to reproduce CI lint locally before committing. Invoke lintrunner through `uv run` unless the project virtual environment is active; otherwise its Python-based linters may use a system Python without the development dependencies. To apply formatter fixes, run `uv run --frozen lintrunner format --all-files`, then rerun the full lint command. If lint fixes are needed after a commit, amend the commit rather than creating a separate lint fix commit.
 
 ## Tests
 
