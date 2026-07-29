@@ -1,0 +1,11 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+await gh_submit("Initial", direct_opt=True)
+
+await amend("A2")
+await gh_submit("Update")
+
+ok()

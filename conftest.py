@@ -17,15 +17,29 @@ import pytest
 def pytest_collect_file(file_path: pathlib.Path, parent):
     # NB: script name must not end with py, due to doctest picking it
     # up in that case
-    if file_path.suffixes == [".py", ".test"]:
+    if file_path.name.endswith(".py.test"):
         return Script.from_parent(parent, path=file_path)
 
 
 class Script(pytest.File):
     def collect(self):
-        yield ScriptItem.from_parent(self, name="default", direct=False)
-        if self.path.parent.name in ["submit", "unlink", "log", "sync"]:
-            yield ScriptItem.from_parent(self, name="direct", direct=True)
+        if self.path.name.endswith(".unparametrized.py.test"):
+            direct_values = [None]
+        else:
+            direct_values = [False]
+            if self.path.parent.name in ["submit", "unlink", "log", "sync"]:
+                direct_values.append(True)
+
+        for direct in direct_values:
+            yield ScriptItem.from_parent(
+                self,
+                name=(
+                    "unparametrized"
+                    if direct is None
+                    else "direct" if direct else "default"
+                ),
+                direct=direct,
+            )
 
 
 class ScriptItem(pytest.Item):
