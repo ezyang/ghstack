@@ -32,7 +32,10 @@ async def get_github_repo_name_with_owner(
     # where commits will actually be pushed to
     remote_url = await sh.agit("remote", "get-url", "--push", remote_name)
     while True:
-        match = r"^git@{github_url}:/?([^/]+)/(.+?)(?:\.git)?$".format(
+        # The SSH user can be "git" (e.g. git@github.com:owner/repo.git) or an
+        # arbitrary identity such as the org-scoped deploy user GitHub now hands
+        # out (e.g. org-21003710@github.com:owner/repo.git), so match any user.
+        match = r"^[^@]+@{github_url}:/?([^/]+)/(.+?)(?:\.git)?$".format(
             github_url=github_url
         )
         m = re.match(match, remote_url)
@@ -175,7 +178,9 @@ GitHubPullRequestParams = TypedDict(
 def _normalize_remote_url(remote_url: str) -> str:
     """Convert SSH remote URL to HTTPS format, strip .git suffix."""
     # git@github.com:owner/repo.git -> https://github.com/owner/repo
-    m = re.match(r"^git@([^:]+):/?(.+?)(?:\.git)?$", remote_url)
+    # The SSH user may be "git" or an org-scoped identity such as
+    # org-21003710@github.com:owner/repo.git, so match any user.
+    m = re.match(r"^[^@]+@([^:]+):/?(.+?)(?:\.git)?$", remote_url)
     if m:
         return f"https://{m.group(1)}/{m.group(2)}"
     return re.sub(r"\.git$", "", remote_url)

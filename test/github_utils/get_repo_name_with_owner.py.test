@@ -70,3 +70,21 @@ assert_eq(
     ),
     {"owner": "ezyang", "name": "ghstack"},
 )
+# The classic "git" SSH user.
+await git("remote", "add", "ssh-git-user", "git@github.com:pytorch/pytorch.git")
+assert_eq(
+    await ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="ssh-git-user"
+    ),
+    {"owner": "pytorch", "name": "pytorch"},
+)
+# The newer org-scoped SSH user (see ezyang/ghstack#360).
+await git(
+    "remote", "add", "ssh-org-user", "org-21003710@github.com:pytorch/pytorch.git"
+)
+assert_eq(
+    await ghstack.github_utils.get_github_repo_name_with_owner(
+        sh=sh, github_url="github.com", remote_name="ssh-org-user"
+    ),
+    {"owner": "pytorch", "name": "pytorch"},
+)
