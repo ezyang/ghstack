@@ -46,10 +46,10 @@ async def main(
     #         to be any indication that a halt was called.  So we'll
     #         have to rely on the (OS X jobs, take note!)
 
-    params = ghstack.github_utils.parse_pull_request(pull_request)
+    params = await ghstack.github_utils.parse_pull_request(pull_request)
 
     # TODO: stop hard-coding number of commits
-    r = github.graphql(
+    r = await github.graphql(
         """
     query ($name: String!, $owner: String!, $number: Int!) {
         repository(name: $name, owner: $owner) {

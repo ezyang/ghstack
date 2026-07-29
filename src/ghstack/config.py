@@ -111,6 +111,8 @@ Config = NamedTuple(
         ("reviewer", Optional[str]),
         # Default labels to add to new pull requests (comma-separated labels)
         ("label", Optional[str]),
+        # Command to generate a per-PR update description from diff contents
+        ("automsg", Optional[str]),
     ],
 )
 
@@ -121,13 +123,7 @@ def get_path_from_env_var(var_name: str) -> Optional[Path]:
     return None
 
 
-def read_config(
-    *,
-    request_circle_token: bool = False,
-    request_github_token: bool = True,
-) -> Config:  # noqa: C901
-    config = configparser.ConfigParser()
-
+def find_config_path() -> Tuple[str, bool]:
     config_path = None
     current_dir = Path(os.getcwd())
 
@@ -144,6 +140,38 @@ def read_config(
             get_path_from_env_var(GHSTACKRC_PATH_VAR) or DEFAULT_GHSTACKRC_PATH
         )
         write_back = True
+
+    return config_path, write_back
+
+
+def update_config_option(option: str, value: Optional[str]) -> str:
+    config_path, _ = find_config_path()
+    config = configparser.ConfigParser()
+    config.read(config_path)
+
+    if not config.has_section("ghstack"):
+        config.add_section("ghstack")
+
+    if value is None:
+        if config.has_option("ghstack", option):
+            config.remove_option("ghstack", option)
+    else:
+        config.set("ghstack", option, value)
+
+    with open(config_path, "w") as f:
+        config.write(f)
+
+    return config_path
+
+
+def read_config(
+    *,
+    request_circle_token: bool = False,
+    request_github_token: bool = True,
+) -> Config:  # noqa: C901
+    config = configparser.ConfigParser()
+
+    config_path, write_back = find_config_path()
 
     logging.debug(f"config_path = {config_path}")
     config.read([".ghstackrc", config_path])
@@ -301,6 +329,11 @@ def read_config(
     else:
         label = None
 
+    if config.has_option("ghstack", "automsg"):
+        automsg = config.get("ghstack", "automsg")
+    else:
+        automsg = None
+
     if write_back:
         with open(config_path, "w") as f:
             config.write(f)
@@ -318,6 +351,7 @@ def read_config(
         remote_name=remote_name,
         reviewer=reviewer,
         label=label,
+        automsg=automsg,
     )
     logging.debug(f"conf = {conf}")
     return conf

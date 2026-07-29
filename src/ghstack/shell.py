@@ -82,7 +82,19 @@ class Shell(object):
         self.testing = testing
         self.testing_time = 1112911993
 
-    def sh(
+    @overload
+    async def ash(self, *args: str) -> str: ...
+
+    @overload
+    async def ash(self, *args: str, input: str) -> str: ...
+
+    @overload
+    async def ash(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
+
+    @overload
+    async def ash(self, *args: str, stdout: _HANDLE) -> _SHELL_RET: ...
+
+    async def ash(
         self,
         *args: str,  # noqa: C901
         env: Optional[Dict[str, str]] = None,
@@ -197,8 +209,7 @@ class Shell(object):
             assert proc.returncode is not None
             return (proc.returncode, out, err)
 
-        loop = asyncio.get_event_loop()
-        returncode, out, err = loop.run_until_complete(run())
+        returncode, out, err = await run()
 
         def decode(b: bytes) -> str:
             return (
@@ -232,25 +243,26 @@ class Shell(object):
         else:
             return s
 
-    @overload  # noqa: F811
-    def git(self, *args: str) -> str: ...
+    @overload
+    async def agit(self, *args: str) -> str: ...
 
-    @overload  # noqa: F811
-    def git(self, *args: str, input: str) -> str: ...
+    @overload
+    async def agit(self, *args: str, input: str) -> str: ...
 
-    @overload  # noqa: F811
-    def git(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
+    @overload
+    async def agit(self, *args: str, input: str, env: Dict[str, str]) -> str: ...
 
-    @overload  # noqa: F811
-    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
+    @overload
+    async def agit(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
 
-    def git(self, *args: str, **kwargs: Any) -> _SHELL_RET:  # noqa: F811
+    async def agit(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
-        Run a git command.  The returned stdout has trailing newlines stripped.
+        Run a git command asynchronously.  The returned stdout has trailing
+        newlines stripped.
 
         Args:
             *args: Arguments to git
-            **kwargs: Any valid kwargs for sh()
+            **kwargs: Any valid kwargs for ash()
         """
         env = kwargs.setdefault("env", {})
         # For git hooks to detect execution inside ghstack
@@ -278,40 +290,42 @@ class Shell(object):
             if "stderr" not in kwargs:
                 kwargs["stderr"] = subprocess.PIPE
 
-        return self._maybe_rstrip(self.sh(*(("git",) + args), **kwargs))
+        return self._maybe_rstrip(await self.ash(*(("git",) + args), **kwargs))
 
-    @overload  # noqa: F811
-    def hg(self, *args: str) -> str: ...
+    @overload
+    async def ahg(self, *args: str) -> str: ...
 
-    @overload  # noqa: F811
-    def hg(self, *args: str, input: str) -> str: ...
+    @overload
+    async def ahg(self, *args: str, input: str) -> str: ...
 
-    @overload  # noqa: F811
-    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
+    @overload
+    async def ahg(self, *args: str, **kwargs: Any) -> _SHELL_RET: ...
 
-    def hg(self, *args: str, **kwargs: Any) -> _SHELL_RET:  # noqa: F811
+    async def ahg(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
-        Run a hg command.  The returned stdout has trailing newlines stripped.
+        Run a hg command asynchronously.  The returned stdout has trailing
+        newlines stripped.
 
         Args:
             *args: Arguments to hg
-            **kwargs: Any valid kwargs for sh()
+            **kwargs: Any valid kwargs for ash()
         """
 
-        return self._maybe_rstrip(self.sh(*(("hg",) + args), **kwargs))
+        return self._maybe_rstrip(await self.ash(*(("hg",) + args), **kwargs))
 
-    def jf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
+    async def ajf(self, *args: str, **kwargs: Any) -> _SHELL_RET:
         """
-        Run a jf command.  The returned stdout has trailing newlines stripped.
+        Run a jf command asynchronously.  The returned stdout has trailing
+        newlines stripped.
 
         Args:
             *args: Arguments to jf
-            **kwargs: Any valid kwargs for sh()
+            **kwargs: Any valid kwargs for ash()
         """
 
         kwargs.setdefault("stdout", sys.stderr)
 
-        return self._maybe_rstrip(self.sh(*(("jf",) + args), **kwargs))
+        return self._maybe_rstrip(await self.ash(*(("jf",) + args), **kwargs))
 
     def test_tick(self) -> None:
         """
@@ -327,7 +341,15 @@ class Shell(object):
             fn: filename to open
             mode: mode to open the file as
         """
-        return open(os.path.join(self.cwd, fn), mode)
+        return open(self.abspath(fn), mode)
+
+    def abspath(self, fn: str) -> str:
+        """
+        Resolve a path against this shell's current working directory.
+        """
+        if os.path.isabs(fn):
+            return fn
+        return os.path.join(self.cwd, fn)
 
     def cd(self, d: str) -> None:
         """

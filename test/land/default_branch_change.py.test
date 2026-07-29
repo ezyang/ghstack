@@ -1,22 +1,30 @@
+import os
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
-commit("A")
-(diff1,) = gh_submit("Initial 1")
+await commit("A")
+(diff1,) = await gh_submit("Initial 1")
 assert diff1 is not None
 
-# make main branch
-git("branch", "main", "master")
-git("push", "origin", "main")
-# change default branch to main
-get_github().patch(
+# make release branch
+await git("branch", "release", "main")
+await git("push", "origin", "release")
+# change default branch to release
+await get_github().apatch(
     "repos/pytorch/pytorch",
     name="pytorch",
-    default_branch="main",
+    default_branch="release",
 )
+# invalidate repo info cache since default branch changed
+cache_path = os.path.join(
+    get_sh().abspath(await get_sh().agit("rev-parse", "--git-dir")),
+    "ghstack-repo-info.json",
+)
+if os.path.exists(cache_path):
+    os.remove(cache_path)
 
-assert_github_state(
+await assert_github_state(
     """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -25,46 +33,48 @@ assert_github_state(
 
             This is commit A
 
-            * 36fcfdf Initial 1
+            * 3cac216 [INITIAL] Initial 1
 
         Repository state:
 
-            * 36fcfdf (gh/ezyang/1/head)
-            |    Initial 1
+            * 3cac216 (gh/ezyang/1/head)
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
 )
 
 # land
-gh_land(diff1.pr_url)
+await gh_land(diff1.pr_url)
 
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    await get_upstream_sh().agit("log", "--oneline", "main"),
     """dc8bfe4 Initial commit""",
 )
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "main"),
+    await get_upstream_sh().agit("log", "--oneline", "release"),
     """\
 8927014 Commit A
 dc8bfe4 Initial commit""",
 )
 
 # make another commit
-commit("B")
-(diff2,) = gh_submit("Initial 2")
+await commit("B")
+(diff2,) = await gh_submit("Initial 2")
 assert diff2 is not None
 
-# change default branch back to master
-get_github().patch(
+# change default branch back to main
+await get_github().apatch(
     "repos/pytorch/pytorch",
     name="pytorch",
-    default_branch="master",
+    default_branch="main",
 )
+if os.path.exists(cache_path):
+    os.remove(cache_path)
 
-assert_github_state(
+await assert_github_state(
     """\
         [O] #500 Commit A (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -73,7 +83,7 @@ assert_github_state(
 
             This is commit A
 
-            * 36fcfdf Initial 1
+            * 3cac216 [INITIAL] Initial 1
 
         [O] #501 Commit B (gh/ezyang/2/head -> gh/ezyang/2/base)
 
@@ -82,37 +92,37 @@ assert_github_state(
 
             This is commit B
 
-            * ab7d5ca Initial 2
+            * 56daa52 [INITIAL] Initial 2
 
         Repository state:
 
-            * ab7d5ca (gh/ezyang/2/head)
-            |    Initial 2
+            * 56daa52 (gh/ezyang/2/head)
+            |    [INITIAL] Initial 2
             * 742ae0b (gh/ezyang/2/base)
             |    Initial 2 (base update)
-            * 8927014 (main, gh/ezyang/1/orig)
+            * 8927014 (release, gh/ezyang/1/orig)
             |    Commit A
-            | * 36fcfdf (gh/ezyang/1/head)
-            | |    Initial 1
+            | * 3cac216 (gh/ezyang/1/head)
+            | |    [INITIAL] Initial 1
             | * 5a32949 (gh/ezyang/1/base)
             |/     Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
 )
 
 # land again
-gh_land(diff2.pr_url)
+await gh_land(diff2.pr_url)
 
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "master"),
+    await get_upstream_sh().agit("log", "--oneline", "main"),
     """\
 6b7e56e Commit B (#501)
 1132c50 Commit A (#500)
 dc8bfe4 Initial commit""",
 )
 assert_expected_inline(
-    get_upstream_sh().git("log", "--oneline", "main"),
+    await get_upstream_sh().agit("log", "--oneline", "release"),
     """\
 8927014 Commit A
 dc8bfe4 Initial commit""",

@@ -1,16 +1,16 @@
 from ghstack.test_prelude import *
 
-init_test()
+await init_test()
 
 # Check that we don't clobber changes to PR description or title
 
-write_file_and_add("b", "asdf")
-git("commit", "-m", "Commit 1\n\nOriginal message")
+await write_file_and_add("b", "asdf")
+await git("commit", "-m", "Commit 1\n\nOriginal message")
 tick()
-gh_submit("Initial 1")
+await gh_submit("Initial 1")
 tick()
 
-get_github().patch(
+await get_github().apatch(
     "repos/pytorch/pytorch/pulls/500",
     body="""\
 Stack:
@@ -21,27 +21,27 @@ Directly updated message body""",
 )
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
-        [O] #500 Directly updated title (gh/ezyang/1/head -> master)
+        [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
             Stack:
             * **#500 Commit 1**
 
             Directly updated message body
 
-            * 6c1d876 Initial 1
+            * 7a0c4fe [INITIAL] Initial 1
 
         Repository state:
 
-            * 6c1d876 (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Initial 1
-            * dc8bfe4 (HEAD -> master)
+            * 7a0c4fe (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [INITIAL] Initial 1
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -50,50 +50,50 @@ else:
 
             Directly updated message body
 
-            * 54d43aa Initial 1
+            * 17a07ca [INITIAL] Initial 1
 
         Repository state:
 
-            * 54d43aa (gh/ezyang/1/head)
-            |    Initial 1
+            * 17a07ca (gh/ezyang/1/head)
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
 
-write_file_and_add("file1.txt", "A")
-git("commit", "--amend", "--no-edit")
+await write_file_and_add("file1.txt", "A")
+await git("commit", "--amend", "--no-edit")
 tick()
-gh_submit("Update 1")
+await gh_submit("Update 1")
 tick()
 
 if is_direct():
-    assert_github_state(
+    await assert_github_state(
         """\
-        [O] #500 Directly updated title (gh/ezyang/1/head -> master)
+        [O] #500 Directly updated title (gh/ezyang/1/head -> main)
 
             Stack:
             * __->__ #500
 
             Directly updated message body
 
-            * 3c9d67f Update 1
-            * 6c1d876 Initial 1
+            * 0447dbb [UPDATE] Update 1
+            * 7a0c4fe [INITIAL] Initial 1
 
         Repository state:
 
-            * 3c9d67f (gh/ezyang/1/next, gh/ezyang/1/head)
-            |    Update 1
-            * 6c1d876
-            |    Initial 1
-            * dc8bfe4 (HEAD -> master)
+            * 0447dbb (gh/ezyang/1/next, gh/ezyang/1/head)
+            |    [UPDATE] Update 1
+            * 7a0c4fe
+            |    [INITIAL] Initial 1
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
 else:
-    assert_github_state(
+    await assert_github_state(
         """\
         [O] #500 Directly updated title (gh/ezyang/1/head -> gh/ezyang/1/base)
 
@@ -102,18 +102,18 @@ else:
 
             Directly updated message body
 
-            * 66af150 Update 1
-            * 54d43aa Initial 1
+            * f902334 [UPDATE] Update 1
+            * 17a07ca [INITIAL] Initial 1
 
         Repository state:
 
-            * 66af150 (gh/ezyang/1/head)
-            |    Update 1
-            * 54d43aa
-            |    Initial 1
+            * f902334 (gh/ezyang/1/head)
+            |    [UPDATE] Update 1
+            * 17a07ca
+            |    [INITIAL] Initial 1
             * 5a32949 (gh/ezyang/1/base)
             |    Initial 1 (base update)
-            * dc8bfe4 (HEAD -> master)
+            * dc8bfe4 (HEAD -> main)
                  Initial commit
         """
     )
