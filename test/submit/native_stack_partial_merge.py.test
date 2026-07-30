@@ -1,0 +1,31 @@
+from ghstack.test_prelude import *
+from ghstack.github_fake import GitHubNumber
+
+await init_test()
+enable_native_stacks()
+
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial")
+
+if is_direct():
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr_a = github.state.pull_request(repo, GitHubNumber(A.number))
+    pr_b = github.state.pull_request(repo, GitHubNumber(B.number))
+    pr_a.closed = True
+    pr_b.baseRefName = "main"
+    pr_b.baseRef = await repo._make_ref_async(github.state, "main")
+
+    await checkout(B)
+    await git("rebase", "--onto", "origin/main", A.orig)
+    await commit("C")
+    B2, C = await gh_submit("Append after partial merge")
+
+    assert_eq(B.number, B2.number)
+    assert_eq(C.number, 503)
+    assert_eq(get_native_stacks(), [[500, 501, 503]])
+else:
+    assert_eq(get_native_stacks(), [])
+
+ok()

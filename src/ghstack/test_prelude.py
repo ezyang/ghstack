@@ -69,6 +69,8 @@ __all__ = [
     "get_sh",
     "get_upstream_sh",
     "get_github",
+    "enable_native_stacks",
+    "get_native_stacks",
     "get_pr_reviewers",
     "get_pr_labels",
     "tick",
@@ -462,6 +464,15 @@ def get_github() -> "ghstack.github_fake.FakeGitHubEndpoint":
     github = CTX.github
     assert isinstance(github, ghstack.github_fake.FakeGitHubEndpoint)
     return github
+
+
+def enable_native_stacks() -> None:
+    get_github().state.native_stacks_enabled = True
+
+
+def get_native_stacks() -> List[List[int]]:
+    stacks = get_github().state.native_stacks.values()
+    return [[int(number) for number in stack.pull_requests] for stack in stacks]
 
 
 def get_pr_reviewers(pr_number: int) -> List[str]:
