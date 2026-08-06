@@ -89,6 +89,10 @@ to complain to the ghstack authors."""
             needs_force = True
     except ghstack.github.NotFoundError:
         pass
+    except ghstack.github.LicenseError:
+        logging.warning(
+            "Failed to check branch protection (GitHub Pro required), skipping check."
+        )
 
     orig_ref, closed = await lookup_pr_to_orig_ref_and_closed(
         github,
