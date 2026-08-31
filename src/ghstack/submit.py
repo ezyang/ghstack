@@ -2005,6 +2005,25 @@ Current PR description:
         # otherwise GitHub can spuriously think that the user pushed a number
         # of patches as part of the PR, when actually they were just from the
         # new upstream branch.
+        # In direct mode a pull request's base is another pull request's head
+        # branch, so a reorder can leave a pull request's head reachable from
+        # the base GitHub still has on file, and GitHub closes any pull request
+        # in that state as merged.  Park the ones whose base is moving on the
+        # default branch, which no head branch is ever reachable from, until
+        # their real base has been pushed.
+        if self.direct:
+            await _gather_ordered(
+                self.github.arest(
+                    "patch",
+                    "repos/{}/{}/pulls/{}".format(
+                        self.repo_owner, self.repo_name, s.number
+                    ),
+                    base=self.base,
+                )
+                for s in diffs_to_submit
+                if not s.closed and s.base != s.elab_diff.base_ref
+            )
+
         all_push_specs: List[str] = []
 
         for s in reversed(diffs_to_submit):

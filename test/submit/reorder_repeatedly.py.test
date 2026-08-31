@@ -1,0 +1,28 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+for n in ["1", "2", "3", "4"]:
+    await commit(n)
+await gh_submit("Initial")
+
+for rnd in range(3):
+    # swap the 2nd and 3rd commits
+    c1, c2, c3, c4 = (await git("rev-list", "--reverse", "origin/main..HEAD")).split()
+    await git("reset", "--hard", c1)
+    await git("cherry-pick", c3, c2, c4)
+    await gh_submit(f"Reorder {rnd}")
+
+r = await get_github().graphql(
+    """
+    query {
+      repository(name: "pytorch", owner: "pytorch") {
+        pullRequests { nodes { number closed } }
+      }
+    }
+    """
+)
+nodes = r["data"]["repository"]["pullRequests"]["nodes"]
+assert_eq([p["number"] for p in nodes if p["closed"]], [])
+
+ok()

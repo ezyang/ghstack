@@ -125,13 +125,32 @@ class GitHubState:
         return r
 
     def push_hook(self, refs: Sequence[str]) -> None:
-        # updated_refs = set(refs)
-        # for pr in self.pull_requests:
-        #    # TODO: this assumes only origin repository
-        #    # if pr.headRefName in updated_refs:
-        #    #    pr.headRef =
-        #    pass
-        pass
+        self._refs_dirty = True
+
+    async def detect_merged(self) -> None:
+        """
+        GitHub closes a pull request as merged once its head becomes
+        reachable from its base, which in direct mode can happen through an
+        ordinary push to some other pull request's head branch.  Only scan
+        after something moved; a scan is a git call per open pull request.
+        """
+        if not self._refs_dirty or self.upstream_sh is None:
+            self._refs_dirty = False
+            return
+        self._refs_dirty = False
+        for pr in self.pull_requests.values():
+            if pr.closed:
+                continue
+            reachable = await self.upstream_sh.agit(
+                "merge-base",
+                "--is-ancestor",
+                pr.headRefName,
+                pr.baseRefName,
+                exitcode=True,
+            )
+            if reachable:
+                pr.closed = True
+                pr.merged = True
 
     def notify_merged(self, pr_resolved: ghstack.diff.PullRequestResolved) -> None:
         repo = self.repository(pr_resolved.owner, pr_resolved.repo)
@@ -140,6 +159,7 @@ class GitHubState:
         # TODO: model merged too
 
     def __init__(self, upstream_sh: Optional[ghstack.shell.Shell]) -> None:
+        self._refs_dirty = False
         self.repositories = {}
         self.pull_requests = {}
         self.issue_comments = {}
@@ -275,6 +295,7 @@ class PullRequest(Node):
     # state: PullRequestState
     title: str
     url: str
+    merged: bool = False
     reviewers: List[str] = dataclasses.field(default_factory=list)
     labels: List[str] = dataclasses.field(default_factory=list)
 
@@ -342,6 +363,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         self.state = GitHubState(upstream_sh)
 
     async def graphql(self, query: str, **kwargs: Any) -> Any:
+        await self.state.detect_merged()
         r = await graphql.graphql(
             schema=GITHUB_SCHEMA,
             source=query,
@@ -419,6 +441,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "base" in input and input["base"] is not None:
             pr.baseRefName = input["base"]
             pr.baseRef = await repo._make_ref_async(state, pr.baseRefName)
+            state._refs_dirty = True
         if "body" in input and input["body"] is not None:
             pr.body = input["body"]
 
@@ -463,6 +486,7 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         )
 
     async def arest(self, method: str, path: str, **kwargs: Any) -> Any:
+        await self.state.detect_merged()
         return await self._arest_impl(method, path, **kwargs)
 
     async def _arest_impl(self, method: str, path: str, **kwargs: Any) -> Any:
