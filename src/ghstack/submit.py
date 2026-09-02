@@ -2005,26 +2005,8 @@ Current PR description:
         # otherwise GitHub can spuriously think that the user pushed a number
         # of patches as part of the PR, when actually they were just from the
         # new upstream branch.
-        # In direct mode a pull request's base is another pull request's head
-        # branch, so a reorder can leave a pull request's head reachable from
-        # the base GitHub still has on file, and GitHub closes any pull request
-        # in that state as merged.  Park the ones whose base is moving on the
-        # default branch, which no head branch is ever reachable from, until
-        # their real base has been pushed.
-        if self.direct:
-            await _gather_ordered(
-                self.github.arest(
-                    "patch",
-                    "repos/{}/{}/pulls/{}".format(
-                        self.repo_owner, self.repo_name, s.number
-                    ),
-                    base=self.base,
-                )
-                for s in diffs_to_submit
-                if not s.closed and s.base != s.elab_diff.base_ref
-            )
-
         all_push_specs: List[str] = []
+        new_tips: Dict[str, GitCommitHash] = {}
 
         for s in reversed(diffs_to_submit):
             for diff, b in s.push_branches:
@@ -2035,9 +2017,46 @@ Current PR description:
                     force = False
                 else:
                     force = self.force
-                all_push_specs.append(
-                    push_spec(diff, branch(s.username, s.ghnum, b), force=force)
+                branch_name = branch(s.username, s.ghnum, b)
+                new_tips[branch_name] = diff
+                all_push_specs.append(push_spec(diff, branch_name, force=force))
+
+        # In direct mode a pull request's base is another pull request's head
+        # branch, so moving a commit earlier in the stack can leave its head
+        # reachable from the base GitHub still has on file, and GitHub closes
+        # any pull request in that state as merged.  Park those on the default
+        # branch, which no head branch is ever reachable from, until their real
+        # base has been pushed.  Only reachability matters: a pull request
+        # whose base merely got renumbered, as when a commit is inserted below
+        # it, is not at risk and retargeting it twice would be pure noise.
+        parked = []
+        if self.direct:
+            for s in diffs_to_submit:
+                if s.closed or s.base == s.elab_diff.base_ref:
+                    continue
+                old_base = s.elab_diff.base_ref
+                old_base_tip = new_tips.get(
+                    old_base, GitCommitHash(f"{self.remote_name}/{old_base}")
                 )
+                if await self.sh.agit(
+                    "merge-base",
+                    "--is-ancestor",
+                    s.head,
+                    old_base_tip,
+                    exitcode=True,
+                ):
+                    parked.append(s)
+        await _gather_ordered(
+            self.github.arest(
+                "patch",
+                "repos/{}/{}/pulls/{}".format(
+                    self.repo_owner, self.repo_name, s.number
+                ),
+                base=self.base,
+            )
+            for s in parked
+        )
+
         if all_push_specs:
             await self._git_push(all_push_specs)
 

@@ -1,0 +1,27 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+await commit("B")
+await commit("C")
+A, B, C = await gh_submit("Initial")
+
+# Insert a commit below B.  B's base moves onto the new pull request, but
+# nothing became reachable from B's old base, so B should be retargeted once
+# and not parked on main first.
+await checkout(A)
+await commit("X")
+await cherry_pick(B)
+await cherry_pick(C)
+await gh_submit("Insert")
+
+github = get_github()
+repo = github.state.repository("pytorch", "pytorch")
+changes = {
+    n: github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(n)).base_changes
+    for n in (500, 501, 502)
+}
+assert_eq([n for n, c in changes.items() if c > 1], [])
+
+ok()
