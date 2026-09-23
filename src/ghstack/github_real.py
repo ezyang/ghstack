@@ -241,6 +241,11 @@ class RealGitHubEndpoint(ghstack.github.GitHubEndpoint):
                 # Per Github rate limiting:
                 # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
                 if resp.status in (403, 429):
+                    if resp.status == 403 and "Upgrade to GitHub Pro" in r.get(
+                        "message", ""
+                    ):
+                        raise ghstack.github.LicenseError(pretty_json)
+
                     remaining_count = resp.headers.get("x-ratelimit-remaining")
                     reset_time = resp.headers.get("x-ratelimit-reset")
                     more_attempts = attempt < self.max_retries - 1
