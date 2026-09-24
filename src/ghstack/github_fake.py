@@ -296,6 +296,7 @@ class PullRequest(Node):
     title: str
     url: str
     merged: bool = False
+    base_changes: int = 0
     reviewers: List[str] = dataclasses.field(default_factory=list)
     labels: List[str] = dataclasses.field(default_factory=list)
 
@@ -439,6 +440,8 @@ class FakeGitHubEndpoint(ghstack.github.GitHubEndpoint):
         if "title" in input and input["title"] is not None:
             pr.title = input["title"]
         if "base" in input and input["base"] is not None:
+            if input["base"] != pr.baseRefName:
+                pr.base_changes += 1
             pr.baseRefName = input["base"]
             pr.baseRef = await repo._make_ref_async(state, pr.baseRefName)
             state._refs_dirty = True
