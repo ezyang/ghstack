@@ -1,4 +1,5 @@
 from ghstack.test_prelude import *
+from ghstack.github_fake import GitHubNumber
 
 await init_test()
 
@@ -8,11 +9,27 @@ if not is_direct():
     await commit("B")
     A, B = await gh_submit("Initial")
 
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    for pr_number in (A.number, B.number):
+        github.state.pull_request(repo, GitHubNumber(pr_number)).body = (
+            "Stack from [ghstack](https://example.com)"
+        )
+
     await checkout(A)
     await amend("A2")
     await cherry_pick(B)
     (B2,) = await gh_submit("Update head only", revs=["HEAD"], stack=False)
 
     assert_eq(B.number, B2.number)
+    assert_eq(
+        github.state.pull_request(repo, GitHubNumber(B.number)).body,
+        """\
+Stack:
+* __->__ #501
+* #500
+
+Stack from [ghstack](https://example.com)""",
+    )
 
     ok()
