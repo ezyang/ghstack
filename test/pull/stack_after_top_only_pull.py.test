@@ -1,0 +1,51 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+await commit("B")
+A, B = await gh_submit("Initial")
+old_top = B.orig
+
+await checkout(A)
+await write_file_and_add("A.txt", "remote A")
+await git("commit", "--amend", "--no-edit")
+await gh_submit("Remote bottom update")
+
+await checkout(old_top)
+await write_file_and_add("B.txt", "local B")
+await git("commit", "--amend", "--no-edit")
+
+# Simulate the old top-only behavior: the top PR was pulled/recreated, but
+# the lower PR in the local stack remained stale.
+await gh_pull(f"https://github.com/pytorch/pytorch/pull/{B.number}")
+assert_eq(
+    await git("rev-parse", "HEAD^^{tree}"),
+    await git("rev-parse", A.orig + "^{tree}"),
+)
+
+await gh_pull()
+
+assert_eq(await git("show", "HEAD:A.txt"), "remote A")
+assert_eq(await git("show", "HEAD:B.txt"), "local B")
+assert_eq(
+    await git("rev-parse", "HEAD^^{tree}"),
+    await git("rev-parse", "origin/gh/ezyang/1/orig^{tree}"),
+)
+assert (
+    "ghstack-source-id: "
+    + await git("rev-parse", "origin/gh/ezyang/1/orig^{tree}")
+    in await git("log", "-1", "--format=%B", "HEAD^")
+)
+assert (
+    "ghstack-source-id: "
+    + await git("rev-parse", "origin/gh/ezyang/2/orig^{tree}")
+    in await git("log", "-1", "--format=%B", "HEAD")
+)
+pulled_tree = await git("rev-parse", "HEAD^{tree}")
+await gh_pull()
+assert_eq(await git("rev-parse", "HEAD^{tree}"), pulled_tree)
+
+await gh_submit("Local update")
+
+ok()
