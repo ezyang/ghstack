@@ -1,0 +1,15 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+await commit("B")
+with captured_output() as (out, err):
+    await gh_submit("Initial", short=True)
+assert_eq(
+    out.getvalue(),
+    "https://github.com/pytorch/pytorch/pull/501\n"
+    "https://github.com/pytorch/pytorch/pull/500\n",
+)
+
+ok()

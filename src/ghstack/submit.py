@@ -2164,14 +2164,14 @@ Current PR description:
 
         if self.short:
             # Guarantee that the FIRST PR URL is the top of the stack
-            print("\n".join(format_url(s) for s in reversed(diffs_to_submit)))
+            print("\n".join(format_url(s) for s in diffs_to_submit))
             return
 
         print()
         print("# Summary of changes (ghstack {})".format(ghstack.__version__))
         print()
         if diffs_to_submit:
-            for s in reversed(diffs_to_submit):
+            for s in diffs_to_submit:
                 url = format_url(s)
                 print(" - {} {}".format(s.what, url))
 
