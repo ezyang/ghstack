@@ -1,0 +1,38 @@
+from ghstack.test_prelude import *
+
+await init_test()
+
+await commit("A")
+(A,) = await gh_submit("Initial")
+old_orig = A.orig
+
+await write_file_and_add("remote.txt", "remote change")
+await git("commit", "--amend", "--no-edit")
+await gh_submit("Remote update")
+
+remote_tree = await git("rev-parse", "origin/gh/ezyang/1/head^{tree}")
+rewritten_head = await get_upstream_sh().agit(
+    "commit-tree",
+    "-p",
+    "gh/ezyang/1/base",
+    remote_tree,
+    input="Rewritten remote head\n\n[ghstack-poisoned]\n",
+)
+await get_upstream_sh().agit(
+    "update-ref",
+    "refs/heads/gh/ezyang/1/head",
+    rewritten_head,
+)
+
+await checkout(old_orig)
+await write_file_and_add("local.txt", "local change")
+await git("commit", "--amend", "--no-edit")
+
+await gh_pull()
+
+assert_eq(await git("show", "HEAD:remote.txt"), "remote change")
+assert_eq(await git("show", "HEAD:local.txt"), "local change")
+
+await gh_submit("Local update")
+
+ok()
