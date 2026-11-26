@@ -1990,36 +1990,36 @@ Current PR description:
         all_diffs: Optional[List[DiffMeta]] = None,
         import_help: bool = True,
     ) -> None:
-        # Collect all refspecs into a single batched push.  This is being
-        # tested in production because GitHub may observe base/head ref updates
-        # out of order when refreshing PR diffs.  If that happens, revert this
-        # block to three grouped pushes in this order:
-        #   1. base branches
-        #   2. head/next branches
-        #   3. orig branches
-        # Per-refspec force is encoded with the + prefix:
-        #   orig branches: always force-pushed
-        #   head/next branches: force-pushed only with --force flag
-        #   base branches: never force-pushed
-        # It is VERY important that we preserve base-before-head ordering,
+        # Push in three groups, in this order:
+        #   1. base branches (never force-pushed)
+        #   2. head/next branches (force-pushed only with --force)
+        #   3. orig branches (always force-pushed)
+        # Force is encoded per refspec with the + prefix.
+        #
+        # It is VERY important that base branches land before head branches,
         # otherwise GitHub can spuriously think that the user pushed a number
         # of patches as part of the PR, when actually they were just from the
-        # new upstream branch.
-        all_push_specs: List[str] = []
+        # new upstream branch.  A single batched push does not guarantee this:
+        # GitHub can observe the base and head ref updates out of order.  When
+        # the base also moved, this often runs every pull_request workflow
+        # twice on the same head commit.
+        base_push_specs: List[str] = []
+        head_push_specs: List[str] = []
+        orig_push_specs: List[str] = []
         new_tips: Dict[str, GitCommitHash] = {}
 
         for s in reversed(diffs_to_submit):
             for diff, b in s.push_branches:
                 # Careful!  Don't push main.
                 if b == "orig":
-                    force = True
+                    force, specs = True, orig_push_specs
                 elif b == "base":
-                    force = False
+                    force, specs = False, base_push_specs
                 else:
-                    force = self.force
+                    force, specs = self.force, head_push_specs
                 branch_name = branch(s.username, s.ghnum, b)
                 new_tips[branch_name] = diff
-                all_push_specs.append(push_spec(diff, branch_name, force=force))
+                specs.append(push_spec(diff, branch_name, force=force))
 
         # In direct mode a pull request's base is another pull request's head
         # branch, so moving a commit earlier in the stack can leave its head
@@ -2057,8 +2057,9 @@ Current PR description:
             for s in parked
         )
 
-        if all_push_specs:
-            await self._git_push(all_push_specs)
+        for specs in (base_push_specs, head_push_specs, orig_push_specs):
+            if specs:
+                await self._git_push(specs)
 
         # Discover orphan PR numbers from the old stack listing.
         # We search the full local stack for old stack text, then
